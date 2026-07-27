@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://practical-game-studio.dev/schemas/evidence.schema.json",
+  "title": "PGS Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "evidence"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "source", "description", "related_hypothesis", "related_issue", "confidence", "date", "limitations"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^EVD-[0-9]{3,}$"},
+          "type": {"enum": ["OBSERVED", "USER_REPORTED", "INFERRED", "UNKNOWN"]},
+          "source": {"type": "string", "minLength": 1},
+          "description": {"type": "string", "minLength": 1},
+          "related_hypothesis": {"type": ["string", "null"]},
+          "related_issue": {"type": ["string", "null"], "pattern": "^ISS-[0-9]{3,}$"},
+          "confidence": {"enum": ["low", "medium", "high"]},
+          "date": {"type": "string", "format": "date"},
+          "limitations": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

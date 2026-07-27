@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://practical-game-studio.dev/schemas/decisions.schema.json",
+  "title": "PGS Decisions",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "decisions"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "question", "context", "phase", "urgency", "options", "recommended_option", "recommendation_reason", "trade_offs", "decision_owner", "status", "final_decision", "consequences", "revisit_condition"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^DEC-[0-9]{3,}$"},
+          "question": {"type": "string", "minLength": 1},
+          "context": {"type": "string", "minLength": 1},
+          "phase": {"enum": ["intake", "clarify", "prototype-plan", "prototype-build", "evaluate", "iterate", "vertical-slice-decision", "vertical-slice", "production"]},
+          "urgency": {"enum": ["blocking", "soon", "later"]},
+          "options": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "label", "description"],
+              "properties": {
+                "id": {"type": "string", "minLength": 1},
+                "label": {"type": "string", "minLength": 1},
+                "description": {"type": "string", "minLength": 1}
+              }
+            }
+          },
+          "recommended_option": {"type": "string", "minLength": 1},
+          "recommendation_reason": {"type": "string", "minLength": 1},
+          "trade_offs": {"type": "array", "items": {"type": "string"}},
+          "decision_owner": {"enum": ["user", "producer", "game-designer", "technical-lead"]},
+          "status": {"enum": ["pending", "decided", "deferred"]},
+          "final_decision": {"type": ["string", "null"]},
+          "consequences": {"type": "array", "items": {"type": "string"}},
+          "revisit_condition": {"type": ["string", "null"]}
+        }
+      }
+    }
+  }
+}

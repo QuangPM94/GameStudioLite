@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "project_name": "Untitled Game",
+  "engine": null,
+  "engine_version": null,
+  "platform": null,
+  "genre": null,
+  "current_phase": "intake",
+  "current_milestone": "Clarify the game idea",
+  "prototype_hypothesis": null,
+  "current_build_status": "not-built",
+  "last_verified_date": null,
+  "known_assumptions": [
+    "No game concept, engine, platform, or build has been recorded yet."
+  ],
+  "review_mode": "guided",
+  "recommended_next_playbook": "/start"
+}

@@ -1,0 +1,62 @@
+# Iterate
+
+## Purpose
+
+Implement the highest-value change and gather evidence against updated prototype criteria.
+
+## When to use
+
+Use for `/iterate` after issue mapping and critical-path selection.
+
+## Required inputs
+
+First actionable critical-path item, related evidence, and current criteria.
+
+## Optional inputs
+
+Approved decision, alternative actions, timebox, and playtest setup.
+
+## Files to read
+
+Project, issues, decisions, evidence, critical path, milestone, relevant review, source, and tests.
+
+## State changes
+
+Set phase to `iterate`; update issue status/resolution, evidence, assumptions, build status, and critical path. Change success criteria only after approval.
+
+## Execution procedure
+
+1. State the issue and evidence gap being addressed.
+2. Confirm the smallest change and expected observable result.
+3. Implement within scope and record shortcuts/assumptions.
+4. Run focused tests and the most direct available experience verification.
+5. Update issues/evidence; recalculate the path; regenerate reports.
+6. Recommend further iteration or milestone review.
+
+## User decision points
+
+Ask before alternative selection changes the core experience, scope, platform, or criteria; explain recommendation and trade-off.
+
+## Outputs
+
+Working iteration, verification result, updated issue map/path, and Direction Summary.
+
+## Validation
+
+Run project checks, `studio validate`, `studio report`, and `studio status`.
+
+## Completion criteria
+
+The target issue is resolved, deliberately accepted, or remains blocked with better evidence and a concrete next action.
+
+## Next recommended workflows
+
+`/playtest-review`, `/critical-path`, or `/milestone-review` depending on evidence.
+
+## Failure and blocker behavior
+
+Revert no user work. Record failures and keep criteria/result distinctions honest.
+
+## Direction Summary
+
+End with: Current phase; Current milestone; What was completed; What was learned; Evidence available; Important unknowns; Open user decisions; Critical path; Recommended next step; Do not work on yet; Exact next workflow alias.

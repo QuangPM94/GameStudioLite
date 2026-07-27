@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://practical-game-studio.dev/schemas/critical-path.schema.json",
+  "title": "PGS Critical Path",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "current_milestone", "milestone_success_criteria", "items", "exit_condition", "non_critical_work"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "current_milestone": {"type": "string", "minLength": 1},
+    "milestone_success_criteria": {"type": "array", "items": {"type": "string"}},
+    "items": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "type", "source_issue_id", "source_decision_id", "dependencies", "blocked", "why_critical", "exit_condition"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^CP-[0-9]{3,}$"},
+          "title": {"type": "string", "minLength": 1},
+          "type": {"enum": ["build-blocker", "hypothesis-risk", "user-decision", "dependency", "player-impact", "verification"]},
+          "source_issue_id": {"type": ["string", "null"], "pattern": "^ISS-[0-9]{3,}$"},
+          "source_decision_id": {"type": ["string", "null"], "pattern": "^DEC-[0-9]{3,}$"},
+          "dependencies": {"type": "array", "items": {"type": "string", "pattern": "^CP-[0-9]{3,}$"}, "uniqueItems": true},
+          "blocked": {"type": "boolean"},
+          "why_critical": {"type": "string", "minLength": 1},
+          "exit_condition": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "exit_condition": {"type": "string", "minLength": 1},
+    "non_critical_work": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  }
+}

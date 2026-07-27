@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "milestone": "Clarify the game idea",
+  "success_criteria": [
+    "A project profile and falsifiable prototype hypothesis exist."
+  ],
+  "criteria_results": [
+    {
+      "criterion": "A project profile and falsifiable prototype hypothesis exist.",
+      "result": "unknown",
+      "evidence_references": [],
+      "notes": "Guided intake has not run for a game project."
+    }
+  ],
+  "supporting_evidence": [],
+  "blocking_issues": [],
+  "verdict": "PAUSE",
+  "recommendation": "Run guided intake before selecting or building a prototype.",
+  "next_milestone": "Define the smallest useful prototype"
+}

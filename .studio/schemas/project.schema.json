@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://practical-game-studio.dev/schemas/project.schema.json",
+  "title": "PGS Project State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_name", "engine", "engine_version", "platform", "genre", "current_phase", "current_milestone", "prototype_hypothesis", "current_build_status", "last_verified_date", "known_assumptions", "review_mode", "recommended_next_playbook"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "project_name": {"type": "string", "minLength": 1},
+    "engine": {"type": ["string", "null"]},
+    "engine_version": {"type": ["string", "null"]},
+    "platform": {"type": ["string", "null"]},
+    "genre": {"type": ["string", "null"]},
+    "current_phase": {"enum": ["intake", "clarify", "prototype-plan", "prototype-build", "evaluate", "iterate", "vertical-slice-decision", "vertical-slice", "production"]},
+    "current_milestone": {"type": "string", "minLength": 1},
+    "prototype_hypothesis": {"type": ["string", "null"]},
+    "current_build_status": {"enum": ["not-built", "unknown", "blocked", "runnable", "verified"]},
+    "last_verified_date": {"type": ["string", "null"], "format": "date"},
+    "known_assumptions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "review_mode": {"enum": ["fast", "guided", "strict"]},
+    "recommended_next_playbook": {"type": "string", "pattern": "^/[a-z-]+$"}
+  }
+}

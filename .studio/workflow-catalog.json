@@ -1,0 +1,75 @@
+{
+  "catalog_version": "1.0",
+  "phases": [
+    {
+      "id": "intake",
+      "number": 0,
+      "name": "Intake",
+      "purpose": "Detect repository, engine, platform, build, and project stage.",
+      "exit_condition": "Project profile, detected phase, and recommended entry workflow exist.",
+      "workflows": ["/start"]
+    },
+    {
+      "id": "clarify",
+      "number": 1,
+      "name": "Clarify",
+      "purpose": "Define the intended experience and falsifiable prototype hypothesis.",
+      "exit_condition": "A falsifiable prototype hypothesis exists.",
+      "workflows": ["/clarify"]
+    },
+    {
+      "id": "prototype-plan",
+      "number": 2,
+      "name": "Prototype Plan",
+      "purpose": "Scope the smallest playable test and its evidence criteria.",
+      "exit_condition": "Implementation has no unresolved critical design ambiguity.",
+      "workflows": ["/prototype-plan"]
+    },
+    {
+      "id": "prototype-build",
+      "number": 3,
+      "name": "Prototype Build",
+      "purpose": "Deliver and verify the playable experiment.",
+      "exit_condition": "The prototype launches for testing or has a concrete recorded blocker.",
+      "workflows": ["/build-prototype", "/review-build"]
+    },
+    {
+      "id": "evaluate",
+      "number": 4,
+      "name": "Evaluate",
+      "purpose": "Evaluate experience and stability with explicitly classified evidence.",
+      "exit_condition": "Findings can support a milestone recommendation.",
+      "workflows": ["/playtest-review", "/issue-map", "/milestone-review"]
+    },
+    {
+      "id": "iterate",
+      "number": 5,
+      "name": "Iterate",
+      "purpose": "Resolve or deliberately accept critical prototype issues.",
+      "exit_condition": "Critical prototype issues are resolved or deliberately accepted.",
+      "workflows": ["/critical-path", "/next-step", "/iterate"]
+    },
+    {
+      "id": "vertical-slice-decision",
+      "number": 6,
+      "name": "Vertical Slice Decision",
+      "purpose": "Choose PROCEED, ITERATE, PIVOT, PAUSE, or STOP from evidence.",
+      "exit_condition": "One verdict and next milestone/action are recorded.",
+      "workflows": ["/vertical-slice"]
+    }
+  ],
+  "workflows": [
+    {"alias": "/start", "playbook": ".studio/playbooks/start.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md"], "phase": "intake", "next": ["/clarify", "/prototype-plan", "/review-build"]},
+    {"alias": "/clarify", "playbook": ".studio/playbooks/clarify.md", "roles": [".studio/roles/game-designer.md", ".studio/roles/producer.md"], "phase": "clarify", "next": ["/clarify", "/prototype-plan"]},
+    {"alias": "/prototype-plan", "playbook": ".studio/playbooks/prototype-plan.md", "roles": [".studio/roles/game-designer.md", ".studio/roles/technical-lead.md", ".studio/roles/producer.md"], "phase": "prototype-plan", "next": ["/clarify", "/build-prototype"]},
+    {"alias": "/build-prototype", "playbook": ".studio/playbooks/build-prototype.md", "roles": [".studio/roles/developer.md", ".studio/roles/technical-lead.md"], "phase": "prototype-build", "next": ["/review-build", "/critical-path"]},
+    {"alias": "/review-build", "playbook": ".studio/playbooks/review-build.md", "roles": [".studio/roles/technical-lead.md", ".studio/roles/developer.md"], "phase": "prototype-build", "next": ["/playtest-review", "/critical-path"]},
+    {"alias": "/playtest-review", "playbook": ".studio/playbooks/playtest-review.md", "roles": [".studio/roles/player-advocate.md", ".studio/roles/game-designer.md"], "phase": "evaluate", "next": ["/issue-map", "/review-build"]},
+    {"alias": "/issue-map", "playbook": ".studio/playbooks/issue-map.md", "roles": [".studio/roles/producer.md", ".studio/roles/player-advocate.md"], "phase": "evaluate", "next": ["/critical-path"]},
+    {"alias": "/critical-path", "playbook": ".studio/playbooks/critical-path.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md"], "phase": "iterate", "next": ["/next-step", "/iterate", "/build-prototype"]},
+    {"alias": "/next-step", "playbook": ".studio/playbooks/next-step.md", "roles": [".studio/roles/producer.md"], "phase": "iterate", "next": ["/clarify", "/prototype-plan", "/build-prototype", "/review-build", "/playtest-review", "/critical-path", "/iterate", "/milestone-review"]},
+    {"alias": "/iterate", "playbook": ".studio/playbooks/iterate.md", "roles": [".studio/roles/developer.md", ".studio/roles/game-designer.md"], "phase": "iterate", "next": ["/playtest-review", "/critical-path", "/milestone-review"]},
+    {"alias": "/vertical-slice", "playbook": ".studio/playbooks/vertical-slice.md", "roles": [".studio/roles/producer.md", ".studio/roles/game-designer.md", ".studio/roles/technical-lead.md"], "phase": "vertical-slice-decision", "next": ["/iterate", "/clarify", "/next-step"]},
+    {"alias": "/milestone-review", "playbook": ".studio/playbooks/milestone-review.md", "roles": [".studio/roles/producer.md", ".studio/roles/player-advocate.md", ".studio/roles/technical-lead.md"], "phase": "evaluate", "next": ["/vertical-slice", "/critical-path", "/iterate", "/clarify"]}
+  ]
+}
