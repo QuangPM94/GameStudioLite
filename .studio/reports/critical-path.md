@@ -7,7 +7,7 @@ Clarify the game idea
 
 ## Milestone Success Criteria
 
-- A project profile and falsifiable prototype hypothesis exist.
+- MC-001 [unsupported]: A project profile and falsifiable prototype hypothesis exist. — completion: A project profile and falsifiable prototype hypothesis exist.
 
 ## Active Critical Path
 
@@ -18,6 +18,7 @@ Clarify the game idea
 - Status: ready
 - Priority tier: 1
 - Dependencies: None
+- Dependency origins: None
 - Why critical: Without the project context gathered by intake, the framework cannot define a valid prototype hypothesis or plan.
 - Milestone impact: The framework cannot define a valid prototype hypothesis or plan without project context.
 - Completion condition: Project stage, intent, and recommended entry workflow are recorded.

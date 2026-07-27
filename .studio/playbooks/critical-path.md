@@ -18,7 +18,7 @@ A milestone override, explicit include/exclude sources, an exclusion reason, and
 
 ## Files to read
 
-`AGENTS.md`, `.studio/state/project.json`, `.studio/state/milestone.json`, `.studio/state/issues.json`, `.studio/state/evidence.json`, `.studio/state/decisions.json`, and `.studio/state/critical-path.json`.
+`AGENTS.md`, `.studio/state/project.json`, `.studio/state/milestone.json`, `.studio/state/issues.json`, `.studio/state/evidence.json`, `.studio/state/decisions.json`, `.studio/state/dependencies.json`, and `.studio/state/critical-path.json`.
 
 ## State changes
 
@@ -26,14 +26,15 @@ Use `studio path calculate` to transactionally replace active path membership/or
 
 ## Execution procedure
 
-1. Run `studio path check`.
-2. If the path is absent or stale, preview `studio path calculate --dry-run`; review cycle, missing-reference, exclusion-conflict, and oversize warnings.
-3. Use repeated `--include SOURCE-ID` or `--exclude SOURCE-ID --exclude-reason TEXT` only for explicit user direction. Do not use them to hide inconvenient blockers.
-4. Commit with `studio path calculate` (and `--yes` in guided/strict non-interactive use).
-5. Run `studio path show` and identify its exact recommended-next `CP-` item.
-6. Use `studio path explain CP-ID` when the item’s rationale, evidence state, dependencies, downstream work, or manual context needs review.
-7. Treat the result as a dependency-aware milestone priority path, not a mathematically exact schedule.
-8. Run validation and return the Direction Summary with exactly one next workflow.
+1. Run `studio dependency list` and `studio criterion list`; confirm any claimed hard order is explicit and every current required criterion has a concrete completion condition.
+2. Run `studio path check`.
+3. If the path is absent or stale, preview `studio path calculate --dry-run`; review combined-graph cycles, missing references, dependency origins, exclusion conflicts, and oversize warnings.
+4. Use repeated `--include SOURCE-ID` or `--exclude SOURCE-ID --exclude-reason TEXT` only for explicit user direction. Do not use them to hide inconvenient blockers.
+5. Commit with `studio path calculate` (and `--yes` in guided/strict non-interactive use).
+6. Run `studio path show` and identify its exact recommended-next `CP-` item.
+7. Use `studio path explain CP-ID` when the item’s rationale, criterion/evidence state, dependency origins, downstream work, or manual context needs review.
+8. Treat the result as a dependency-aware milestone priority path, not a mathematically exact schedule.
+9. Run validation and return the Direction Summary with exactly one next workflow.
 
 ## User decision points
 

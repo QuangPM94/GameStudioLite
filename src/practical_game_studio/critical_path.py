@@ -12,12 +12,16 @@ import hashlib
 import json
 import re
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from .decisions import recommendation_support
+from .dependencies import (
+    combined_dependency_edges,
+    endpoint_source_key,
+)
 from .models import MutationResult
 from .reporting import render_report_contents
 from .state import CanonicalState, StateObject, StateRepository
@@ -88,6 +92,7 @@ class PathCandidate:
     source_status: str = "active"
     evidence_state: str = "unknown"
     sort_hint: tuple[Any, ...] = field(default_factory=tuple)
+    dependency_origins: tuple[tuple[str, str, str | None, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +109,7 @@ class PathItem:
     milestone_impact: str
     priority_tier: int
     dependencies: tuple[str, ...]
+    dependency_origins: tuple[Mapping[str, Any], ...]
     status: str
     completion_condition: str
     recommended_action: str
@@ -119,6 +125,7 @@ class PathItem:
     def to_dict(self) -> StateObject:
         value = asdict(self)
         value["dependencies"] = list(self.dependencies)
+        value["dependency_origins"] = [dict(item) for item in self.dependency_origins]
         value["evidence_required"] = list(self.evidence_required)
         return value
 
@@ -202,12 +209,7 @@ def _criterion_id(result: Mapping[str, Any], index: int) -> str:
 
 
 def _criterion_support(result: Mapping[str, Any]) -> str:
-    return {
-        "pass": "verified",
-        "partial": "partially-supported",
-        "fail": "contradicted",
-        "unknown": "unsupported",
-    }[str(result["result"])]
+    return str(result["support_status"])
 
 
 def _candidate_fingerprint(candidate: PathCandidate) -> str:
@@ -222,6 +224,7 @@ def _candidate_fingerprint(candidate: PathCandidate) -> str:
             "milestone_impact": candidate.milestone_impact,
             "priority_tier": candidate.priority_tier,
             "dependency_keys": candidate.dependency_keys,
+            "dependency_origins": candidate.dependency_origins,
             "completion_condition": candidate.completion_condition,
             "recommended_action": candidate.recommended_action,
             "owner": candidate.owner,
@@ -277,11 +280,11 @@ class CriticalPathService:
         pinned = set(pinned_sources)
         evidence_by_id = {item["id"]: item for item in state["evidence"]["evidence"]}
         decisions = state["decisions"]["decisions"]
-        criterion_decision_dependencies = {
-            decision_id
-            for criterion in state["milestone"]["criteria_results"]
-            if criterion.get("required", True) and criterion["result"] != "pass"
-            for decision_id in criterion.get("related_decisions", [])
+        explicit_prerequisites = {
+            item["prerequisite"]
+            for item in state["dependencies"]["dependencies"]
+            if item["status"] == "active"
+            and (item["scope"] == "project" or item["milestone"] == current_milestone)
         }
         pending_decisions = [
             item
@@ -289,7 +292,7 @@ class CriticalPathService:
             if self._decision_is_active(
                 item,
                 current_milestone,
-                milestone_dependency=(item["id"] in criterion_decision_dependencies),
+                milestone_dependency=(item["id"] in explicit_prerequisites),
             )
         ]
         decision_by_issue: dict[str, list[StateObject]] = {}
@@ -391,7 +394,7 @@ class CriticalPathService:
             ] is not None and date.fromisoformat(
                 decision["decision_required_by"]
             ) <= self.clock().date() + timedelta(days=7)
-            milestone_dependency = decision["id"] in criterion_decision_dependencies
+            milestone_dependency = decision["id"] in explicit_prerequisites
             default_selected = (
                 decision["urgency"] == "blocking"
                 or decision["urgency"] == "high"
@@ -498,17 +501,15 @@ class CriticalPathService:
             state["milestone"]["criteria_results"], start=1
         ):
             criterion_id = _criterion_id(criterion, index)
+            if (
+                criterion["lifecycle_status"] != "active"
+                or criterion["milestone"] != current_milestone
+            ):
+                continue
             required = bool(criterion.get("required", True))
             support = _criterion_support(criterion)
             if not required and support in {"unsupported", "partially-supported"}:
                 continue
-            related = [
-                *(f"issue:{item}" for item in criterion.get("related_issues", [])),
-                *(
-                    f"decision:{item}"
-                    for item in criterion.get("related_decisions", [])
-                ),
-            ]
             if support in {"unsupported", "partially-supported"} and required:
                 source_key = f"verification:{criterion_id}:observed-support"
                 candidates.append(
@@ -519,7 +520,7 @@ class CriticalPathService:
                         title=f"Verify milestone criterion {criterion_id}",
                         description=(
                             f"Test whether the required claim is true: "
-                            f"{criterion['criterion']}"
+                            f"{criterion['description']}"
                         ),
                         reason=(
                             f"Required milestone criterion {criterion_id} is {support}."
@@ -529,21 +530,21 @@ class CriticalPathService:
                             f"{criterion_id} has sufficient evidence."
                         ),
                         priority_tier=4,
-                        dependency_keys=tuple(dict.fromkeys(related)),
-                        completion_condition=(
-                            "Attach active observed evidence that directly supports "
-                            f"{criterion_id}: {criterion['criterion']}"
-                        ),
+                        dependency_keys=(),
+                        completion_condition=criterion["completion_condition"],
                         recommended_action=(
-                            f"Run a concrete verification for {criterion_id}: "
-                            f"{criterion['criterion']}"
+                            criterion["verification_method"]
+                            or f"Run a concrete verification for {criterion_id}: "
+                            f"{criterion['description']}"
                         ),
                         owner="player-advocate",
-                        evidence_required=tuple(criterion["evidence_references"])
-                        or ("observed criterion evidence",),
+                        evidence_required=tuple(criterion["supporting_evidence"])
+                        or (
+                            f"Evidence satisfying: {criterion['completion_condition']}",
+                        ),
                         default_selected=True,
                         pinned=source_key in pinned,
-                        source_status=criterion["result"],
+                        source_status=criterion["support_status"],
                         evidence_state=support,
                         sort_hint=(f"{index:06d}", criterion_id),
                     )
@@ -556,7 +557,7 @@ class CriticalPathService:
                         source_id=criterion_id,
                         source_key=source_key,
                         title=f"Satisfy milestone criterion {criterion_id}",
-                        description=criterion["criterion"],
+                        description=criterion["description"],
                         reason=(
                             f"Required milestone criterion {criterion_id} is "
                             "contradicted by current evidence."
@@ -566,23 +567,24 @@ class CriticalPathService:
                             "criterion is contradicted."
                         ),
                         priority_tier=1,
-                        dependency_keys=tuple(dict.fromkeys(related)),
-                        completion_condition=criterion["criterion"],
+                        dependency_keys=(),
+                        completion_condition=criterion["completion_condition"],
                         recommended_action=(
-                            criterion["notes"]
+                            criterion["evaluation_reason"]
                             or f"Address the failure of {criterion_id}."
                         ),
                         owner="producer",
-                        evidence_required=tuple(criterion["evidence_references"]),
+                        evidence_required=tuple(criterion["supporting_evidence"]),
                         default_selected=True,
                         pinned=source_key in pinned,
-                        source_status=criterion["result"],
+                        source_status=criterion["support_status"],
                         evidence_state=support,
                         sort_hint=(f"{index:06d}", criterion_id),
                     )
                 )
 
         candidates.extend(self._manual_candidates(state, pinned))
+        candidates = self._attach_dependency_edges(state, candidates, current_milestone)
         unique: dict[str, PathCandidate] = {}
         for candidate in candidates:
             if candidate.source_key in unique:
@@ -672,14 +674,9 @@ class CriticalPathService:
             milestone, candidates, includes, excludes, state
         )
         proposed = {
-            "schema_version": "2.0",
+            "schema_version": "3.0",
             "current_milestone": milestone,
             "milestone_override": request.milestone is not None,
-            "milestone_success_criteria": list(
-                state["milestone"]["success_criteria"]
-                if milestone == state["milestone"]["milestone"]
-                else []
-            ),
             "configured_max_items": request.max_items,
             "items": active,
             "history": history,
@@ -708,7 +705,12 @@ class CriticalPathService:
         for value in (logical_existing, logical_proposed):
             value.pop("calculated_at", None)
             value.pop("freshness", None)
-        if logical_existing == logical_proposed:
+        existing_freshness = existing.get("freshness", {})
+        if (
+            logical_existing == logical_proposed
+            and existing_freshness.get("status") == "current"
+            and not existing_freshness.get("reasons")
+        ):
             proposed = copy.deepcopy(existing)
             issues = copy.deepcopy(state["issues"])
             changed = False
@@ -817,6 +819,18 @@ class CriticalPathService:
             dependencies = [
                 key_to_id[key] for key in candidate.dependency_keys if key in key_to_id
             ]
+            dependency_origins = tuple(
+                {
+                    "prerequisite_source_key": prerequisite_key,
+                    "origin": origin,
+                    "dependency_id": dependency_id,
+                    "reason": reason,
+                }
+                for prerequisite_key, origin, dependency_id, reason in (
+                    candidate.dependency_origins
+                )
+                if prerequisite_key in key_to_id
+            )
             status = self._item_status(candidate, dependencies)
             created_at = previous["created_at"] if previous else timestamp
             item = PathItem(
@@ -830,6 +844,7 @@ class CriticalPathService:
                 milestone_impact=candidate.milestone_impact,
                 priority_tier=candidate.priority_tier,
                 dependencies=tuple(dependencies),
+                dependency_origins=dependency_origins,
                 status=status,
                 completion_condition=candidate.completion_condition,
                 recommended_action=candidate.recommended_action,
@@ -951,21 +966,27 @@ class CriticalPathService:
             pinned_sources=critical_path["pinned_sources"],
         )
         current = {item.source_key: item for item in candidates}
-        current_criteria = [
-            {
-                "id": _criterion_id(item, index),
-                "result": item["result"],
-                "required": item.get("required", True),
-                "evidence_references": item["evidence_references"],
-                "related_issues": item.get("related_issues", []),
-                "related_decisions": item.get("related_decisions", []),
-            }
-            for index, item in enumerate(
-                state["milestone"]["criteria_results"], start=1
-            )
-        ]
-        if snapshot.get("criteria_fingerprint") != _stable_hash(current_criteria):
-            reasons.append("Milestone criterion state changed.")
+        fingerprints = self._criterion_fingerprints(state)
+        if (
+            snapshot.get("criterion_definitions_fingerprint")
+            != fingerprints["criterion_definitions_fingerprint"]
+        ):
+            reasons.append("Milestone criterion definitions changed.")
+        if (
+            snapshot.get("criterion_evaluations_fingerprint")
+            != fingerprints["criterion_evaluations_fingerprint"]
+        ):
+            reasons.append("Milestone criterion evaluations changed.")
+        if (
+            snapshot.get("criterion_evidence_lifecycle_fingerprint")
+            != fingerprints["criterion_evidence_lifecycle_fingerprint"]
+        ):
+            reasons.append("Criterion evaluation evidence lifecycle changed.")
+        dependency_fingerprint = self._dependency_graph_fingerprint(
+            state, critical_path["current_milestone"]
+        )
+        if snapshot.get("dependency_graph_fingerprint") != dependency_fingerprint:
+            reasons.append("Active dependency graph changed.")
         controls_fingerprint = _stable_hash(
             {
                 "pinned_sources": critical_path["pinned_sources"],
@@ -1214,6 +1235,98 @@ class CriticalPathService:
             for token in ("evidence", "observe", "test", "verify", "playtest")
         )
 
+    def _attach_dependency_edges(
+        self,
+        state: CanonicalState,
+        candidates: list[PathCandidate],
+        milestone: str,
+    ) -> list[PathCandidate]:
+        """Merge authoritative explicit and deterministic derived edges."""
+
+        by_key = {candidate.source_key: candidate for candidate in candidates}
+        explicit_by_id = {
+            item["id"]: item for item in state["dependencies"]["dependencies"]
+        }
+
+        def endpoint_candidate_key(endpoint: str) -> str:
+            direct = endpoint_source_key(endpoint)
+            if direct in by_key:
+                return direct
+            matching = [
+                candidate.source_key
+                for candidate in candidates
+                if candidate.source_id == endpoint
+            ]
+            if matching:
+                matching.sort(
+                    key=lambda key: (
+                        key.startswith("verification:"),
+                        key,
+                    )
+                )
+                return matching[0]
+            return direct
+
+        updated = {candidate.source_key: candidate for candidate in candidates}
+        for candidate in candidates:
+            origins = list(candidate.dependency_origins)
+            known = {origin[0] for origin in origins}
+            for dependency_key in candidate.dependency_keys:
+                if dependency_key not in known:
+                    origins.append(
+                        (
+                            dependency_key,
+                            "derived",
+                            None,
+                            "Generated prerequisite required before this action.",
+                        )
+                    )
+            updated[candidate.source_key] = replace(
+                candidate, dependency_origins=tuple(origins)
+            )
+
+        for (
+            prerequisite,
+            dependent,
+            derived_reason,
+            dependency_id,
+        ) in combined_dependency_edges(state, milestone):
+            dependent_key = endpoint_candidate_key(dependent)
+            if dependent_key not in updated:
+                continue
+            prerequisite_key = endpoint_candidate_key(prerequisite)
+            candidate = updated[dependent_key]
+            dependencies = list(candidate.dependency_keys)
+            if prerequisite_key not in dependencies:
+                dependencies.append(prerequisite_key)
+            origins = [
+                origin
+                for origin in candidate.dependency_origins
+                if origin[0] != prerequisite_key
+            ]
+            if dependency_id is not None:
+                dependency = explicit_by_id[dependency_id]
+                origin = (
+                    prerequisite_key,
+                    "explicit",
+                    dependency_id,
+                    dependency["reason"],
+                )
+            else:
+                origin = (
+                    prerequisite_key,
+                    "derived",
+                    None,
+                    derived_reason,
+                )
+            origins.append(origin)
+            updated[dependent_key] = replace(
+                candidate,
+                dependency_keys=tuple(dict.fromkeys(dependencies)),
+                dependency_origins=tuple(origins),
+            )
+        return [updated[candidate.source_key] for candidate in candidates]
+
     def _manual_candidates(
         self, state: CanonicalState, pinned: set[str]
     ) -> list[PathCandidate]:
@@ -1376,6 +1489,16 @@ class CriticalPathService:
                 and item["status"] in HISTORICAL_DECISION_STATUSES
                 for item in state["decisions"]["decisions"]
             )
+        if source_key.startswith("milestone:"):
+            source_id = source_key.split(":", 1)[1]
+            return any(
+                item["id"] == source_id
+                and (
+                    item["lifecycle_status"] == "retired"
+                    or item["support_status"] == "verified"
+                )
+                for item in state["milestone"]["criteria_results"]
+            )
         return False
 
     @staticmethod
@@ -1441,6 +1564,18 @@ class CriticalPathService:
             )
             if record and record["status"] == "resolved":
                 return "completed"
+        if source_key.startswith(("milestone:", "verification:MC-")):
+            source_id = item.get("source_id")
+            record = next(
+                (
+                    value
+                    for value in state["milestone"]["criteria_results"]
+                    if value["id"] == source_id
+                ),
+                None,
+            )
+            if record and record["support_status"] == "verified":
+                return "completed"
         return "removed"
 
     @staticmethod
@@ -1461,6 +1596,84 @@ class CriticalPathService:
         )
         return eligible[0][1]["id"]
 
+    @staticmethod
+    def _criterion_fingerprints(state: CanonicalState) -> StateObject:
+        criteria = state["milestone"]["criteria_results"]
+        definitions = [
+            {
+                "id": item["id"],
+                "milestone": item["milestone"],
+                "description": item["description"],
+                "required": item["required"],
+                "lifecycle_status": item["lifecycle_status"],
+                "completion_condition": item["completion_condition"],
+                "verification_method": item["verification_method"],
+                "related_issues": item["related_issues"],
+                "related_decisions": item["related_decisions"],
+            }
+            for item in criteria
+        ]
+        evaluations = [
+            {
+                "id": item["id"],
+                "support_status": item["support_status"],
+                "supporting_evidence": item["supporting_evidence"],
+                "evaluation_reason": item["evaluation_reason"],
+                "evaluation_limitations": item["evaluation_limitations"],
+                "evaluation_history": item["evaluation_history"],
+                "evaluation_freshness": item["evaluation_freshness"],
+            }
+            for item in criteria
+        ]
+        evidence_by_id = {item["id"]: item for item in state["evidence"]["evidence"]}
+        referenced = sorted(
+            {
+                reference
+                for criterion in criteria
+                for reference in criterion["supporting_evidence"]
+            }
+            | {
+                snapshot["id"]
+                for criterion in criteria
+                for history in criterion["evaluation_history"]
+                for snapshot in history["evidence_snapshot"]
+            }
+        )
+        evidence_lifecycle = {
+            reference: (
+                {
+                    "classification": evidence_by_id[reference]["classification"],
+                    "status": evidence_by_id[reference]["status"],
+                }
+                if reference in evidence_by_id
+                else None
+            )
+            for reference in referenced
+        }
+        return {
+            "criterion_definitions_fingerprint": _stable_hash(definitions),
+            "criterion_evaluations_fingerprint": _stable_hash(evaluations),
+            "criterion_evidence_lifecycle_fingerprint": _stable_hash(
+                evidence_lifecycle
+            ),
+        }
+
+    @staticmethod
+    def _dependency_graph_fingerprint(state: CanonicalState, milestone: str) -> str:
+        return _stable_hash(
+            [
+                {
+                    "prerequisite": prerequisite,
+                    "dependent": dependent,
+                    "origin": origin,
+                    "dependency_id": dependency_id,
+                }
+                for prerequisite, dependent, origin, dependency_id in (
+                    combined_dependency_edges(state, milestone)
+                )
+            ]
+        )
+
     def _build_snapshot(
         self,
         milestone: str,
@@ -1479,19 +1692,7 @@ class CriticalPathService:
             }
             for candidate in candidates
         }
-        criteria = [
-            {
-                "id": _criterion_id(item, index),
-                "result": item["result"],
-                "required": item.get("required", True),
-                "evidence_references": item["evidence_references"],
-                "related_issues": item.get("related_issues", []),
-                "related_decisions": item.get("related_decisions", []),
-            }
-            for index, item in enumerate(
-                state["milestone"]["criteria_results"], start=1
-            )
-        ]
+        criterion_fingerprints = self._criterion_fingerprints(state)
         evidence_by_id = {item["id"]: item for item in state["evidence"]["evidence"]}
         relevant_evidence = {
             reference
@@ -1502,7 +1703,10 @@ class CriticalPathService:
         return {
             "milestone": milestone,
             "candidates": candidate_snapshot,
-            "criteria_fingerprint": _stable_hash(criteria),
+            **criterion_fingerprints,
+            "dependency_graph_fingerprint": self._dependency_graph_fingerprint(
+                state, milestone
+            ),
             "evidence_sources": sorted(relevant_evidence),
             "evidence_fingerprint": _stable_hash(
                 {
@@ -1626,6 +1830,7 @@ class CriticalPathService:
             milestone_impact=item["milestone_impact"],
             priority_tier=item["priority_tier"],
             dependencies=tuple(item["dependencies"]),
+            dependency_origins=tuple(item["dependency_origins"]),
             status=item["status"],
             completion_condition=item["completion_condition"],
             recommended_action=item["recommended_action"],

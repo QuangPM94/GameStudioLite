@@ -514,3 +514,159 @@ def test_closed_decision_cannot_remain_on_critical_path(
     result = validate_state(framework_repo, state)
 
     assert any("historical decision DEC-0001" in error for error in result.errors)
+
+
+def _dependency(
+    dependency_id: str,
+    prerequisite: str,
+    dependent: str,
+    *,
+    status: str = "active",
+) -> dict[str, object]:
+    inactive = status == "inactive"
+    return {
+        "id": dependency_id,
+        "prerequisite": prerequisite,
+        "dependent": dependent,
+        "relationship": "requires",
+        "reason": "Explicit test ordering.",
+        "scope": "current-milestone",
+        "milestone": "Clarify the game idea",
+        "status": status,
+        "created_at": "2026-07-27T00:00:00Z",
+        "updated_at": "2026-07-27T00:00:00Z",
+        "deactivated_at": "2026-07-27T00:00:00Z" if inactive else None,
+        "deactivation_reason": "No longer required." if inactive else None,
+    }
+
+
+def _two_off_path_issues(state: dict[str, object]) -> None:
+    first = _valid_issue()
+    second = _valid_issue()
+    first["id"] = "ISS-001"
+    second["id"] = "ISS-002"
+    first["on_critical_path"] = False
+    second["on_critical_path"] = False
+    state["issues"]["issues"] = [first, second]  # type: ignore[index]
+
+
+def test_dependency_missing_duplicate_and_cycle_validation(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    _two_off_path_issues(state)
+    state["dependencies"]["dependencies"] = [
+        _dependency("DEP-0001", "ISS-001", "ISS-002"),
+        _dependency("DEP-0002", "ISS-001", "ISS-002"),
+        _dependency("DEP-0003", "ISS-999", "ISS-001"),
+    ]
+    result = validate_state(framework_repo, state)
+    assert any("Duplicate active dependency edge" in error for error in result.errors)
+    assert any(
+        "missing prerequisite endpoint ISS-999" in error for error in result.errors
+    )
+
+    state["dependencies"]["dependencies"] = [
+        _dependency("DEP-0001", "ISS-001", "ISS-002"),
+        _dependency("DEP-0002", "ISS-002", "ISS-001"),
+    ]
+    result = validate_state(framework_repo, state)
+    assert any(
+        "Dependency cycle: ISS-001 -> ISS-002 -> ISS-001" in error
+        for error in result.errors
+    )
+
+
+def test_inactive_dependency_requires_deactivation_metadata(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    _two_off_path_issues(state)
+    dependency = _dependency("DEP-0001", "ISS-001", "ISS-002", status="inactive")
+    dependency["deactivated_at"] = None
+    dependency["deactivation_reason"] = None
+    state["dependencies"]["dependencies"] = [dependency]
+
+    result = validate_state(framework_repo, state)
+
+    assert any(
+        "inactive dependency needs deactivated_at" in error for error in result.errors
+    )
+    assert any(
+        "inactive dependency needs a deactivation reason" in error
+        for error in result.errors
+    )
+
+
+def test_verified_and_partial_criterion_truth_is_validated(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    criterion = state["milestone"]["criteria_results"][0]
+    criterion["support_status"] = "verified"
+    result = validate_state(framework_repo, state)
+    assert any(
+        "verified criterion requires active evidence" in error
+        for error in result.errors
+    )
+
+    criterion["support_status"] = "partially-supported"
+    criterion["supporting_evidence"] = ["EVD-0001"]
+    state["evidence"]["evidence"] = [_valid_evidence()]
+    result = validate_state(framework_repo, state)
+    assert any(
+        "partially supported criterion needs a limitation" in error
+        for error in result.errors
+    )
+
+
+def test_current_criterion_evaluation_must_match_latest_history(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    criterion = state["milestone"]["criteria_results"][0]
+    criterion.update(
+        {
+            "support_status": "unsupported",
+            "evaluation_reason": "Current reason.",
+            "evaluated_at": "2026-07-27T01:00:00Z",
+            "evaluation_history": [
+                {
+                    "support_status": "unsupported",
+                    "reason": "Different historical reason.",
+                    "evidence_snapshot": [],
+                    "issue_references": [],
+                    "decision_references": [],
+                    "limitations": [],
+                    "evaluated_at": "2026-07-27T01:00:00Z",
+                }
+            ],
+        }
+    )
+
+    result = validate_state(framework_repo, state)
+
+    assert any("current evaluation reason differs" in error for error in result.errors)
+
+
+def test_retired_criterion_cannot_remain_active_on_path(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    criterion = state["milestone"]["criteria_results"][0]
+    criterion["lifecycle_status"] = "retired"
+    criterion["retired_at"] = "2026-07-27T00:00:00Z"
+    criterion["retirement_reason"] = "No longer required."
+    item = state["critical_path"]["items"][0]
+    item.update(
+        {
+            "type": "verification",
+            "source_id": "MC-001",
+            "source_key": "verification:MC-001:observed-support",
+            "manual": False,
+        }
+    )
+
+    result = validate_state(framework_repo, state)
+
+    assert any("retired criterion MC-001" in error for error in result.errors)

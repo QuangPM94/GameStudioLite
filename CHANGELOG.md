@@ -6,6 +6,9 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Phase C2 typed dependency and milestone-criterion services with stable historical IDs, explicit lifecycle, deterministic graph validation, explicit evidence evaluation, and append-only evaluation history.
+- `studio dependency add|list|show|update|deactivate` and `studio criterion add|list|show|update|evaluate|retire`, including transactional dry runs, confirmations, and stable JSON envelopes.
+- Dedicated dependency state/schema plus dependency- and criterion-management guides, C1 dependency origins, four-part structural freshness fingerprints, and criterion-centered reports/status.
 - Phase C1 dependency-aware milestone critical-path service with typed candidates, deterministic priority tiers, topological ordering, cycle reporting, three-to-seven guidance, stable IDs, history reconciliation, manual controls, and freshness snapshots.
 - `studio path calculate`, `studio path show`, `studio path explain`, and `studio path check`, including transactional dry runs and stable JSON output.
 - Critical-path, direction, current-state, issue, milestone-review, status, playbook, validation, and documentation integration.
@@ -29,7 +32,9 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Changed
 
-- Critical-path and milestone state advance to schema `2.0`; migration is documented in `docs/critical-path-engine.md`.
+- Critical-path and milestone state advance to schema `3.0`; the duplicated success-criterion copies are removed and C1 criterion records migrate in place to explicit support/lifecycle/history fields.
+- Phase C2 is complete. Automatic milestone progression, phase transitions, and workflow execution remain out of scope.
+- Phase C1 introduced critical-path and milestone schema `2.0`; its migration remains documented in `docs/critical-path-engine.md`.
 - Phase C1 is complete. Workflow automation and automatic phase transitions remain out of scope.
 - Decision state advances to schema `2.0`; migration from the Phase A decision shape is documented.
 - Direction, Current State, Open Issues, Milestone Review, and status output now expose prioritized decisions and evidence support without duplicating canonical relationships.

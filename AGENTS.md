@@ -21,6 +21,7 @@ JSON under `.studio/state/` is the sole manually editable source of project stat
 - `project.json`: project profile, phase, milestone, build, assumptions, and review mode
 - `issues.json`: issue records
 - `decisions.json`: decision queue
+- `dependencies.json`: explicit actionable ordering dependencies
 - `critical-path.json`: milestone path and deferred work
 - `evidence.json`: evidence registry
 - `milestone.json`: milestone criteria and verdict
@@ -42,6 +43,10 @@ Use `studio issue add`, `studio issue update`, `studio issue list`, and `studio 
 Use `studio evidence add`, `studio evidence update`, `studio evidence list`, and `studio evidence show` for evidence work. Prefer these commands over direct edits to `.studio/state/evidence.json`; direct evidence-state editing is reserved for framework maintenance or recovery. Evidence and issue links must be bidirectional, and only active evidence counts as current support.
 
 Use `studio decision add`, `studio decision update`, `studio decision list`, `studio decision show`, and `studio decision resolve` for meaningful project decisions. Prefer these commands over direct edits to `.studio/state/decisions.json`; direct decision-state editing is reserved for framework maintenance or recovery. Before asking the user, check for an existing record, attach relevant issues and evidence, present the recommendation and trade-offs, resolve the record after the choice, regenerate reports, and state the next workflow.
+
+Use `studio dependency add`, `studio dependency update`, `studio dependency list`, `studio dependency show`, and `studio dependency deactivate` for hard execution-order relationships. Before claiming one work item blocks another, check for an existing edge, reuse/update it, or create the concrete `dependent requires prerequisite` edge with a reason. Do not turn vague semantic relationships into dependencies and do not use evidence as an endpoint.
+
+Use `studio criterion add`, `studio criterion update`, `studio criterion list`, `studio criterion show`, `studio criterion evaluate`, and `studio criterion retire` for milestone success criteria. Before claiming a criterion is met, read its completion condition, inspect active evidence and classifications, record an explicit evaluation, then check path freshness. Evidence presence, issue closure, decision resolution, or playbook completion never silently verifies a criterion.
 
 Use `studio path check` before recommending major next work. If the milestone path is absent or stale, use `studio path calculate`; use `studio path show` for direction and `studio path explain CP-ID` when rationale is requested. Do not edit `.studio/state/critical-path.json` directly except for framework maintenance or recovery. Recalculate after material issue, evidence, decision, dependency, or milestone changes, but not after trivial wording edits. State the exact next path item.
 

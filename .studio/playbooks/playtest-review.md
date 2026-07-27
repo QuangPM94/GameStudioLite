@@ -34,7 +34,8 @@ Set phase to `evaluate`; append evidence and issue candidates without overwritin
 6. Include the simulated-review disclaimer when active observed runtime or observed human-playtest evidence is unavailable.
 7. Inspect existing findings with `studio issue list`/`show`; record accepted findings with `studio issue add` and refine them with `studio issue update`. Link only existing evidence IDs.
 8. Add the relevant issue/evidence links and recommendation with `studio decision update`; resolve only after the user chooses. Transactional writes regenerate reports.
-9. Run `studio path check` after material findings; calculate if stale, summarize with `studio path show`, and name the exact next item.
+9. Inspect each relevant criterion with `studio criterion show`. When evidence addresses its completion condition, record an explicit `studio criterion evaluate` result with evidence IDs and limitations; observation alone is not an automatic pass.
+10. Run `studio path check` after material findings/evaluations; calculate if stale, summarize with `studio path show`, and name the exact next item.
 
 ## User decision points
 

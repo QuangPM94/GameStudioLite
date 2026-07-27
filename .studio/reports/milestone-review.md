@@ -5,11 +5,23 @@
 
 Clarify the game idea
 
-## Success Criteria and Results
+## Required Criteria
 
-| ID | Criterion | Required | Result | Evidence | Notes |
-|---|---|---|---|---|---|
-| MC-001 | A project profile and falsifiable prototype hypothesis exist. | yes | unsupported | None | Guided intake has not run for a game project. |
+### MC-001 — A project profile and falsifiable prototype hypothesis exist.
+
+- Support status: unsupported
+- Completion condition: A project profile and falsifiable prototype hypothesis exist.
+- Explicitly evaluated: No.
+- Evaluation freshness: current
+- Evidence: None
+- Limitations: None
+- Related blockers: None
+- Related decisions: None
+- Critical-path state: Not on active path
+
+## Optional Criteria
+
+- No active optional criteria recorded.
 
 ## Supporting Evidence
 

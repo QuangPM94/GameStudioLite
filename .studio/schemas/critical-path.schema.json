@@ -8,7 +8,6 @@
     "schema_version",
     "current_milestone",
     "milestone_override",
-    "milestone_success_criteria",
     "configured_max_items",
     "items",
     "history",
@@ -24,14 +23,9 @@
     "warnings"
   ],
   "properties": {
-    "schema_version": {"const": "2.0"},
+    "schema_version": {"const": "3.0"},
     "current_milestone": {"type": "string", "minLength": 1},
     "milestone_override": {"type": "boolean"},
-    "milestone_success_criteria": {
-      "type": "array",
-      "items": {"type": "string", "minLength": 1},
-      "uniqueItems": true
-    },
     "configured_max_items": {"type": "integer", "minimum": 3, "maximum": 10},
     "items": {
       "type": "array",
@@ -116,6 +110,7 @@
         "milestone_impact",
         "priority_tier",
         "dependencies",
+        "dependency_origins",
         "status",
         "completion_condition",
         "recommended_action",
@@ -154,6 +149,28 @@
           "items": {"type": "string", "pattern": "^CP-[0-9]{4,}$"},
           "uniqueItems": true
         },
+        "dependency_origins": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "prerequisite_source_key",
+              "origin",
+              "dependency_id",
+              "reason"
+            ],
+            "properties": {
+              "prerequisite_source_key": {"$ref": "#/$defs/sourceKey"},
+              "origin": {"enum": ["explicit", "derived"]},
+              "dependency_id": {
+                "type": ["string", "null"],
+                "pattern": "^DEP-[0-9]{4,}$"
+              },
+              "reason": {"type": "string", "minLength": 1}
+            }
+          }
+        },
         "status": {
           "enum": [
             "pending",
@@ -186,7 +203,10 @@
       "required": [
         "milestone",
         "candidates",
-        "criteria_fingerprint",
+        "criterion_definitions_fingerprint",
+        "criterion_evaluations_fingerprint",
+        "criterion_evidence_lifecycle_fingerprint",
+        "dependency_graph_fingerprint",
         "evidence_sources",
         "evidence_fingerprint",
         "manual_controls_fingerprint"
@@ -215,7 +235,19 @@
             }
           }
         },
-        "criteria_fingerprint": {
+        "criterion_definitions_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "criterion_evaluations_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "criterion_evidence_lifecycle_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "dependency_graph_fingerprint": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
         },

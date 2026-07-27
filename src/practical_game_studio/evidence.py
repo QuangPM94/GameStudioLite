@@ -407,6 +407,17 @@ class EvidenceService:
             if links_changed or superseded_record is not None or support_changed:
                 self._synchronize_issue_types(state, affected_issue_ids)
                 transaction.set_issues(state["issues"])
+            criterion_state_changed = False
+            if evidence_changed:
+                affected_evidence_ids = {record["id"]}
+                if superseded_record is not None:
+                    affected_evidence_ids.add(superseded_record["id"])
+                criterion_state_changed = self._mark_criterion_evaluations_stale(
+                    state, affected_evidence_ids
+                )
+                if criterion_state_changed:
+                    transaction.set_milestone(state["milestone"])
+                    transaction.set_critical_path(state["critical_path"])
             return transaction.commit(
                 warnings=warnings,
                 changed_fields=changed_fields,
@@ -414,6 +425,7 @@ class EvidenceService:
                     "evidence": copy.deepcopy(record),
                     "recommended_next_workflow": self._recommended_workflow(),
                     "no_op": not evidence_changed and not links_changed,
+                    "criterion_evaluations_stale": criterion_state_changed,
                 },
             )
 
@@ -685,3 +697,42 @@ class EvidenceService:
             if (self.root / ".studio" / "playbooks" / "issue-map.md").is_file()
             else project["recommended_next_playbook"]
         )
+
+    @staticmethod
+    def _mark_criterion_evaluations_stale(
+        state: dict[str, StateObject], evidence_ids: set[str]
+    ) -> bool:
+        changed = False
+        for criterion in state["milestone"]["criteria_results"]:
+            if not criterion["evaluation_history"]:
+                continue
+            latest_ids = {
+                item["id"]
+                for item in criterion["evaluation_history"][-1]["evidence_snapshot"]
+            }
+            if not latest_ids.intersection(evidence_ids):
+                continue
+            reason = (
+                "Evidence used by the latest explicit evaluation changed "
+                "classification or lifecycle."
+            )
+            reasons = list(criterion["evaluation_freshness"]["reasons"])
+            if reason not in reasons:
+                reasons.append(reason)
+            criterion["evaluation_freshness"] = {
+                "status": "stale",
+                "reasons": reasons,
+            }
+            changed = True
+        if changed:
+            reasons = list(
+                state["critical_path"].get("freshness", {}).get("reasons", [])
+            )
+            reason = "Criterion evaluation evidence changed materially."
+            if reason not in reasons:
+                reasons.append(reason)
+            state["critical_path"]["freshness"] = {
+                "status": "stale",
+                "reasons": reasons,
+            }
+        return changed

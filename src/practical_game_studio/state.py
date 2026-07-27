@@ -13,6 +13,7 @@ STATE_FILES = {
     "project": "project.json",
     "issues": "issues.json",
     "decisions": "decisions.json",
+    "dependencies": "dependencies.json",
     "critical_path": "critical-path.json",
     "evidence": "evidence.json",
     "milestone": "milestone.json",
@@ -107,6 +108,9 @@ class StateRepository:
     def load_decisions(self) -> StateObject:
         return self._load("decisions")
 
+    def load_dependencies(self) -> StateObject:
+        return self._load("dependencies")
+
     def load_critical_path(self) -> StateObject:
         return self._load("critical_path")
 
@@ -121,6 +125,7 @@ class StateRepository:
             "project": self.load_project(),
             "issues": self.load_issues(),
             "decisions": self.load_decisions(),
+            "dependencies": self.load_dependencies(),
             "critical_path": self.load_critical_path(),
             "evidence": self.load_evidence(),
             "milestone": self.load_milestone(),

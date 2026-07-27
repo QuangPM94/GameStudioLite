@@ -122,6 +122,10 @@ studio decision update DEC-0001 --status open
 
 The active final fields are cleared while the structured resolution history remains. The decision keeps its ID and returns to pending reports.
 
+## Dependency and criterion integration
+
+Phase C2 separates semantic links from execution order. `affected_issues` and criterion `related_decisions` remain traceability links; they do not by themselves create a hard order. When a decision genuinely must be resolved before another action, use `studio dependency add --prerequisite DEC-ID --dependent SOURCE-ID --reason ...`. The critical path then reports the explicit `DEP-` origin. A decision used in criterion evaluation is snapshot-referenced by `studio criterion evaluate` without changing decision status.
+
 ## Supersession
 
 ```bash
@@ -154,4 +158,4 @@ Do not guess evidence links or historical resolution times. Run `studio validate
 
 ## Known limitations
 
-B4 does not score options, infer which option an evidence claim supports, automate workflow state, resolve issues, or build a general decision graph. Phase C1 can place blocking/high decisions and explicitly required verification on the milestone path, but never chooses for the owner. Explicit evidence conflict markers are required for the `conflicted` support level.
+B4/C2 does not score options, infer which option an evidence claim supports, automate workflow state, resolve issues, or add soft/informational dependency types. The path can place blocking/high decisions and explicitly required verification in dependency order, but never chooses for the owner. Explicit evidence conflict markers are required for the `conflicted` support level.

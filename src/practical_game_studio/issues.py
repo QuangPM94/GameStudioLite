@@ -649,6 +649,12 @@ class IssueService:
             ]
             if dependencies != downstream["dependencies"]:
                 downstream["dependencies"] = dependencies
+                removed_sources = {item["source_key"] for item in removed}
+                downstream["dependency_origins"] = [
+                    origin
+                    for origin in downstream["dependency_origins"]
+                    if origin["prerequisite_source_key"] not in removed_sources
+                ]
                 if (
                     not dependencies
                     and downstream["status"] == "blocked"
@@ -729,6 +735,12 @@ class IssueService:
                 ]
                 if dependencies != downstream["dependencies"]:
                     downstream["dependencies"] = dependencies
+                    removed_sources = {item["source_key"] for item in matching}
+                    downstream["dependency_origins"] = [
+                        origin
+                        for origin in downstream["dependency_origins"]
+                        if origin["prerequisite_source_key"] not in removed_sources
+                    ]
                     if (
                         not dependencies
                         and downstream["status"] == "blocked"
@@ -826,6 +838,7 @@ class IssueService:
             "milestone_impact": why,
             "priority_tier": self._critical_path_tier(issue),
             "dependencies": [],
+            "dependency_origins": [],
             "status": "blocked" if issue["status"] == "blocked" else "ready",
             "completion_condition": issue["recommended_action"],
             "recommended_action": issue["recommended_action"],

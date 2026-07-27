@@ -32,6 +32,14 @@ Clarify the game idea
 - Open: 0
 - Deferred: 0
 
+## Milestone Structure
+
+- Active dependencies: 0
+- Required criteria: 1
+- Verified criteria: 0
+- Unsupported criteria: 1
+- Contradicted criteria: 0
+
 ## Milestone Critical Path
 
 - Active items: 1

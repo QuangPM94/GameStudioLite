@@ -42,7 +42,9 @@ Minor, later, cosmetic, optional content, save systems, analytics, broad refacto
 
 ## Dependency ordering and selection
 
-Issue `dependencies` are explicit prerequisite edges. A decision becomes an issue prerequisite only when the issue requires a user decision and that decision explicitly lists the issue in `affected_issues`. Criterion dependencies come only from its `related_issues` and `related_decisions`. Verification-to-source edges follow the deterministic generation rules above. PGS does not invent semantic dependencies.
+Phase C2 makes active records in `.studio/state/dependencies.json` authoritative hard ordering edges. Every edge means **dependent requires prerequisite** and records its `DEP-` origin in path state, explanations, and reports. Project-scoped edges always apply; current-milestone edges apply only in their authored milestone context. Deactivated edges do not order work.
+
+Legacy issue dependency arrays and the deterministic issue/decision blocking rule remain compatibility-derived edges. Explicit and derived edges are merged without duplication; representing the same edge inconsistently is invalid. Criterion issue/decision links are semantic references and no longer imply order. Create a dependency when a relationship actually affects execution sequence. Verification-to-source edges remain deterministic generated rules. PGS never infers a reverse edge.
 
 The service calculates dependency closure and then uses stable topological ordering. Prerequisites appear before dependents even when the prerequisite has a lower priority tier. Shared prerequisites appear once. Completed dependencies leave the active path. Missing references fail calculation. Cycles fail with the exact source-key cycle and write nothing.
 
@@ -74,11 +76,14 @@ Legacy issue `--on-critical-path` and `--off-critical-path` operations remain co
 
 ## Freshness
 
-Calculation stores deterministic candidate, criterion, evidence, and manual-control fingerprints. `studio path check` compares them with current canonical state and reports:
+Calculation stores deterministic candidate, active dependency graph, criterion definition, criterion evaluation, criterion-evidence lifecycle, evidence, and manual-control fingerprints. `studio path check` compares them with current canonical state and reports:
 
 - source issue or decision status changes;
 - material evidence-support changes;
 - milestone or criterion changes;
+- active dependency additions, edits, deactivations, or reactivations;
+- criterion definition, required/optional, support, retirement, or completion/verification changes;
+- retracted or superseded evidence used by an explicit criterion evaluation;
 - deleted, inactive, or superseded sources;
 - new hard blockers;
 - invalid manual controls.
@@ -95,9 +100,9 @@ The recommended item must have no active unmet dependency and must be `ready` or
 
 JSON mode uses the shared stable envelope. JSON is the only stdout content, keys are sorted, output has a final newline, errors are structured, and identical read commands produce byte-identical output.
 
-## Schema 2.0 migration
+## Schema 3.0 migration
 
-Critical-path state advances from schema `1.0` to `2.0`. Migrate legacy records explicitly:
+Critical-path state originally advanced from schema `1.0` to `2.0` in C1. Phase C2 advances it to `3.0`. Preserve all C1 identity/history fields, then:
 
 - expand `CP-001` to `CP-0001` without changing identity;
 - map issue/decision source fields to `source_id` and canonical `source_key`;
@@ -105,9 +110,12 @@ Critical-path state advances from schema `1.0` to `2.0`. Migrate legacy records 
 - map `why_critical` to `reason`/`milestone_impact` and `exit_condition` to `completion_condition`;
 - add priority, status, owner, evidence, manual/pinned, source-status, and timestamps;
 - add `history`, controls, recommended-next, configured maximum, calculation snapshot, freshness, warnings, and milestone override metadata.
+- add `dependency_origins` to every active and historical path item;
+- replace the single criterion fingerprint with dependency-graph, criterion-definition, criterion-evaluation, and criterion-evidence-lifecycle fingerprints;
+- remove the duplicated `milestone_success_criteria` copy and render criteria from milestone state.
 
-Milestone state advances to schema `2.0`; each criterion result gains a stable `MC-` ID, `required`, `related_issues`, and `related_decisions`. Existing success-criterion strings remain intact. Do not invent links or evidence while migrating. Run `studio validate` and `studio report` afterward; the migrated path remains absent/stale until `studio path calculate`.
+Milestone state also advances to `3.0`. Preserve existing `MC-` IDs and map `pass`, `partial`, `fail`, and `unknown` to `verified`, `partially-supported`, `contradicted`, and `unsupported`. Add milestone, lifecycle, description, completion/verification, current evidence, explicit evaluation, freshness, history, and timestamps. Remove the duplicated `success_criteria` string list. Do not manufacture evaluation history for legacy projections: migrate the definition/support honestly and leave unevaluated claims explicit. Run `studio validate` and `studio report`; the path remains stale until `studio path calculate`.
 
 ## Known limitations
 
-Phase C1 does not estimate durations, calculate dates, infer arbitrary semantic dependencies, merge multiple issues into one action, automatically transition project phases, execute workflows, control an engine, ingest media/telemetry, implement game code, or orchestrate agents. Required-by proximity is date-based, not capacity-aware. Verification rules depend on explicit canonical wording and relationships.
+Phase C2 still does not estimate durations, calculate dates, support soft dependency types, use evidence as a dependency endpoint, infer arbitrary semantic dependencies, merge multiple issues into one action, automatically transition milestones/project phases, execute workflows, control an engine, ingest media/telemetry, implement game code, or orchestrate agents. Required-by proximity is date-based, not capacity-aware. Verification rules depend on explicit canonical wording and relationships.

@@ -65,6 +65,8 @@ Ordering is severity, critical-path membership, blocked status, creation time, t
 
 `.studio/state/critical-path.json` is the authoritative ordered path; issue `on_critical_path` is validation-enforced against active issue-backed items. Phase C1 calculates full membership and order with `studio path calculate`.
 
+Phase C2 uses `.studio/state/dependencies.json` for new hard execution-order edges. Legacy issue `dependencies` remain readable compatibility edges, but do not duplicate the same active edge in both places. Use `studio dependency add|update|deactivate` when one actionable record truly requires another. Related milestone criteria remain links in criterion state and are shown in Open Issues without duplicating criterion truth into the issue.
+
 The legacy `--on-critical-path` flag remains an explicit compatibility inclusion: it creates/pins one issue item and marks the calculated path stale. `--off-critical-path` removes that item to compact history. Resolving, accepting, rejecting, or deferring an active source archives it transactionally and marks the path stale; the next calculation reconciles the complete path and can reuse the ID after reopening. Prefer `studio path calculate --include/--exclude` for direction work.
 
 ## Evidence references

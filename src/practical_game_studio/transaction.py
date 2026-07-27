@@ -142,6 +142,9 @@ class StateTransaction:
     def set_decisions(self, value: StateObject) -> None:
         self._set("decisions", value)
 
+    def set_dependencies(self, value: StateObject) -> None:
+        self._set("dependencies", value)
+
     def set_critical_path(self, value: StateObject) -> None:
         self._set("critical_path", value)
 

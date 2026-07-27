@@ -141,26 +141,120 @@ def _path_freshness(state: dict[str, Any]) -> tuple[str, list[str]]:
     ):
         reasons.append("The project milestone changed.")
     snapshot = critical_path["calculation_snapshot"]
-    criteria = [
+    criteria = state["milestone"]["criteria_results"]
+    definitions = [
         {
             "id": item["id"],
-            "result": item["result"],
+            "milestone": item["milestone"],
+            "description": item["description"],
             "required": item["required"],
-            "evidence_references": item["evidence_references"],
+            "lifecycle_status": item["lifecycle_status"],
+            "completion_condition": item["completion_condition"],
+            "verification_method": item["verification_method"],
             "related_issues": item["related_issues"],
             "related_decisions": item["related_decisions"],
         }
-        for item in state["milestone"]["criteria_results"]
+        for item in criteria
     ]
-    if snapshot["criteria_fingerprint"] != _stable_digest(criteria):
-        reasons.append("Milestone criterion state changed.")
+    evaluations = [
+        {
+            "id": item["id"],
+            "support_status": item["support_status"],
+            "supporting_evidence": item["supporting_evidence"],
+            "evaluation_reason": item["evaluation_reason"],
+            "evaluation_limitations": item["evaluation_limitations"],
+            "evaluation_history": item["evaluation_history"],
+            "evaluation_freshness": item["evaluation_freshness"],
+        }
+        for item in criteria
+    ]
+    if snapshot.get("criterion_definitions_fingerprint") != _stable_digest(definitions):
+        reasons.append("Milestone criterion definitions changed.")
+    if snapshot.get("criterion_evaluations_fingerprint") != _stable_digest(evaluations):
+        reasons.append("Milestone criterion evaluations changed.")
+    evidence_by_id = {item["id"]: item for item in state["evidence"]["evidence"]}
+    criterion_evidence_ids = sorted(
+        {reference for item in criteria for reference in item["supporting_evidence"]}
+        | {
+            snapshot_item["id"]
+            for item in criteria
+            for history in item["evaluation_history"]
+            for snapshot_item in history["evidence_snapshot"]
+        }
+    )
+    criterion_evidence = {
+        reference: (
+            {
+                "classification": evidence_by_id[reference]["classification"],
+                "status": evidence_by_id[reference]["status"],
+            }
+            if reference in evidence_by_id
+            else None
+        )
+        for reference in criterion_evidence_ids
+    }
+    if snapshot.get("criterion_evidence_lifecycle_fingerprint") != _stable_digest(
+        criterion_evidence
+    ):
+        reasons.append("Criterion evaluation evidence lifecycle changed.")
+    dependency_edges = [
+        {
+            "prerequisite": item["prerequisite"],
+            "dependent": item["dependent"],
+            "origin": "explicit",
+            "dependency_id": item["id"],
+        }
+        for item in state["dependencies"]["dependencies"]
+        if item["status"] == "active"
+        and (
+            item["scope"] == "project"
+            or item["milestone"] == critical_path["current_milestone"]
+        )
+    ]
+    derived_edges: set[tuple[str, str, str]] = set()
+    for issue in state["issues"]["issues"]:
+        for prerequisite in issue["dependencies"]:
+            derived_edges.add((prerequisite, issue["id"], "legacy issue dependency"))
+        if issue["user_decision_required"]:
+            for decision in state["decisions"]["decisions"]:
+                if issue["id"] in decision["affected_issues"] and decision[
+                    "status"
+                ] in {"open", "ready", "blocked", "deferred"}:
+                    derived_edges.add(
+                        (
+                            decision["id"],
+                            issue["id"],
+                            "decision blocks implementation issue",
+                        )
+                    )
+    dependency_edges.extend(
+        {
+            "prerequisite": prerequisite,
+            "dependent": dependent,
+            "origin": origin,
+            "dependency_id": None,
+        }
+        for prerequisite, dependent, origin in sorted(derived_edges)
+        if not any(
+            edge["prerequisite"] == prerequisite and edge["dependent"] == dependent
+            for edge in dependency_edges
+        )
+    )
+    dependency_edges.sort(
+        key=lambda item: (
+            item["prerequisite"],
+            item["dependent"],
+            item["dependency_id"] or "",
+        )
+    )
+    if snapshot.get("dependency_graph_fingerprint") != _stable_digest(dependency_edges):
+        reasons.append("Active dependency graph changed.")
     controls = {
         "pinned_sources": critical_path["pinned_sources"],
         "excluded_sources": critical_path["excluded_sources"],
     }
     if snapshot["manual_controls_fingerprint"] != _stable_digest(controls):
         reasons.append("Manual inclusion or exclusion controls changed.")
-    evidence_by_id = {item["id"]: item for item in state["evidence"]["evidence"]}
     evidence_fingerprint = _stable_digest(
         {
             reference: evidence_by_id.get(reference)
@@ -198,8 +292,8 @@ def _path_freshness(state: dict[str, Any]) -> tuple[str, list[str]]:
             source = criteria_by_id.get(source_id)
             if source is None:
                 reasons.append(f"{source_id} is missing.")
-            elif source["result"] != item["source_status"]:
-                reasons.append(f"{source_id} result changed.")
+            elif source["support_status"] != item["source_status"]:
+                reasons.append(f"{source_id} support changed.")
     for issue in state["issues"]["issues"]:
         if (
             issue["status"] in OPEN_ISSUE_STATUSES
@@ -231,6 +325,38 @@ def _path_item_label(item: dict[str, Any] | None, empty: str = "None") -> str:
     return f"{item['id']} — {item['title']}" if item else empty
 
 
+def _current_criteria(state: dict[str, Any]) -> list[dict[str, Any]]:
+    milestone = state["project"]["current_milestone"]
+    return [
+        item
+        for item in state["milestone"]["criteria_results"]
+        if item["milestone"] == milestone and item["lifecycle_status"] == "active"
+    ]
+
+
+def _criterion_counts(state: dict[str, Any]) -> dict[str, int]:
+    criteria = _current_criteria(state)
+    return {
+        status: sum(item["support_status"] == status for item in criteria)
+        for status in (
+            "verified",
+            "partially-supported",
+            "unsupported",
+            "contradicted",
+        )
+    }
+
+
+def _active_dependencies(state: dict[str, Any]) -> list[dict[str, Any]]:
+    milestone = state["project"]["current_milestone"]
+    return [
+        item
+        for item in state["dependencies"]["dependencies"]
+        if item["status"] == "active"
+        and (item["scope"] == "project" or item["milestone"] == milestone)
+    ]
+
+
 def render_current_state(state: dict[str, Any]) -> str:
     project = state["project"]
     evidence = _active_evidence(state)
@@ -253,6 +379,9 @@ def render_current_state(state: dict[str, Any]) -> str:
     path = state["critical_path"]["items"]
     freshness, _ = _path_freshness(state)
     recommended = _recommended_path_item(state)
+    criteria = _current_criteria(state)
+    criterion_counts = _criterion_counts(state)
+    dependencies = _active_dependencies(state)
     return f"""{WARNING}
 # Current State
 
@@ -284,6 +413,14 @@ def render_current_state(state: dict[str, Any]) -> str:
 
 {_bullets(decision_lines)}
 
+## Milestone Structure
+
+- Active dependencies: {len(dependencies)}
+- Required criteria: {sum(item["required"] for item in criteria)}
+- Verified criteria: {criterion_counts["verified"]}
+- Unsupported criteria: {criterion_counts["unsupported"]}
+- Contradicted criteria: {criterion_counts["contradicted"]}
+
 ## Milestone Critical Path
 
 - Active items: {len(path)}
@@ -301,10 +438,6 @@ def render_current_state(state: dict[str, Any]) -> str:
 def render_direction_report(state: dict[str, Any]) -> str:
     project = state["project"]
     cp_items = state["critical_path"]["items"]
-    critical_path_lines = [
-        f"{index}. {item['id']} — {item['title']} [{item['status']}]"
-        for index, item in enumerate(cp_items, 1)
-    ]
     recommended = _recommended_path_item(state)
     blocking_path_item = next(
         (
@@ -337,6 +470,25 @@ def render_direction_report(state: dict[str, Any]) -> str:
         blocking_decision_text = "None."
     verification_gap = next(
         (item for item in cp_items if item["type"] == "verification"), None
+    )
+    criteria = _current_criteria(state)
+    remaining_criteria = [
+        f"{item['id']} — {item['description']} [{item['support_status']}]"
+        for item in criteria
+        if item["required"] and item["support_status"] != "verified"
+    ]
+    contradicted_criteria = [
+        f"{item['id']} — {item['description']}"
+        for item in criteria
+        if item["required"] and item["support_status"] == "contradicted"
+    ]
+    active_dependencies = _active_dependencies(state)
+    blocking_dependency = (
+        f"{active_dependencies[0]['dependent']} requires "
+        f"{active_dependencies[0]['prerequisite']} via "
+        f"{active_dependencies[0]['id']}"
+        if active_dependencies
+        else "None."
     )
     active_evidence_ids = {
         item["id"]
@@ -377,11 +529,23 @@ Current phase: {project["current_phase"]}
 
 Current milestone: {project["current_milestone"]}
 
-## Critical Path Summary
+## Required Criteria Remaining
 
-{_bullets(critical_path_lines, "No valid critical-path items recorded.")}
+{_bullets(remaining_criteria, "No required criteria remain unsupported.")}
 
-## Recommended Next Item
+## Contradicted Criteria
+
+{_bullets(contradicted_criteria, "No required criterion is contradicted.")}
+
+## Next Verification
+
+{_path_item_label(verification_gap, "None identified.")}
+
+## Blocking Dependency
+
+{blocking_dependency}
+
+## Recommended Next Path Item
 
 {_path_item_label(recommended, "None identified.")}
 
@@ -425,6 +589,12 @@ def render_open_issues(state: dict[str, Any]) -> str:
     for decision in state["decisions"]["decisions"]:
         for issue_id in decision["affected_issues"]:
             decisions_by_issue.setdefault(issue_id, []).append(decision)
+    criteria_by_issue: dict[str, list[dict[str, Any]]] = {}
+    for criterion in state["milestone"]["criteria_results"]:
+        if criterion["lifecycle_status"] != "active":
+            continue
+        for issue_id in criterion["related_issues"]:
+            criteria_by_issue.setdefault(issue_id, []).append(criterion)
     rows = []
     for item in issues:
         evidence = _evidence_count_text(_evidence_for_issue(item, evidence_by_id))
@@ -442,6 +612,19 @@ def render_open_issues(state: dict[str, Any]) -> str:
                 + "; ".join(
                     f"{decision['id']} — {decision['status'].title()}"
                     for decision in related
+                )
+                + " |  |"
+            )
+        related_criteria = sorted(
+            criteria_by_issue.get(item["id"], []),
+            key=lambda criterion: criterion["id"],
+        )
+        if related_criteria:
+            rows.append(
+                "|  |  |  | Related criteria | "
+                + "; ".join(
+                    f"{criterion['id']} — {criterion['support_status']}"
+                    for criterion in related_criteria
                 )
                 + " |  |"
             )
@@ -504,6 +687,15 @@ def render_critical_path(state: dict[str, Any]) -> str:
     sections = []
     for index, item in enumerate(critical_path["items"], 1):
         dependencies = ", ".join(item["dependencies"]) or "None"
+        origins = [
+            (
+                f"{origin['prerequisite_source_key']} via {origin['dependency_id']}"
+                if origin["origin"] == "explicit"
+                else f"{origin['prerequisite_source_key']} — Derived: "
+                f"{origin['reason']}"
+            )
+            for origin in item["dependency_origins"]
+        ]
         sections.append(
             f"### {index}. {item['id']} — {item['title']}\n\n"
             f"- Type: {item['type']}\n"
@@ -511,6 +703,7 @@ def render_critical_path(state: dict[str, Any]) -> str:
             f"- Status: {item['status']}\n"
             f"- Priority tier: {item['priority_tier']}\n"
             f"- Dependencies: {dependencies}\n"
+            f"- Dependency origins: {'; '.join(origins) or 'None'}\n"
             f"- Why critical: {item['reason']}\n"
             f"- Milestone impact: {item['milestone_impact']}\n"
             f"- Completion condition: {item['completion_condition']}"
@@ -532,6 +725,11 @@ def render_critical_path(state: dict[str, Any]) -> str:
         f"{item['id']} [{item['status']}] — {item['title']}"
         for item in critical_path["history"]
     ]
+    criteria = [
+        f"{item['id']} [{item['support_status']}]: {item['description']} — "
+        f"completion: {item['completion_condition']}"
+        for item in _current_criteria(state)
+    ]
     return f"""{WARNING}
 # Milestone Critical Path
 
@@ -541,7 +739,7 @@ def render_critical_path(state: dict[str, Any]) -> str:
 
 ## Milestone Success Criteria
 
-{_bullets(critical_path["milestone_success_criteria"])}
+{_bullets(criteria, "No active criteria recorded for this milestone.")}
 
 ## Active Critical Path
 
@@ -601,19 +799,6 @@ def render_milestone_review(state: dict[str, Any]) -> str:
         )
         for item in relevant_decisions
     ]
-    support_labels = {
-        "pass": "verified",
-        "partial": "partially-supported",
-        "fail": "contradicted",
-        "unknown": "unsupported",
-    }
-    rows = [
-        f"| {item['id']} | {item['criterion']} | "
-        f"{'yes' if item['required'] else 'no'} | "
-        f"{support_labels[item['result']]} | "
-        f"{', '.join(item['evidence_references']) or 'None'} | {item['notes']} |"
-        for item in milestone["criteria_results"]
-    ]
     path = state["critical_path"]["items"]
     freshness, _ = _path_freshness(state)
     required_decisions = [
@@ -623,6 +808,70 @@ def render_milestone_review(state: dict[str, Any]) -> str:
         and item["status"] in {"ready", "blocked", "in-progress", "pending"}
     ]
     verification = [item for item in path if item["type"] == "verification"]
+    active_sources = {item["source_key"] for item in path}
+    required_sections: list[str] = []
+    optional_lines: list[str] = []
+    for criterion in milestone["criteria_results"]:
+        if criterion["lifecycle_status"] != "active":
+            continue
+        evidence_lines = []
+        for reference in criterion["supporting_evidence"]:
+            evidence = evidence_by_id.get(reference)
+            if evidence is None:
+                evidence_lines.append(f"{reference} [missing]")
+            else:
+                evidence_lines.append(
+                    f"{reference} [{evidence['classification']}/{evidence['status']}]"
+                )
+        evaluated = (
+            f"Yes — {criterion['evaluation_reason']}"
+            if criterion["evaluation_history"]
+            else (
+                "No — observed or linked evidence exists, but the criterion "
+                "has not been explicitly evaluated."
+                if criterion["supporting_evidence"]
+                else "No."
+            )
+        )
+        path_state = (
+            "On active path"
+            if any(
+                source in active_sources
+                for source in (
+                    f"milestone:{criterion['id']}",
+                    f"verification:{criterion['id']}:observed-support",
+                )
+            )
+            else "Not on active path"
+        )
+        section = (
+            f"### {criterion['id']} — {criterion['description']}\n\n"
+            f"- Support status: {criterion['support_status']}\n"
+            f"- Completion condition: {criterion['completion_condition']}\n"
+            f"- Explicitly evaluated: {evaluated}\n"
+            f"- Evaluation freshness: "
+            f"{criterion['evaluation_freshness']['status']}\n"
+            f"- Evidence: {'; '.join(evidence_lines) or 'None'}\n"
+            f"- Limitations: "
+            f"{'; '.join(criterion['evaluation_limitations']) or 'None'}\n"
+            f"- Related blockers: "
+            f"{', '.join(criterion['related_issues']) or 'None'}\n"
+            f"- Related decisions: "
+            f"{', '.join(criterion['related_decisions']) or 'None'}\n"
+            f"- Critical-path state: {path_state}"
+        )
+        if criterion["required"]:
+            required_sections.append(section)
+        else:
+            optional_lines.append(
+                f"{criterion['id']} [{criterion['support_status']}]: "
+                f"{criterion['description']}"
+            )
+    active_required = [
+        item
+        for item in milestone["criteria_results"]
+        if item["lifecycle_status"] == "active" and item["required"]
+    ]
     return f"""{WARNING}
 # Milestone Review
 
@@ -630,11 +879,13 @@ def render_milestone_review(state: dict[str, Any]) -> str:
 
 {milestone["milestone"]}
 
-## Success Criteria and Results
+## Required Criteria
 
-| ID | Criterion | Required | Result | Evidence | Notes |
-|---|---|---|---|---|---|
-{chr(10).join(rows) if rows else "| — | — | — | unknown | None | No criteria recorded |"}
+{chr(10).join(required_sections) if required_sections else "No active required criteria recorded."}
+
+## Optional Criteria
+
+{_bullets(optional_lines, "No active optional criteria recorded.")}
 
 ## Supporting Evidence
 
@@ -654,7 +905,7 @@ def render_milestone_review(state: dict[str, Any]) -> str:
 - Required decisions remain: {"yes" if required_decisions else "no"}
 - Verification is incomplete: {"yes" if verification else "no"}
 - Path freshness: {freshness}
-- Path empty because milestone is complete: {"yes" if not path and all(item["result"] == "pass" for item in milestone["criteria_results"]) else "no"}
+- Path empty because milestone is complete: {"yes" if not path and active_required and all(item["support_status"] == "verified" for item in active_required) else "no"}
 
 ## Verdict
 
@@ -723,6 +974,22 @@ def format_status(state: dict[str, Any]) -> str:
         for urgency, count in summary.pending_decisions_by_urgency.items()
     )
     stale_instruction = "Run:\nstudio path calculate\n" if freshness == "Stale" else ""
+    criterion_counts = _criterion_counts(state)
+    dependencies = _active_dependencies(state)
+    contradicted = next(
+        (
+            item
+            for item in _current_criteria(state)
+            if item["required"] and item["support_status"] == "contradicted"
+        ),
+        None,
+    )
+    milestone_warning = (
+        f"Milestone warning:\n{contradicted['id']} is contradicted by current "
+        "evidence.\n"
+        if contradicted
+        else ""
+    )
     return (
         f"Current phase: {summary.phase}\n"
         f"Current milestone: {summary.milestone}\n"
@@ -738,6 +1005,14 @@ def format_status(state: dict[str, Any]) -> str:
         f"{summary.next_required_decision or 'None'}\n"
         "Decision queue:\n"
         f"{decisions}\n"
+        "Milestone criteria:\n"
+        f"- Verified: {criterion_counts['verified']}\n"
+        f"- Partially supported: {criterion_counts['partially-supported']}\n"
+        f"- Unsupported: {criterion_counts['unsupported']}\n"
+        f"- Contradicted: {criterion_counts['contradicted']}\n"
+        "Dependencies:\n"
+        f"- Active: {len(dependencies)}\n"
+        f"{milestone_warning}"
         "Milestone critical path:\n"
         f"- Active: {len(path_items)}\n"
         f"- Ready: {sum(item['status'] in {'ready', 'in-progress'} for item in path_items)}\n"

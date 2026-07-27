@@ -56,6 +56,7 @@ SCHEMA_FILES = {
     "project": "project.schema.json",
     "issues": "issues.schema.json",
     "decisions": "decisions.schema.json",
+    "dependencies": "dependencies.schema.json",
     "critical_path": "critical-path.schema.json",
     "evidence": "evidence.schema.json",
     "milestone": "milestone.schema.json",
@@ -104,6 +105,7 @@ REQUIRED_FILES = (
             "project",
             "issues",
             "decisions",
+            "dependencies",
             "critical-path",
             "evidence",
             "milestone",
@@ -136,15 +138,23 @@ REQUIRED_FILES = (
     "src/practical_game_studio/__init__.py",
     "src/practical_game_studio/cli.py",
     "src/practical_game_studio/decisions.py",
+    "src/practical_game_studio/dependencies.py",
+    "src/practical_game_studio/criteria.py",
     "src/practical_game_studio/critical_path.py",
     "src/practical_game_studio/validation.py",
     "src/practical_game_studio/reporting.py",
     "src/practical_game_studio/state.py",
     "src/practical_game_studio/models.py",
     "docs/decision-management.md",
+    "docs/dependency-management.md",
+    "docs/milestone-criteria-management.md",
     "docs/critical-path-engine.md",
     "tests/test_decisions.py",
+    "tests/test_dependencies.py",
+    "tests/test_criteria.py",
     "tests/test_decision_cli.py",
+    "tests/test_dependency_cli.py",
+    "tests/test_criterion_cli.py",
     "tests/test_critical_path.py",
     "tests/test_critical_path_cli.py",
     "src/practical_game_studio/transaction.py",
@@ -313,6 +323,7 @@ def _validate_relationships(
 ) -> None:
     issues = state["issues"]["issues"]
     decisions = state["decisions"]["decisions"]
+    dependencies = state["dependencies"]["dependencies"]
     evidence = state["evidence"]["evidence"]
     critical_path = state["critical_path"]
     cp_items = critical_path["items"]
@@ -326,10 +337,15 @@ def _validate_relationships(
     issue_by_id = {item["id"]: item for item in issues}
     decision_by_id = {item["id"]: item for item in decisions}
     evidence_by_id = {item["id"]: item for item in evidence}
+    dependency_by_id = {item["id"]: item for item in dependencies}
+    criteria_records = state["milestone"]["criteria_results"]
+    criterion_ids = {item["id"] for item in criteria_records}
+    criterion_by_id = {item["id"]: item for item in criteria_records}
 
     for label, records in (
         ("issue", issues),
         ("decision", decisions),
+        ("dependency", dependencies),
         ("evidence", evidence),
         ("critical-path", all_cp_items),
     ):
@@ -525,6 +541,144 @@ def _validate_relationships(
                 break
             seen.add(current)
             current = decision_supersession.get(current)
+
+    manual_endpoints = {
+        f"MANUAL:{item['source_key'].split(':', 1)[1]}"
+        for item in all_cp_items
+        if item.get("manual") and item.get("source_key", "").startswith("manual:")
+    }
+    known_endpoints = {
+        *issue_ids,
+        *decision_ids,
+        *criterion_ids,
+        *manual_endpoints,
+    }
+    active_edges: dict[tuple[str, str], str] = {}
+    current_milestone = state["project"]["current_milestone"]
+    for dependency in dependencies:
+        prerequisite = dependency["prerequisite"]
+        dependent = dependency["dependent"]
+        if prerequisite not in known_endpoints:
+            result.add(
+                f"{dependency['id']}: missing prerequisite endpoint {prerequisite}"
+            )
+        if dependent not in known_endpoints:
+            result.add(f"{dependency['id']}: missing dependent endpoint {dependent}")
+        if prerequisite == dependent:
+            result.add(f"{dependency['id']}: dependency cannot depend on itself")
+        if dependency["scope"] == "current-milestone":
+            if not dependency["milestone"]:
+                result.add(
+                    f"{dependency['id']}: current-milestone dependency needs "
+                    "milestone context"
+                )
+        elif dependency["milestone"] is not None:
+            result.add(
+                f"{dependency['id']}: project dependency cannot have milestone context"
+            )
+        if dependency["status"] == "active":
+            edge = (prerequisite, dependent)
+            if edge in active_edges:
+                result.add(
+                    f"Duplicate active dependency edge: {dependent} requires "
+                    f"{prerequisite} ({active_edges[edge]} and {dependency['id']})"
+                )
+            active_edges[edge] = dependency["id"]
+            for endpoint in (prerequisite, dependent):
+                if endpoint.startswith("MC-"):
+                    criterion = criterion_by_id.get(endpoint)
+                    if (
+                        criterion is not None
+                        and criterion["lifecycle_status"] == "retired"
+                    ):
+                        result.add(
+                            f"{dependency['id']}: active dependency endpoint "
+                            f"{endpoint} is retired"
+                        )
+            if dependency["deactivated_at"] is not None:
+                result.add(
+                    f"{dependency['id']}: active dependency has deactivation time"
+                )
+            if dependency["deactivation_reason"] is not None:
+                result.add(
+                    f"{dependency['id']}: active dependency has deactivation reason"
+                )
+        else:
+            if not dependency["deactivated_at"]:
+                result.add(
+                    f"{dependency['id']}: inactive dependency needs deactivated_at"
+                )
+            if not dependency["deactivation_reason"]:
+                result.add(
+                    f"{dependency['id']}: inactive dependency needs a "
+                    "deactivation reason"
+                )
+        try:
+            created = datetime.fromisoformat(dependency["created_at"])
+            updated = datetime.fromisoformat(dependency["updated_at"])
+            if dependency["deactivated_at"] is not None:
+                datetime.fromisoformat(dependency["deactivated_at"])
+        except ValueError:
+            continue
+        if updated < created:
+            result.add(
+                f"{dependency['id']}: updated_at cannot be earlier than created_at"
+            )
+
+    legacy_edges: set[tuple[str, str]] = set()
+    for issue in issues:
+        for prerequisite in issue["dependencies"]:
+            legacy_edges.add((prerequisite, issue["id"]))
+        if issue["user_decision_required"]:
+            for decision in decisions:
+                if issue["id"] in decision["affected_issues"] and decision[
+                    "status"
+                ] in {"open", "ready", "blocked", "deferred"}:
+                    legacy_edges.add((decision["id"], issue["id"]))
+    for edge in sorted(set(active_edges) & legacy_edges):
+        dependency_id = active_edges[edge]
+        result.add(
+            f"{dependency_id}: edge is represented both explicitly and by a "
+            f"legacy derived relationship ({edge[1]} requires {edge[0]})"
+        )
+
+    graph_edges = set(legacy_edges)
+    graph_edges.update(
+        edge
+        for edge, dependency_id in active_edges.items()
+        if dependency_by_id[dependency_id]["scope"] == "project"
+        or dependency_by_id[dependency_id]["milestone"] == current_milestone
+    )
+    endpoint_graph: dict[str, list[str]] = {}
+    for prerequisite, dependent in graph_edges:
+        endpoint_graph.setdefault(dependent, []).append(prerequisite)
+        endpoint_graph.setdefault(prerequisite, [])
+    for values in endpoint_graph.values():
+        values.sort()
+    dependency_stack: list[str] = []
+    dependency_visited: set[str] = set()
+
+    def visit_dependency(endpoint: str) -> list[str] | None:
+        if endpoint in dependency_stack:
+            index = dependency_stack.index(endpoint)
+            return [*dependency_stack[index:], endpoint]
+        if endpoint in dependency_visited:
+            return None
+        dependency_stack.append(endpoint)
+        for prerequisite in endpoint_graph.get(endpoint, []):
+            cycle = visit_dependency(prerequisite)
+            if cycle:
+                return cycle
+        dependency_stack.pop()
+        dependency_visited.add(endpoint)
+        return None
+
+    for endpoint in sorted(endpoint_graph):
+        cycle = visit_dependency(endpoint)
+        if cycle:
+            result.add("Dependency cycle: " + " -> ".join(cycle))
+            break
+
     source_optional = {
         "runtime",
         "human-playtest",
@@ -603,10 +757,6 @@ def _validate_relationships(
                 break
             seen.add(current)
             current = supersession.get(current)
-    criterion_ids = {
-        item.get("id", f"MC-{index:03d}")
-        for index, item in enumerate(state["milestone"]["criteria_results"], start=1)
-    }
     source_keys = {item["source_key"] for item in all_cp_items}
     for duplicate in sorted(_duplicates(item["source_key"] for item in all_cp_items)):
         result.add(f"Critical path: duplicate source key {duplicate}")
@@ -629,6 +779,7 @@ def _validate_relationships(
 
     active_statuses = {"pending", "ready", "blocked", "in-progress"}
     historical_statuses = {"completed", "removed"}
+    path_is_current = critical_path["freshness"]["status"] == "current"
     for item in cp_items:
         if item["status"] not in active_statuses:
             result.add(
@@ -674,9 +825,20 @@ def _validate_relationships(
             if source_key != f"decision:{source_id}":
                 result.add(f"{item['id']}: decision source key does not match source")
         elif item["type"] == "milestone-criterion":
-            if source_id not in criterion_ids:
+            source_criterion = criterion_by_id.get(source_id)
+            if source_criterion is None:
                 result.add(
                     f"{item['id']}: invalid milestone criterion source {source_id}"
+                )
+            elif source_criterion["lifecycle_status"] == "retired":
+                result.add(
+                    f"{item['id']}: retired criterion {source_id} cannot remain "
+                    "on the active critical path"
+                )
+            elif source_criterion["support_status"] == "verified":
+                result.add(
+                    f"{item['id']}: verified criterion {source_id} cannot remain "
+                    "on the active critical path"
                 )
             if source_key != f"milestone:{source_id}":
                 result.add(f"{item['id']}: milestone source key does not match source")
@@ -689,6 +851,30 @@ def _validate_relationships(
                 result.add(f"{item['id']}: broken verification decision {source_id}")
             elif source_id.startswith("MC-") and source_id not in criterion_ids:
                 result.add(f"{item['id']}: broken verification criterion {source_id}")
+            elif source_id.startswith("MC-"):
+                source_criterion = criterion_by_id[source_id]
+                if source_criterion["lifecycle_status"] == "retired":
+                    result.add(
+                        f"{item['id']}: retired criterion {source_id} cannot "
+                        "generate active verification work"
+                    )
+                if (
+                    source_criterion["support_status"] == "verified"
+                    and source_criterion["required"]
+                ):
+                    result.add(
+                        f"{item['id']}: required verified criterion {source_id} "
+                        "cannot generate active verification work"
+                    )
+                if (
+                    not source_criterion["required"]
+                    and source_criterion["support_status"] == "unsupported"
+                    and not item["pinned"]
+                ):
+                    result.add(
+                        f"{item['id']}: optional unsupported criterion {source_id} "
+                        "requires manual inclusion"
+                    )
         elif item["type"] == "manual-action":
             if not item["manual"]:
                 result.add(f"{item['id']}: manual action must set manual to true")
@@ -698,6 +884,43 @@ def _validate_relationships(
             result.add(f"{item['id']}: invalid source type {item['type']}")
         for duplicate in sorted(_duplicates(item["dependencies"])):
             result.add(f"{item['id']}: duplicate dependency {duplicate}")
+        origin_keys = [
+            origin["prerequisite_source_key"] for origin in item["dependency_origins"]
+        ]
+        for duplicate in sorted(_duplicates(origin_keys)):
+            result.add(f"{item['id']}: duplicate dependency origin for {duplicate}")
+        dependency_source_keys = {
+            next(
+                (
+                    value["source_key"]
+                    for value in cp_items
+                    if value["id"] == dependency
+                ),
+                "",
+            )
+            for dependency in item["dependencies"]
+        }
+        if set(origin_keys) != dependency_source_keys:
+            result.add(
+                f"{item['id']}: dependency origins do not match path dependencies"
+            )
+        for origin in item["dependency_origins"]:
+            dependency_id = origin["dependency_id"]
+            if origin["origin"] == "explicit":
+                explicit = dependency_by_id.get(dependency_id)
+                if explicit is None:
+                    result.add(
+                        f"{item['id']}: missing explicit dependency {dependency_id}"
+                    )
+                elif explicit["status"] != "active" and path_is_current:
+                    result.add(
+                        f"{item['id']}: explicit dependency {dependency_id} is inactive"
+                    )
+            elif dependency_id is not None:
+                result.add(
+                    f"{item['id']}: derived dependency origin cannot use "
+                    f"{dependency_id}"
+                )
         for dependency in item["dependencies"]:
             if dependency not in cp_ids:
                 if dependency in historical_cp_ids:
@@ -784,6 +1007,47 @@ def _validate_relationships(
             result.add("Critical path recommended-next item is blocked by dependencies")
         elif recommended_item["status"] not in {"ready", "in-progress"}:
             result.add("Critical path recommended-next item is not actionable")
+        else:
+            dependent_endpoint = recommended_item.get("source_id")
+            for dependency in dependencies:
+                if (
+                    dependency["status"] != "active"
+                    or dependency["dependent"] != dependent_endpoint
+                    or (
+                        dependency["scope"] == "current-milestone"
+                        and dependency["milestone"] != current_milestone
+                    )
+                ):
+                    continue
+                prerequisite = dependency["prerequisite"]
+                satisfied = False
+                if prerequisite.startswith("ISS-") and prerequisite in issue_by_id:
+                    satisfied = issue_by_id[prerequisite]["status"] in {
+                        "resolved",
+                        "accepted",
+                        "wont-fix",
+                    }
+                elif prerequisite.startswith("DEC-") and prerequisite in decision_by_id:
+                    satisfied = decision_by_id[prerequisite]["status"] == "resolved"
+                elif prerequisite.startswith("MC-") and prerequisite in criterion_by_id:
+                    criterion = criterion_by_id[prerequisite]
+                    satisfied = (
+                        criterion["lifecycle_status"] == "active"
+                        and criterion["support_status"] == "verified"
+                        and criterion["evaluation_freshness"]["status"] == "current"
+                    )
+                elif prerequisite.startswith("MANUAL:"):
+                    source_key = f"manual:{prerequisite.split(':', 1)[1].casefold()}"
+                    satisfied = any(
+                        item["source_key"] == source_key
+                        and item["status"] == "completed"
+                        for item in cp_history
+                    )
+                if not satisfied and path_is_current:
+                    result.add(
+                        "Critical path recommended-next item is incompatible with "
+                        f"unsatisfied explicit dependency {dependency['id']}"
+                    )
     pinned = critical_path["pinned_sources"]
     excluded = critical_path["excluded_sources"]
     for duplicate in sorted(_duplicates(pinned)):
@@ -827,28 +1091,188 @@ def _validate_relationships(
         if reference not in issue_ids:
             result.add(f"Milestone: broken issue reference {reference}")
     for criterion in milestone["criteria_results"]:
-        for reference in criterion.get("related_issues", []):
+        criterion_id = criterion["id"]
+        for field_name in (
+            "related_issues",
+            "related_decisions",
+            "supporting_evidence",
+            "evaluation_limitations",
+        ):
+            for duplicate in sorted(_duplicates(criterion[field_name])):
+                result.add(
+                    f"{criterion_id}: duplicate "
+                    f"{field_name.replace('_', ' ')} value {duplicate}"
+                )
+        for reference in criterion["related_issues"]:
             if reference not in issue_ids:
-                result.add(
-                    f"Milestone criterion {criterion.get('id')}: broken issue "
-                    f"reference {reference}"
-                )
-        for reference in criterion.get("related_decisions", []):
+                result.add(f"{criterion_id}: broken issue reference {reference}")
+        for reference in criterion["related_decisions"]:
             if reference not in decision_ids:
-                result.add(
-                    f"Milestone criterion {criterion.get('id')}: broken decision "
-                    f"reference {reference}"
-                )
-        for reference in criterion["evidence_references"]:
+                result.add(f"{criterion_id}: broken decision reference {reference}")
+        current_evidence: list[dict[str, Any]] = []
+        for reference in criterion["supporting_evidence"]:
             if reference not in evidence_ids:
+                result.add(f"{criterion_id}: broken evidence reference {reference}")
+                continue
+            current_evidence.append(evidence_by_id[reference])
+            if (
+                evidence_by_id[reference]["status"] != "active"
+                and criterion["evaluation_freshness"]["status"] == "current"
+            ):
                 result.add(
-                    f"Milestone criterion: broken evidence reference {reference}"
+                    f"{criterion_id}: inactive evidence {reference} cannot support "
+                    "a current evaluation"
                 )
-            elif evidence_by_id[reference]["status"] != "active":
+        active_evidence = [
+            item for item in current_evidence if item["status"] == "active"
+        ]
+        support = criterion["support_status"]
+        freshness_status = criterion["evaluation_freshness"]["status"]
+        if freshness_status == "current" and criterion["lifecycle_status"] == "active":
+            if criterion["evaluation_freshness"]["reasons"]:
                 result.add(
-                    f"Milestone criterion: inactive evidence {reference} cannot "
-                    "be current support"
+                    f"{criterion_id}: current evaluation freshness cannot have reasons"
                 )
+            if (
+                support
+                in {
+                    "verified",
+                    "partially-supported",
+                    "contradicted",
+                }
+                and not active_evidence
+            ):
+                result.add(
+                    f"{criterion_id}: {support} criterion requires active evidence"
+                )
+            if (
+                support == "partially-supported"
+                and not criterion["evaluation_limitations"]
+            ):
+                result.add(
+                    f"{criterion_id}: partially supported criterion needs a limitation"
+                )
+            if support == "verified" and active_evidence:
+                text = " ".join(
+                    (
+                        criterion["description"],
+                        criterion["completion_condition"],
+                        criterion["verification_method"] or "",
+                    )
+                ).casefold()
+                player_behavior = any(
+                    token in text
+                    for token in (
+                        "player",
+                        "tester",
+                        "playtest",
+                        "unaided",
+                        "without assistance",
+                        "complete the loop",
+                    )
+                )
+                non_runtime = any(
+                    token in (criterion["verification_method"] or "").casefold()
+                    for token in (
+                        "document review",
+                        "documentation review",
+                        "source review",
+                        "spec review",
+                        "static inspection",
+                        "approval review",
+                    )
+                )
+                observed = any(
+                    item["classification"] == "observed" for item in active_evidence
+                )
+                if player_behavior and not observed:
+                    result.add(
+                        f"{criterion_id}: player-behavior verification requires "
+                        "observed evidence"
+                    )
+                elif not player_behavior and not non_runtime and not observed:
+                    result.add(
+                        f"{criterion_id}: verification requires observed evidence "
+                        "or a documented non-runtime method"
+                    )
+        elif (
+            freshness_status == "stale"
+            and not criterion["evaluation_freshness"]["reasons"]
+        ):
+            result.add(f"{criterion_id}: stale evaluation freshness requires a reason")
+        if criterion["lifecycle_status"] == "retired":
+            if not criterion["retired_at"] or not criterion["retirement_reason"]:
+                result.add(f"{criterion_id}: retired criterion needs time and reason")
+        elif (
+            criterion["retired_at"] is not None
+            or criterion["retirement_reason"] is not None
+        ):
+            result.add(f"{criterion_id}: active criterion has retirement metadata")
+        history = criterion["evaluation_history"]
+        if history:
+            latest = history[-1]
+            if freshness_status == "current":
+                if latest["support_status"] != criterion["support_status"]:
+                    result.add(
+                        f"{criterion_id}: current evaluation differs from latest "
+                        "history support"
+                    )
+                if latest["reason"] != criterion["evaluation_reason"]:
+                    result.add(
+                        f"{criterion_id}: current evaluation reason differs from "
+                        "latest history"
+                    )
+                if latest["limitations"] != criterion["evaluation_limitations"]:
+                    result.add(
+                        f"{criterion_id}: current limitations differ from latest "
+                        "evaluation history"
+                    )
+                if [item["id"] for item in latest["evidence_snapshot"]] != criterion[
+                    "supporting_evidence"
+                ]:
+                    result.add(
+                        f"{criterion_id}: current evidence differs from latest "
+                        "evaluation history"
+                    )
+            if criterion["evaluated_at"] != latest["evaluated_at"]:
+                result.add(f"{criterion_id}: evaluated_at differs from latest history")
+        elif (
+            criterion["evaluated_at"] is not None
+            or criterion["evaluation_reason"] is not None
+        ):
+            result.add(f"{criterion_id}: evaluation metadata exists without history")
+        try:
+            created = datetime.fromisoformat(criterion["created_at"])
+            updated = datetime.fromisoformat(criterion["updated_at"])
+            evaluated = (
+                datetime.fromisoformat(criterion["evaluated_at"])
+                if criterion["evaluated_at"]
+                else None
+            )
+            retired = (
+                datetime.fromisoformat(criterion["retired_at"])
+                if criterion["retired_at"]
+                else None
+            )
+            history_times = [
+                datetime.fromisoformat(item["evaluated_at"]) for item in history
+            ]
+        except ValueError:
+            continue
+        if updated < created:
+            result.add(f"{criterion_id}: updated_at cannot be earlier than created_at")
+        if evaluated is not None and evaluated < created:
+            result.add(
+                f"{criterion_id}: evaluated_at cannot be earlier than created_at"
+            )
+        if retired is not None and retired < created:
+            result.add(f"{criterion_id}: retired_at cannot be earlier than created_at")
+        if history_times != sorted(history_times) or any(
+            item < created for item in history_times
+        ):
+            result.add(
+                f"{criterion_id}: evaluation history timestamps are out of order"
+            )
 
     project = state["project"]
     aliases = {workflow["alias"] for workflow in catalog["workflows"]}
@@ -868,15 +1292,9 @@ def _validate_relationships(
     if milestone["verdict"] not in {"PROCEED", "ITERATE", "PIVOT", "PAUSE", "STOP"}:
         result.add(f"Milestone: invalid verdict {milestone['verdict']}")
 
-    criteria = milestone["success_criteria"]
-    result_criteria = [item["criterion"] for item in milestone["criteria_results"]]
-    criterion_result_ids = [item.get("id") for item in milestone["criteria_results"]]
+    criterion_result_ids = [item["id"] for item in milestone["criteria_results"]]
     for duplicate in sorted(_duplicates(criterion_result_ids)):
         result.add(f"Milestone: duplicate criterion ID {duplicate}")
-    if len(result_criteria) != len(set(result_criteria)):
-        result.add("Milestone: duplicate criterion result")
-    if set(criteria) != set(result_criteria):
-        result.add("Milestone: success criteria and criterion results do not match")
 
     referenced_issue_ids = {
         item["source_id"] for item in cp_items if item["type"] == "issue"

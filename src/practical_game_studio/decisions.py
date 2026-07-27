@@ -650,6 +650,12 @@ class DecisionService:
                 ]
                 if dependencies != downstream["dependencies"]:
                     downstream["dependencies"] = dependencies
+                    removed_sources = {item["source_key"] for item in matching}
+                    downstream["dependency_origins"] = [
+                        origin
+                        for origin in downstream["dependency_origins"]
+                        if origin["prerequisite_source_key"] not in removed_sources
+                    ]
                     if (
                         not dependencies
                         and downstream["status"] == "blocked"

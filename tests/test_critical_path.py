@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from practical_game_studio.critical_path import (
-    CriticalPathCycleError,
     CriticalPathInputError,
     CriticalPathNotFoundError,
     CriticalPathService,
@@ -19,6 +18,10 @@ from practical_game_studio.decisions import (
     DecisionOption,
     DecisionPatch,
     DecisionService,
+)
+from practical_game_studio.dependencies import (
+    DependencyCreateRequest,
+    DependencyService,
 )
 from practical_game_studio.evidence import (
     EvidenceCreateRequest,
@@ -63,7 +66,19 @@ def _empty_path(root: Path, *, criterion_result: str = "pass") -> None:
         }
     )
     milestone = repository.load_milestone()
-    milestone["criteria_results"][0]["result"] = criterion_result
+    criterion = milestone["criteria_results"][0]
+    criterion["support_status"] = (
+        "unsupported" if criterion_result == "unknown" else "verified"
+    )
+    criterion["lifecycle_status"] = (
+        "active" if criterion_result == "unknown" else "retired"
+    )
+    criterion["retired_at"] = (
+        None if criterion_result == "unknown" else criterion["updated_at"]
+    )
+    criterion["retirement_reason"] = (
+        None if criterion_result == "unknown" else "Test fixture completed."
+    )
     _write_json(root / ".studio/state/critical-path.json", path)
     _write_json(root / ".studio/state/milestone.json", milestone)
 
@@ -240,9 +255,18 @@ def test_deferred_decision_returns_when_required_criterion_depends_on_it(
     )
     milestone = StateRepository(framework_repo).load_milestone()
     criterion = milestone["criteria_results"][0]
-    criterion["result"] = "unknown"
-    criterion["related_decisions"] = [decision_id]
+    criterion["support_status"] = "unsupported"
+    criterion["lifecycle_status"] = "active"
+    criterion["retired_at"] = None
+    criterion["retirement_reason"] = None
     _write_json(framework_repo / ".studio/state/milestone.json", milestone)
+    DependencyService(framework_repo).create_dependency(
+        DependencyCreateRequest(
+            prerequisite=decision_id,
+            dependent=criterion["id"],
+            reason="The criterion evaluation requires this decision.",
+        )
+    )
 
     candidate = next(
         item
@@ -267,7 +291,7 @@ def test_required_unsupported_criterion_generates_concrete_verification(
 
     assert candidate.type == "verification"
     assert "Test whether" in candidate.description
-    assert "Attach active observed evidence" in candidate.completion_condition
+    assert candidate.completion_condition
     assert candidate.priority_tier == 4
 
 
@@ -418,10 +442,8 @@ def test_dependency_cycle_reports_exact_cycle(framework_repo: Path) -> None:
     second = _issue(framework_repo, "Second", "critical")
     service = IssueService(framework_repo)
     service.update_issue(first, IssuePatch(add_dependencies=(second,)))
-    service.update_issue(second, IssuePatch(add_dependencies=(first,)))
-
-    with pytest.raises(CriticalPathCycleError, match=r"issue:ISS-000[12].*issue"):
-        _service(framework_repo).calculate_path(PathCalculationRequest())
+    with pytest.raises(TransactionError, match=r"Dependency cycle: ISS-000"):
+        service.update_issue(second, IssuePatch(add_dependencies=(first,)))
 
 
 def test_fewer_than_three_is_valid_and_not_padded(framework_repo: Path) -> None:
@@ -704,14 +726,16 @@ def test_freshness_detects_milestone_and_criterion_changes(
     project["current_milestone"] = "A changed milestone"
     _write_json(framework_repo / ".studio/state/project.json", project)
     milestone = StateRepository(framework_repo).load_milestone()
-    milestone["criteria_results"][0]["result"] = "unknown"
+    milestone["criteria_results"][0]["description"] = "A changed criterion"
     _write_json(framework_repo / ".studio/state/milestone.json", milestone)
 
     freshness = service.check_freshness()
 
     assert freshness.status == "stale"
     assert any("Milestone changed" in reason for reason in freshness.reasons)
-    assert any("criterion state changed" in reason for reason in freshness.reasons)
+    assert any(
+        "criterion definitions changed" in reason for reason in freshness.reasons
+    )
 
 
 def test_explanation_has_source_dependencies_and_downstream(

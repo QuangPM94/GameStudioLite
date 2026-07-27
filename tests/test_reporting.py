@@ -37,8 +37,8 @@ def test_report_generation_includes_warning_and_direction_sections() -> None:
         REPOSITORY_ROOT / ".studio" / "reports" / "direction-report.md"
     ).read_text(encoding="utf-8")
     for heading in (
-        "## Critical Path Summary",
-        "## Recommended Next Item",
+        "## Required Criteria Remaining",
+        "## Recommended Next Path Item",
         "## Blocking User Decision",
         "## Evidence Gap",
         "## Do Not Work On Yet",
@@ -81,8 +81,8 @@ def test_issue_reports_prioritize_actionable_and_recent_history(
     assert "## Recently Resolved" in open_issues
     assert "ISS-0002 [major/resolved]" in open_issues
     direction = reports["direction-report.md"]
-    assert "## Critical Path Summary" in direction
-    assert "CP-0002 — Build fails" in direction
+    assert "## Required Criteria Remaining" in direction
+    assert "## Recommended Next Path Item" in direction
 
 
 def test_evidence_reports_count_only_active_support(
@@ -205,7 +205,7 @@ def test_milestone_result_labels_are_evidence_support_labels(
     framework_repo: Path,
 ) -> None:
     reports = render_report_contents(StateRepository(framework_repo).load_all())
-    assert "| unsupported |" in reports["milestone-review.md"]
+    assert "- Support status: unsupported" in reports["milestone-review.md"]
 
 
 def test_status_includes_evidence_counts_and_unsupported_critical_issues(

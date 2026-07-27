@@ -28,7 +28,7 @@ Normally none beyond correcting stale direction. Regenerate reports when state c
 
 1. Run `studio path check`; if absent or stale, preview and run `studio path calculate`.
 2. Use `studio path show` to confirm goal, evidence gaps, blockers, manual controls, and the recommended-next item.
-3. Use `studio issue list`/`show`, `studio evidence list`/`show`, and `studio decision list`/`show` instead of reading generated Markdown as state. Treat only active evidence as current support.
+3. Use `studio issue list`/`show`, `studio evidence list`/`show`, `studio decision list`/`show`, `studio dependency list`/`show`, and `studio criterion list`/`show` instead of reading generated Markdown as state. Treat only active evidence as current support and only explicit evaluation as criterion truth.
 4. Select the exact recommended `CP-` item; use `studio path explain CP-ID` when its rationale is questioned. If a decision unlocks it, update the existing record with issues/evidence and present its recommendation before asking.
 5. Recommend one workflow and define its expected outcome.
 6. Name important work that should not start.

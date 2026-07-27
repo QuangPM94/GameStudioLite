@@ -1,13 +1,13 @@
 # State Mutation Safety
 
-Phase B1 introduced the shared mutation path. Phases B2 through B4 and Phase C1 route issue, evidence, decision, and critical-path writes through that path, including coordinated updates across canonical state and generated reports.
+Phase B1 introduced the shared mutation path. Phases B2 through B4 and Phases C1/C2 route issue, evidence, decision, dependency, criterion, and critical-path writes through that path, including coordinated updates across canonical state and generated reports.
 
 ## Commit stages
 
 1. Discover and load every canonical JSON document.
 2. Hash the exact source bytes and deep-copy state into an isolated working representation.
 3. Apply mutations only to the working copy.
-4. Validate all six schemas and cross-state relationships.
+4. Validate all seven schemas, the combined dependency graph, criterion lifecycle/evaluation truth, and other cross-state relationships.
 5. Render all five reports in memory and confirm the complete report set is producible.
 6. Recheck canonical hashes.
 7. Serialize changed JSON deterministically as UTF-8 with sorted keys, two-space indentation, and a final newline.
@@ -37,6 +37,8 @@ Decision dry runs allocate a proposed historical ID and exercise option, referen
 
 Critical-path dry runs collect candidates, close dependencies, detect cycles, allocate proposed `CP-` IDs, reconcile active/history state, validate manual controls, and render every report. They do not persist controls or history and do not consume IDs. A real calculation against the same revision receives the same IDs.
 
+Dependency dry runs allocate a proposed `DEP-` ID, validate endpoints and the combined explicit/derived graph, calculate path-freshness impact, and render without changing the registry or path. Criterion dry runs similarly allocate proposed `MC-` IDs or evaluation entries, validate evidence/lifecycle rules and history, calculate freshness impact, and preserve every canonical/report byte. The next real creation against the same revision receives the same ID.
+
 ## Schema compatibility
 
-B1 did not change the Phase A schemas. B2 extends the issue status enum while retaining compatibility. B3 advances evidence state to schema `2.0`; legacy evidence records require the field migration documented in `docs/evidence-management.md`. B4 advances decision state to schema `2.0`; its migration is documented in `docs/decision-management.md`. C1 advances critical-path and milestone state to schema `2.0`; its explicit migration is documented in `docs/critical-path-engine.md`. PGS retains the established reference namespaces and allocates fixed-width historical IDs.
+B1 did not change the Phase A schemas. B2 extends the issue status enum while retaining compatibility. B3 advances evidence state to schema `2.0`; legacy evidence records require the field migration documented in `docs/evidence-management.md`. B4 advances decision state to schema `2.0`; its migration is documented in `docs/decision-management.md`. C1 introduced critical-path/milestone schema `2.0`. C2 adds dependency schema `1.0` and advances critical-path/milestone state to `3.0`, documented in `docs/dependency-management.md`, `docs/milestone-criteria-management.md`, and `docs/critical-path-engine.md`. PGS retains the established reference namespaces and fixed-width historical IDs.

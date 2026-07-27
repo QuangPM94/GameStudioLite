@@ -88,6 +88,10 @@ When no active observed runtime or observed human-playtest evidence exists, play
 
 An inferred source review is never described as a playtest. A human report remains user-reported unless direct observation supports a different classification.
 
+## Criterion evaluation integration
+
+Phase C2 criterion evaluations snapshot evidence IDs, classifications, and lifecycle statuses. Adding an evidence link does not automatically change criterion support. If evidence used by the latest explicit evaluation is reclassified, retracted, or superseded, `studio evidence update` preserves the historical snapshot, marks the criterion evaluation stale, and marks the milestone path stale. Reevaluate explicitly with `studio criterion evaluate`; do not silently downgrade or verify the criterion.
+
 ## Schema 2.0 migration
 
 The B3 evidence schema replaces the Phase A record shape. Empty registries need only set `schema_version` to `2.0`. Existing records require an explicit maintenance migration:
@@ -103,6 +107,6 @@ Migration must preserve the original source and limitations. Run `studio validat
 
 ## Known limitations
 
-B3 does not collect telemetry, inspect media, execute engines, mutate milestone decisions, or resolve conflicts between competing evidence automatically. Phase C1 consumes active evidence support when calculating and checking paths, but does not gather evidence. Supersession is a small acyclic chain model, not a general evidence graph.
+B3/C2 does not collect telemetry, inspect media, execute engines, automatically evaluate criteria, progress milestones, or resolve conflicts between competing evidence. The path engine consumes active evidence and explicit criterion state but does not gather evidence. Supersession is a small acyclic chain model, not a general evidence graph.
 
 Decision records may reference evidence as recommendation support. The decision owns that one-way relationship; evidence state is not changed. Only active evidence counts toward the derived decision support level, and removing evidence never rewrites a recommendation automatically.

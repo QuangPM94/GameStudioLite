@@ -9,6 +9,14 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from .criteria import (
+    CriterionCreateRequest,
+    CriterionEvaluation,
+    CriterionInputError,
+    CriterionNotFoundError,
+    CriterionPatch,
+    CriterionService,
+)
 from .critical_path import (
     CriticalPathInputError,
     CriticalPathNotFoundError,
@@ -23,6 +31,13 @@ from .decisions import (
     DecisionPatch,
     DecisionResolution,
     DecisionService,
+)
+from .dependencies import (
+    DependencyCreateRequest,
+    DependencyInputError,
+    DependencyNotFoundError,
+    DependencyPatch,
+    DependencyService,
 )
 from .evidence import (
     SOURCE_OPTIONAL_TYPES,
@@ -362,6 +377,179 @@ def _parser() -> argparse.ArgumentParser:
     decision_resolve.add_argument("--dry-run", action="store_true")
     decision_resolve.add_argument("--json", action="store_true")
     decision_resolve.add_argument("--yes", action="store_true")
+
+    dependency_parser = subparsers.add_parser(
+        "dependency", help="manage explicit actionable dependencies"
+    )
+    dependency_subparsers = dependency_parser.add_subparsers(
+        dest="dependency_command", required=True
+    )
+    dependency_add = dependency_subparsers.add_parser(
+        "add", help="create or reactivate a dependency"
+    )
+    _add_root_argument(dependency_add)
+    dependency_add.add_argument("--prerequisite")
+    dependency_add.add_argument("--dependent")
+    dependency_add.add_argument("--reason")
+    dependency_add.add_argument(
+        "--scope",
+        choices=("current-milestone", "project"),
+        default="current-milestone",
+    )
+    dependency_add.add_argument("--dry-run", action="store_true")
+    dependency_add.add_argument("--json", action="store_true")
+    dependency_add.add_argument("--yes", action="store_true")
+
+    dependency_list = dependency_subparsers.add_parser("list", help="list dependencies")
+    _add_root_argument(dependency_list)
+    dependency_list.add_argument("--status", choices=("active", "inactive"))
+    dependency_list.add_argument("--source")
+    dependency_list.add_argument("--prerequisite")
+    dependency_list.add_argument("--dependent")
+    dependency_list.add_argument("--scope", choices=("current-milestone", "project"))
+    dependency_view = dependency_list.add_mutually_exclusive_group()
+    dependency_view.add_argument("--active", action="store_true")
+    dependency_view.add_argument("--all", action="store_true")
+    dependency_list.add_argument("--json", action="store_true")
+
+    dependency_show = dependency_subparsers.add_parser(
+        "show", help="show one dependency"
+    )
+    dependency_show.add_argument("dependency_id")
+    _add_root_argument(dependency_show)
+    dependency_show.add_argument("--json", action="store_true")
+
+    dependency_update = dependency_subparsers.add_parser(
+        "update", help="update a dependency"
+    )
+    dependency_update.add_argument("dependency_id")
+    _add_root_argument(dependency_update)
+    dependency_update.add_argument("--prerequisite")
+    dependency_update.add_argument("--dependent")
+    dependency_update.add_argument("--reason")
+    dependency_update.add_argument("--scope", choices=("current-milestone", "project"))
+    dependency_update.add_argument("--status", choices=("active", "inactive"))
+    dependency_update.add_argument("--dry-run", action="store_true")
+    dependency_update.add_argument("--json", action="store_true")
+    dependency_update.add_argument("--yes", action="store_true")
+
+    dependency_deactivate = dependency_subparsers.add_parser(
+        "deactivate", help="deactivate a dependency without deleting history"
+    )
+    dependency_deactivate.add_argument("dependency_id")
+    _add_root_argument(dependency_deactivate)
+    dependency_deactivate.add_argument("--reason")
+    dependency_deactivate.add_argument("--dry-run", action="store_true")
+    dependency_deactivate.add_argument("--json", action="store_true")
+    dependency_deactivate.add_argument("--yes", action="store_true")
+
+    criterion_parser = subparsers.add_parser(
+        "criterion", help="manage current-milestone success criteria"
+    )
+    criterion_subparsers = criterion_parser.add_subparsers(
+        dest="criterion_command", required=True
+    )
+    criterion_add = criterion_subparsers.add_parser(
+        "add", help="create a milestone criterion"
+    )
+    _add_root_argument(criterion_add)
+    criterion_add.add_argument("--milestone")
+    criterion_add.add_argument("--description")
+    criterion_requirement = criterion_add.add_mutually_exclusive_group()
+    criterion_requirement.add_argument(
+        "--required", dest="required", action="store_true"
+    )
+    criterion_requirement.add_argument(
+        "--optional", dest="required", action="store_false"
+    )
+    criterion_add.set_defaults(required=None)
+    criterion_add.add_argument("--completion-condition")
+    criterion_add.add_argument("--verification-method")
+    criterion_add.add_argument("--issue", action="append", default=[])
+    criterion_add.add_argument("--decision", action="append", default=[])
+    criterion_add.add_argument("--evidence", action="append", default=[])
+    criterion_add.add_argument("--dry-run", action="store_true")
+    criterion_add.add_argument("--json", action="store_true")
+    criterion_add.add_argument("--yes", action="store_true")
+
+    criterion_list = criterion_subparsers.add_parser(
+        "list", help="list milestone criteria"
+    )
+    _add_root_argument(criterion_list)
+    criterion_list.add_argument("--milestone")
+    criterion_filter = criterion_list.add_mutually_exclusive_group()
+    criterion_filter.add_argument(
+        "--required", dest="required_filter", action="store_true"
+    )
+    criterion_filter.add_argument(
+        "--optional", dest="required_filter", action="store_false"
+    )
+    criterion_list.set_defaults(required_filter=None)
+    criterion_list.add_argument("--support-status")
+    criterion_list.add_argument("--lifecycle-status", choices=("active", "retired"))
+    criterion_view = criterion_list.add_mutually_exclusive_group()
+    criterion_view.add_argument("--active", action="store_true")
+    criterion_view.add_argument("--all", action="store_true")
+    criterion_list.add_argument("--json", action="store_true")
+
+    criterion_show = criterion_subparsers.add_parser(
+        "show", help="show one milestone criterion"
+    )
+    criterion_show.add_argument("criterion_id")
+    _add_root_argument(criterion_show)
+    criterion_show.add_argument("--json", action="store_true")
+
+    criterion_update = criterion_subparsers.add_parser(
+        "update", help="update a milestone criterion definition"
+    )
+    criterion_update.add_argument("criterion_id")
+    _add_root_argument(criterion_update)
+    criterion_update.add_argument("--milestone")
+    criterion_update.add_argument("--description")
+    criterion_update_requirement = criterion_update.add_mutually_exclusive_group()
+    criterion_update_requirement.add_argument(
+        "--required", dest="required", action="store_true"
+    )
+    criterion_update_requirement.add_argument(
+        "--optional", dest="required", action="store_false"
+    )
+    criterion_update.set_defaults(required=None)
+    criterion_update.add_argument("--completion-condition")
+    criterion_update.add_argument("--verification-method")
+    criterion_update.add_argument("--add-issue", action="append", default=[])
+    criterion_update.add_argument("--remove-issue", action="append", default=[])
+    criterion_update.add_argument("--add-decision", action="append", default=[])
+    criterion_update.add_argument("--remove-decision", action="append", default=[])
+    criterion_update.add_argument("--add-evidence", action="append", default=[])
+    criterion_update.add_argument("--remove-evidence", action="append", default=[])
+    criterion_update.add_argument("--dry-run", action="store_true")
+    criterion_update.add_argument("--json", action="store_true")
+    criterion_update.add_argument("--yes", action="store_true")
+
+    criterion_evaluate = criterion_subparsers.add_parser(
+        "evaluate", help="record an explicit criterion evaluation"
+    )
+    criterion_evaluate.add_argument("criterion_id")
+    _add_root_argument(criterion_evaluate)
+    criterion_evaluate.add_argument("--support")
+    criterion_evaluate.add_argument("--reason")
+    criterion_evaluate.add_argument("--evidence", action="append", default=[])
+    criterion_evaluate.add_argument("--issue", action="append", default=[])
+    criterion_evaluate.add_argument("--decision", action="append", default=[])
+    criterion_evaluate.add_argument("--limitation", action="append", default=[])
+    criterion_evaluate.add_argument("--dry-run", action="store_true")
+    criterion_evaluate.add_argument("--json", action="store_true")
+    criterion_evaluate.add_argument("--yes", action="store_true")
+
+    criterion_retire = criterion_subparsers.add_parser(
+        "retire", help="retire a criterion without deleting history"
+    )
+    criterion_retire.add_argument("criterion_id")
+    _add_root_argument(criterion_retire)
+    criterion_retire.add_argument("--reason")
+    criterion_retire.add_argument("--dry-run", action="store_true")
+    criterion_retire.add_argument("--json", action="store_true")
+    criterion_retire.add_argument("--yes", action="store_true")
 
     path_parser = subparsers.add_parser(
         "path", help="calculate and inspect the milestone critical path"
@@ -1655,6 +1843,550 @@ def _run_decision(args: argparse.Namespace, root: Path) -> int:
     raise DecisionInputError(f"unknown decision command {args.decision_command}")
 
 
+def _confirm_structural_write(
+    args: argparse.Namespace,
+    root: Path,
+    *,
+    prompt: str,
+    error_type: type[ValueError],
+) -> None:
+    if args.dry_run:
+        return
+    review_mode = StateRepository(root).load_project()["review_mode"]
+    if review_mode == "fast" or args.yes:
+        return
+    if sys.stdin.isatty() and not args.json:
+        answer = input(f"{prompt} [y/N]: ").strip().casefold()
+        if answer in {"y", "yes"}:
+            return
+        raise error_type("operation cancelled")
+    raise error_type(
+        f"{review_mode} review mode requires --yes in a non-interactive terminal"
+    )
+
+
+def _required_values(
+    values: Sequence[tuple[str | None, str]], error_type: type[ValueError]
+) -> None:
+    missing = [flag for value, flag in values if value is None or not value.strip()]
+    if missing:
+        raise error_type("missing required values: " + ", ".join(missing))
+
+
+def _path_impact_lines(details: dict[str, Any]) -> list[str]:
+    impact = details.get("path_impact", "may-be-stale")
+    if impact == "stale":
+        message = "The current milestone critical path is stale."
+    elif impact == "none":
+        message = "The current milestone critical path was not changed."
+    else:
+        message = "The current milestone critical path may be stale."
+    return [
+        "",
+        "Critical-path impact:",
+        message,
+        "",
+        "Recommended next command:",
+        details.get("recommended_next_command", "studio path check"),
+    ]
+
+
+def _run_dependency_add(args: argparse.Namespace, root: Path) -> int:
+    _required_values(
+        (
+            (args.prerequisite, "--prerequisite"),
+            (args.dependent, "--dependent"),
+            (args.reason, "--reason"),
+        ),
+        DependencyInputError,
+    )
+    _confirm_structural_write(
+        args,
+        root,
+        prompt="Create this explicit dependency?",
+        error_type=DependencyInputError,
+    )
+    result = DependencyService(root).create_dependency(
+        DependencyCreateRequest(
+            prerequisite=args.prerequisite,
+            dependent=args.dependent,
+            reason=args.reason,
+            scope=args.scope,
+        ),
+        dry_run=args.dry_run,
+    )
+    if args.json:
+        _print_json(_mutation_envelope(result))
+        return 0
+    record = result.details["dependency"]
+    if result.dry_run:
+        print("Dry run — no files were written.\n\nProposed dependency.")
+    elif result.details["reactivated"]:
+        print("Dependency reactivated.")
+    else:
+        print("Dependency created.")
+    print(
+        f"\nID: {record['id']}\n\nPrerequisite:\n{record['prerequisite']}"
+        f"\n\nDependent:\n{record['dependent']}\n\nRelationship:\n"
+        f"{record['dependent']} requires {record['prerequisite']}\n\nReason:\n"
+        f"{record['reason']}"
+    )
+    print("\n".join(_path_impact_lines(result.details)))
+    return 0
+
+
+def _run_dependency_list(args: argparse.Namespace, root: Path) -> int:
+    if args.active and args.status == "inactive":
+        raise DependencyInputError("--active cannot be combined with inactive status")
+    records = DependencyService(root).list_dependencies(
+        status="active" if args.active else args.status,
+        source=args.source,
+        prerequisite=args.prerequisite,
+        dependent=args.dependent,
+        scope=args.scope,
+        include_all=args.all,
+    )
+    if args.json:
+        _print_json(
+            _json_envelope(
+                success=True,
+                operation="dependency.list",
+                data={"count": len(records), "dependencies": records},
+            )
+        )
+        return 0
+    if not records:
+        print("No matching dependencies.")
+        return 0
+    if args.all:
+        label = "Dependencies"
+    elif args.status == "inactive":
+        label = "Inactive dependencies"
+    else:
+        label = "Active dependencies"
+    print(f"{label}: {len(records)}\n")
+    print(f"{'ID':<10}{'Prerequisite':<14}{'Dependent':<14}Scope")
+    for record in records:
+        print(
+            f"{record['id']:<10}{record['prerequisite']:<14}"
+            f"{record['dependent']:<14}"
+            f"{record['scope'].replace('-', ' ').title()}"
+        )
+    return 0
+
+
+def _format_dependency_detail(record: dict[str, Any]) -> str:
+    lines = [
+        f"ID: {record['id']}",
+        f"Status: {record['status'].title()}",
+        f"Prerequisite: {record['prerequisite']}",
+        f"Dependent: {record['dependent']}",
+        f"Relationship: {record['dependent']} requires {record['prerequisite']}",
+        f"Scope: {record['scope'].replace('-', ' ').title()}",
+        f"Prerequisite satisfied: {'Yes' if record['prerequisite_satisfied'] else 'No'}",
+        f"Critical-path presence: {'Yes' if record['on_critical_path'] else 'No'}",
+        "",
+        "Reason:",
+        record["reason"],
+    ]
+    for heading, values in (
+        ("Upstream", record["upstream"]),
+        ("Downstream", record["downstream"]),
+    ):
+        lines.extend(["", f"{heading}:"])
+        lines.extend(f"- {value}" for value in values)
+        if not values:
+            lines.append("- None")
+    if record["deactivation_reason"]:
+        lines.extend(["", "Deactivation reason:", record["deactivation_reason"]])
+    lines.extend(
+        [
+            "",
+            f"Created: {record['created_at']}",
+            f"Updated: {record['updated_at']}",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _run_dependency_show(args: argparse.Namespace, root: Path) -> int:
+    record = DependencyService(root).get_dependency(args.dependency_id)
+    if args.json:
+        _print_json(
+            _json_envelope(
+                success=True,
+                operation="dependency.show",
+                data={"dependency": record},
+            )
+        )
+    else:
+        print(_format_dependency_detail(record))
+    return 0
+
+
+def _run_dependency_update(args: argparse.Namespace, root: Path) -> int:
+    _confirm_structural_write(
+        args,
+        root,
+        prompt=f"Update {args.dependency_id}?",
+        error_type=DependencyInputError,
+    )
+    result = DependencyService(root).update_dependency(
+        args.dependency_id,
+        DependencyPatch(
+            prerequisite=args.prerequisite,
+            dependent=args.dependent,
+            reason=args.reason,
+            scope=args.scope,
+            status=args.status,
+        ),
+        dry_run=args.dry_run,
+    )
+    if args.json:
+        _print_json(_mutation_envelope(result))
+        return 0
+    if result.dry_run:
+        print("Dry run — no files were written.\n\nProposed dependency update.")
+    elif result.details["no_op"]:
+        print("Dependency unchanged.")
+    else:
+        print("Dependency updated.")
+    print(f"\nID: {result.details['dependency']['id']}")
+    print("\n".join(_path_impact_lines(result.details)))
+    return 0
+
+
+def _run_dependency_deactivate(args: argparse.Namespace, root: Path) -> int:
+    _required_values(((args.reason, "--reason"),), DependencyInputError)
+    _confirm_structural_write(
+        args,
+        root,
+        prompt=f"Deactivate {args.dependency_id}?",
+        error_type=DependencyInputError,
+    )
+    result = DependencyService(root).deactivate_dependency(
+        args.dependency_id, args.reason, dry_run=args.dry_run
+    )
+    if args.json:
+        _print_json(_mutation_envelope(result))
+        return 0
+    print(
+        "Dry run — no files were written.\n\nProposed dependency deactivation."
+        if result.dry_run
+        else "Dependency deactivated."
+    )
+    print(f"\nID: {result.details['dependency']['id']}")
+    print("\n".join(_path_impact_lines(result.details)))
+    return 0
+
+
+def _run_dependency(args: argparse.Namespace, root: Path) -> int:
+    if args.dependency_command == "add":
+        return _run_dependency_add(args, root)
+    if args.dependency_command == "list":
+        return _run_dependency_list(args, root)
+    if args.dependency_command == "show":
+        return _run_dependency_show(args, root)
+    if args.dependency_command == "update":
+        return _run_dependency_update(args, root)
+    if args.dependency_command == "deactivate":
+        return _run_dependency_deactivate(args, root)
+    raise DependencyInputError(f"unknown dependency command {args.dependency_command}")
+
+
+def _criterion_create_request(args: argparse.Namespace) -> CriterionCreateRequest:
+    _required_values(
+        (
+            (args.description, "--description"),
+            (args.completion_condition, "--completion-condition"),
+        ),
+        CriterionInputError,
+    )
+    if args.required is None:
+        raise CriterionInputError("choose exactly one of --required or --optional")
+    return CriterionCreateRequest(
+        description=args.description,
+        required=args.required,
+        completion_condition=args.completion_condition,
+        milestone=args.milestone,
+        verification_method=args.verification_method,
+        related_issues=tuple(args.issue),
+        related_decisions=tuple(args.decision),
+        supporting_evidence=tuple(args.evidence),
+    )
+
+
+def _run_criterion_add(args: argparse.Namespace, root: Path) -> int:
+    request = _criterion_create_request(args)
+    _confirm_structural_write(
+        args,
+        root,
+        prompt="Create this milestone criterion?",
+        error_type=CriterionInputError,
+    )
+    result = CriterionService(root).create_criterion(request, dry_run=args.dry_run)
+    if args.json:
+        _print_json(_mutation_envelope(result))
+        return 0
+    criterion = result.details["criterion"]
+    print(
+        "Dry run — no files were written.\n\nProposed milestone criterion."
+        if result.dry_run
+        else "Milestone criterion created."
+    )
+    print(
+        f"\nID: {criterion['id']}\nRequired: "
+        f"{'Yes' if criterion['required'] else 'No'}\nSupport: "
+        f"{criterion['support_status'].replace('-', ' ').title()}\n\n"
+        f"Criterion:\n{criterion['description']}\n\nCompletion condition:\n"
+        f"{criterion['completion_condition']}"
+    )
+    print("\n".join(_path_impact_lines(result.details)))
+    return 0
+
+
+def _run_criterion_list(args: argparse.Namespace, root: Path) -> int:
+    records = CriterionService(root).list_criteria(
+        milestone=args.milestone,
+        required=args.required_filter,
+        support_status=args.support_status,
+        lifecycle_status="active" if args.active else args.lifecycle_status,
+        include_all=args.all,
+    )
+    if args.json:
+        _print_json(
+            _json_envelope(
+                success=True,
+                operation="criterion.list",
+                data={"count": len(records), "criteria": records},
+            )
+        )
+        return 0
+    if not records:
+        print("No matching milestone criteria.")
+        return 0
+    print(f"Current milestone criteria: {len(records)}\n")
+    print(f"{'ID':<9}{'Required':<10}{'Support':<22}Criterion")
+    for criterion in records:
+        print(
+            f"{criterion['id']:<9}"
+            f"{('Yes' if criterion['required'] else 'No'):<10}"
+            f"{criterion['support_status'].replace('-', ' ').title():<22}"
+            f"{criterion['description']}"
+        )
+    return 0
+
+
+def _format_criterion_detail(criterion: dict[str, Any]) -> str:
+    lines = [
+        f"ID: {criterion['id']}",
+        f"Milestone: {criterion['milestone']}",
+        f"Required: {'Yes' if criterion['required'] else 'No'}",
+        f"Lifecycle: {criterion['lifecycle_status'].title()}",
+        f"Support: {criterion['support_status'].replace('-', ' ').title()}",
+        f"Evaluation freshness: {criterion['evaluation_freshness']['status'].title()}",
+        f"Critical-path presence: {'Yes' if criterion['on_critical_path'] else 'No'}",
+        "",
+        "Criterion:",
+        criterion["description"],
+        "",
+        "Completion condition:",
+        criterion["completion_condition"],
+    ]
+    if criterion["verification_method"]:
+        lines.extend(["", "Verification method:", criterion["verification_method"]])
+    for heading, values in (
+        ("Supporting evidence", criterion["evidence_details"]),
+        ("Related issues", criterion["related_issues"]),
+        ("Related decisions", criterion["related_decisions"]),
+        ("Limitations", criterion["evaluation_limitations"]),
+    ):
+        if not values:
+            continue
+        lines.extend(["", f"{heading}:"])
+        for value in values:
+            if isinstance(value, dict):
+                lines.append(
+                    f"- {value['id']} [{value['classification']}/{value['status']}]"
+                )
+            else:
+                lines.append(f"- {value}")
+    if criterion["evaluation_reason"]:
+        lines.extend(["", "Latest evaluation reason:", criterion["evaluation_reason"]])
+    if criterion["evaluation_history"]:
+        lines.extend(["", "Evaluation history:"])
+        for entry in criterion["evaluation_history"]:
+            lines.append(
+                f"- {entry['evaluated_at']}: {entry['support_status']} — "
+                f"{entry['reason']}"
+            )
+    if criterion["retirement_reason"]:
+        lines.extend(["", "Retirement reason:", criterion["retirement_reason"]])
+    lines.extend(
+        [
+            "",
+            f"Created: {criterion['created_at']}",
+            f"Updated: {criterion['updated_at']}",
+        ]
+    )
+    if criterion["evaluated_at"]:
+        lines.append(f"Evaluated: {criterion['evaluated_at']}")
+    return "\n".join(lines)
+
+
+def _run_criterion_show(args: argparse.Namespace, root: Path) -> int:
+    criterion = CriterionService(root).get_criterion(args.criterion_id)
+    if args.json:
+        _print_json(
+            _json_envelope(
+                success=True,
+                operation="criterion.show",
+                data={"criterion": criterion},
+            )
+        )
+    else:
+        print(_format_criterion_detail(criterion))
+    return 0
+
+
+def _criterion_patch(args: argparse.Namespace) -> CriterionPatch:
+    values: dict[str, Any] = {}
+    for argument, field_name in (
+        ("milestone", "milestone"),
+        ("description", "description"),
+        ("completion_condition", "completion_condition"),
+        ("verification_method", "verification_method"),
+    ):
+        value = getattr(args, argument)
+        if value is not None:
+            values[field_name] = value
+    if args.required is not None:
+        values["required"] = args.required
+    return CriterionPatch(
+        values=values,
+        add_issues=tuple(args.add_issue),
+        remove_issues=tuple(args.remove_issue),
+        add_decisions=tuple(args.add_decision),
+        remove_decisions=tuple(args.remove_decision),
+        add_evidence=tuple(args.add_evidence),
+        remove_evidence=tuple(args.remove_evidence),
+    )
+
+
+def _run_criterion_update(args: argparse.Namespace, root: Path) -> int:
+    _confirm_structural_write(
+        args,
+        root,
+        prompt=f"Update {args.criterion_id}?",
+        error_type=CriterionInputError,
+    )
+    result = CriterionService(root).update_criterion(
+        args.criterion_id, _criterion_patch(args), dry_run=args.dry_run
+    )
+    if args.json:
+        _print_json(_mutation_envelope(result))
+        return 0
+    if result.dry_run:
+        print("Dry run — no files were written.\n\nProposed criterion update.")
+    elif result.details["no_op"]:
+        print("Milestone criterion unchanged.")
+    else:
+        print("Milestone criterion updated.")
+    print(f"\nID: {result.details['criterion']['id']}")
+    print("\n".join(_path_impact_lines(result.details)))
+    return 0
+
+
+def _run_criterion_evaluate(args: argparse.Namespace, root: Path) -> int:
+    _required_values(
+        ((args.support, "--support"), (args.reason, "--reason")),
+        CriterionInputError,
+    )
+    _confirm_structural_write(
+        args,
+        root,
+        prompt=f"Record this evaluation for {args.criterion_id}?",
+        error_type=CriterionInputError,
+    )
+    result = CriterionService(root).evaluate_criterion(
+        args.criterion_id,
+        CriterionEvaluation(
+            support_status=args.support,
+            reason=args.reason,
+            evidence=tuple(args.evidence),
+            issues=tuple(args.issue),
+            decisions=tuple(args.decision),
+            limitations=tuple(args.limitation),
+        ),
+        dry_run=args.dry_run,
+    )
+    if args.json:
+        _print_json(_mutation_envelope(result))
+        return 0
+    criterion = result.details["criterion"]
+    if result.dry_run:
+        print("Dry run — no files were written.\n\nProposed criterion evaluation.")
+    elif result.details["no_op"]:
+        print("Milestone criterion evaluation is unchanged.")
+    else:
+        print("Milestone criterion evaluated.")
+    print(
+        f"\nID: {criterion['id']}\nSupport: "
+        f"{criterion['support_status'].replace('-', ' ').title()}"
+        f"\n\nReason:\n{criterion['evaluation_reason'] or args.reason}"
+    )
+    if criterion["evaluation_limitations"]:
+        print("\nLimitations:")
+        for limitation in criterion["evaluation_limitations"]:
+            print(f"- {limitation}")
+    print("\n".join(_path_impact_lines(result.details)))
+    return 0
+
+
+def _run_criterion_retire(args: argparse.Namespace, root: Path) -> int:
+    _required_values(((args.reason, "--reason"),), CriterionInputError)
+    _confirm_structural_write(
+        args,
+        root,
+        prompt=f"Retire {args.criterion_id}?",
+        error_type=CriterionInputError,
+    )
+    result = CriterionService(root).retire_criterion(
+        args.criterion_id, args.reason, dry_run=args.dry_run
+    )
+    if args.json:
+        _print_json(_mutation_envelope(result))
+        return 0
+    print(
+        "Dry run — no files were written.\n\nProposed criterion retirement."
+        if result.dry_run
+        else "Milestone criterion retired."
+    )
+    print(f"\nID: {result.details['criterion']['id']}")
+    if result.warnings:
+        print("\nWarnings:")
+        for warning in result.warnings:
+            print(f"- {warning}")
+    print("\n".join(_path_impact_lines(result.details)))
+    return 0
+
+
+def _run_criterion(args: argparse.Namespace, root: Path) -> int:
+    if args.criterion_command == "add":
+        return _run_criterion_add(args, root)
+    if args.criterion_command == "list":
+        return _run_criterion_list(args, root)
+    if args.criterion_command == "show":
+        return _run_criterion_show(args, root)
+    if args.criterion_command == "update":
+        return _run_criterion_update(args, root)
+    if args.criterion_command == "evaluate":
+        return _run_criterion_evaluate(args, root)
+    if args.criterion_command == "retire":
+        return _run_criterion_retire(args, root)
+    raise CriterionInputError(f"unknown criterion command {args.criterion_command}")
+
+
 def _confirm_path_calculation(args: argparse.Namespace, root: Path) -> None:
     if args.dry_run:
         return
@@ -1831,6 +2563,15 @@ def _run_path_explain(args: argparse.Namespace, root: Path) -> int:
     print(f"\nPriority tier:\n{item['priority_tier']}")
     print("\nDependencies:")
     print("\n".join(f"- {value}" for value in item["dependencies"]) or "- None")
+    print("\nDependency origin:")
+    if item["dependency_origins"]:
+        for origin in item["dependency_origins"]:
+            if origin["origin"] == "explicit":
+                print(f"- Explicit — {origin['dependency_id']}: {origin['reason']}")
+            else:
+                print(f"- Derived — {origin['reason']}")
+    else:
+        print("- None")
     print("\nBlocks:")
     print("\n".join(f"- {value}" for value in data["downstream_items"]) or "- None")
     print(f"\nEvidence state:\n{item['evidence_state']}")
@@ -1843,6 +2584,20 @@ def _run_path_explain(args: argparse.Namespace, root: Path) -> int:
     )
     if data["manual_context"]:
         print(f"\nManual context:\n{data['manual_context']}")
+    source = data["source"]
+    if source and str(item.get("source_id") or "").startswith("MC-"):
+        print(f"\nCriterion:\n{source['description']}")
+        print(f"\nCurrent support:\n{source['support_status']}")
+        print(f"\nCriterion completion condition:\n{source['completion_condition']}")
+        print(
+            "\nCurrent evidence:\n"
+            + (
+                "\n".join(f"- {value}" for value in source["supporting_evidence"])
+                or "- None"
+            )
+        )
+        if source["evaluation_reason"]:
+            print(f"\nEvaluation reason:\n{source['evaluation_reason']}")
     return 0
 
 
@@ -1890,6 +2645,10 @@ def _operation(args: argparse.Namespace) -> str:
         return f"evidence.{getattr(args, 'evidence_command', 'unknown')}"
     if getattr(args, "command", None) == "decision":
         return f"decision.{getattr(args, 'decision_command', 'unknown')}"
+    if getattr(args, "command", None) == "dependency":
+        return f"dependency.{getattr(args, 'dependency_command', 'unknown')}"
+    if getattr(args, "command", None) == "criterion":
+        return f"criterion.{getattr(args, 'criterion_command', 'unknown')}"
     if getattr(args, "command", None) == "path":
         return f"path.{getattr(args, 'path_command', 'unknown')}"
     return getattr(args, "command", "studio")
@@ -1903,6 +2662,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         root = find_project_root(explicit=args.root)
         if args.command == "path":
             return _run_path(args, root)
+        if args.command == "criterion":
+            return _run_criterion(args, root)
+        if args.command == "dependency":
+            return _run_dependency(args, root)
         if args.command == "decision":
             return _run_decision(args, root)
         if args.command == "evidence":
@@ -1936,6 +2699,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
     except (
         CriticalPathNotFoundError,
+        CriterionNotFoundError,
+        DependencyNotFoundError,
         DecisionNotFoundError,
         EvidenceNotFoundError,
         IssueNotFoundError,
@@ -1954,6 +2719,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 3
     except (
         CriticalPathInputError,
+        CriterionInputError,
+        DependencyInputError,
         DecisionInputError,
         EvidenceInputError,
         IssueInputError,

@@ -5,11 +5,23 @@ Current phase: intake
 
 Current milestone: Clarify the game idea
 
-## Critical Path Summary
+## Required Criteria Remaining
 
-- 1. CP-0001 — Run guided intake [ready]
+- MC-001 — A project profile and falsifiable prototype hypothesis exist. [unsupported]
 
-## Recommended Next Item
+## Contradicted Criteria
+
+- No required criterion is contradicted.
+
+## Next Verification
+
+None identified.
+
+## Blocking Dependency
+
+None.
+
+## Recommended Next Path Item
 
 CP-0001 — Run guided intake
 

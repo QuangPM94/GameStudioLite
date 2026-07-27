@@ -33,6 +33,9 @@ studio decision add --question "How should the player find the room?" \
   --recommended-option OPT-B \
   --recommendation-reason "Signs preserve immersion." --yes
 studio decision list
+studio dependency add --prerequisite DEC-0001 --dependent ISS-0001 \
+  --reason "Implementation requires the selected option." --yes
+studio criterion list
 studio validate
 studio status
 studio report
@@ -63,6 +66,9 @@ Run commands from the PGS root or a child directory. Use `--root PATH` to select
 - `studio issue add|list|show|update` provides transactional B2 issue management.
 - `studio evidence add|list|show|update` provides transactional B3 evidence management.
 - `studio decision add|list|show|update|resolve` provides transactional B4 decision management.
+- `studio path calculate|show|explain|check` provides the C1 milestone priority path.
+- `studio dependency add|list|show|update|deactivate` provides transactional C2 dependency authoring.
+- `studio criterion add|list|show|update|evaluate|retire` provides transactional C2 milestone-criterion management.
 - `studio validate`, `studio status`, and `studio report` inspect and render state.
 
 ## Initialization behavior
@@ -151,6 +157,30 @@ studio path check
 
 The active path normally contains three to seven items, but fewer legitimate blockers are valid and never padded. Stable `CP-` IDs survive recalculation, completed work remains in compact history, and persistent include/exclude controls are visible. This is not duration-based Critical Path Method and does not promise an exact schedule. See `docs/critical-path-engine.md`.
 
+## Dependencies and milestone criteria
+
+Phase C2 records hard execution order as `dependent requires prerequisite`:
+
+```bash
+studio dependency add --prerequisite DEC-0001 --dependent ISS-0003 \
+  --reason "The implementation approach requires the selected option." --dry-run
+studio dependency list
+studio dependency show DEP-0001
+```
+
+Criteria have a lifecycle separate from explicit evidence support:
+
+```bash
+studio criterion add --description "One delivery loop is playable." \
+  --required --completion-condition "Two of three observed testers finish unaided." \
+  --verification-method "Observed human playtest." --dry-run
+studio criterion evaluate MC-002 --support partially-supported \
+  --evidence EVD-0004 --reason "One observed tester finished unaided." \
+  --limitation "Two additional observations are required." --yes
+```
+
+Evidence never silently verifies a criterion. Dependency and criterion writes mark path freshness precisely and recommend a check or recalculation; they do not change the project phase or milestone. See `docs/dependency-management.md` and `docs/milestone-criteria-management.md`.
+
 ## Evidence
 
 Every finding uses one of four labels:
@@ -191,7 +221,8 @@ Codex instructions, roles, playbooks, catalog, schemas, initial state, templates
 ### Phase C — Critical-path engine
 
 - **C1 complete:** dependency-aware candidate selection, deterministic ordering, three-to-seven guidance, stable path IDs/history, manual controls, freshness checks, reports, and `studio path calculate|show|explain|check`.
-- **Later Phase C work:** bounded workflow guidance built on the calculated path.
+- **C2 complete:** explicit dependency registry, cycle-safe authoring, transactional criterion lifecycle/evaluation/history, evidence-lifecycle freshness, and C1 ordering/report integration.
+- **Later Phase C work:** bounded manual workflow readiness and milestone review guidance built on explicit structure.
 
 ### Phase D — Guided workflow execution
 
