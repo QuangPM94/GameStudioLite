@@ -336,15 +336,22 @@ def _seed_evidence(root: Path) -> None:
         state = transaction.state
         state["evidence"]["evidence"].append(
             {
-                "id": "EVD-001",
-                "type": "OBSERVED",
+                "id": "EVD-0001",
+                "title": "Issue reproduced",
+                "claim": "The issue reproduced in the test log.",
+                "classification": "observed",
+                "source_type": "test-output",
                 "source": "test log",
                 "description": "The issue reproduced.",
                 "related_hypothesis": None,
-                "related_issue": None,
+                "related_issues": [],
                 "confidence": "high",
-                "date": "2026-07-27",
                 "limitations": [],
+                "captured_at": "2026-07-27T00:00:00Z",
+                "created_at": "2026-07-27T00:00:00Z",
+                "updated_at": "2026-07-27T00:00:00Z",
+                "status": "active",
+                "supersedes": None,
             }
         )
         transaction.set_evidence(state["evidence"])
@@ -356,13 +363,19 @@ def test_attach_and_remove_existing_evidence(framework_repo: Path) -> None:
     service = _service(framework_repo)
     service.create_issue(_request())
     attached = service.update_issue(
-        "ISS-0001", IssuePatch(add_evidence=("EVD-001", "EVD-001"))
+        "ISS-0001", IssuePatch(add_evidence=("EVD-0001", "EVD-0001"))
     )
-    removed = service.update_issue("ISS-0001", IssuePatch(remove_evidence=("EVD-001",)))
+    linked_evidence = StateRepository(framework_repo).load_evidence()["evidence"][0]
+    removed = service.update_issue(
+        "ISS-0001", IssuePatch(remove_evidence=("EVD-0001",))
+    )
 
-    assert attached.details["issue"]["evidence_references"] == ["EVD-001"]
+    assert attached.details["issue"]["evidence_references"] == ["EVD-0001"]
     assert attached.details["issue"]["evidence_type"] == "OBSERVED"
+    assert linked_evidence["related_issues"] == ["ISS-0001"]
     assert removed.details["issue"]["evidence_type"] == "UNKNOWN"
+    evidence = StateRepository(framework_repo).load_evidence()["evidence"][0]
+    assert evidence["related_issues"] == []
 
 
 def test_missing_evidence_fails_without_write(framework_repo: Path) -> None:

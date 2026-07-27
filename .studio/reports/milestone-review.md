@@ -9,7 +9,7 @@ Clarify the game idea
 
 | Criterion | Result | Evidence | Notes |
 |---|---|---|---|
-| A project profile and falsifiable prototype hypothesis exist. | unknown | None | Guided intake has not run for a game project. |
+| A project profile and falsifiable prototype hypothesis exist. | unsupported | None | Guided intake has not run for a game project. |
 
 ## Supporting Evidence
 

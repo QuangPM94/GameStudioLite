@@ -141,6 +141,26 @@ def build_status_summary(state: dict[str, Any]) -> StatusSummary:
         if issue["status"] in OPEN_ISSUE_STATUSES:
             counts[issue["severity"]] += 1
 
+    active_evidence = {
+        item["id"]: item
+        for item in state["evidence"]["evidence"]
+        if item["status"] == "active"
+    }
+    evidence_counts = {
+        classification: 0
+        for classification in ("observed", "user-reported", "inferred", "unknown")
+    }
+    for item in active_evidence.values():
+        evidence_counts[item["classification"]] += 1
+    unsupported_critical = sum(
+        issue["status"] in OPEN_ISSUE_STATUSES
+        and issue["severity"] == "critical"
+        and not any(
+            reference in active_evidence for reference in issue["evidence_references"]
+        )
+        for issue in state["issues"]["issues"]
+    )
+
     pending = [
         f"{decision['id']}: {decision['question']}"
         for decision in state["decisions"]["decisions"]
@@ -155,6 +175,8 @@ def build_status_summary(state: dict[str, Any]) -> StatusSummary:
         milestone=project["current_milestone"],
         build_status=project["current_build_status"],
         open_issues_by_severity=counts,
+        active_evidence_by_classification=evidence_counts,
+        critical_issues_without_evidence=unsupported_critical,
         pending_decisions=pending,
         critical_path_items=path_items,
         recommended_next_playbook=project["recommended_next_playbook"],

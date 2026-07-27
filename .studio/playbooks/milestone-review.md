@@ -26,12 +26,13 @@ Update criterion results, supporting evidence, blocking issues, verdict, recomme
 
 ## Execution procedure
 
-1. Evaluate every criterion independently and label its support.
-2. Identify blocking issues and material unknowns.
-3. Distinguish an accessible build from a verified experience.
-4. Choose `PROCEED`, `ITERATE`, `PIVOT`, `PAUSE`, or `STOP`.
-5. Recommend one next workflow and identify non-critical work.
-6. Update milestone state and regenerate reports.
+1. Inspect active evidence with `studio evidence list`/`show`; do not count superseded or retracted records as current support.
+2. Evaluate every criterion independently as `verified`, `partially-supported`, `unsupported`, or `contradicted`. An evidence record alone never makes a criterion verified.
+3. Identify blocking issues and material unknowns.
+4. Distinguish an accessible build from a verified experience.
+5. Choose `PROCEED`, `ITERATE`, `PIVOT`, `PAUSE`, or `STOP`.
+6. Recommend one next workflow and identify non-critical work.
+7. Update milestone state and regenerate reports.
 
 ## User decision points
 

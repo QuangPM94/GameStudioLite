@@ -7,6 +7,8 @@ Consumer: `/vertical-slice`. Generated from `.studio/state/milestone.json`, issu
 
 ## Success Criteria and Results
 
+Label each criterion `verified`, `partially-supported`, `unsupported`, or `contradicted`. Do not infer verification from the existence of an evidence record.
+
 ## Supporting Evidence
 
 ## Blocking Issues

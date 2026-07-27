@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .evidence import derive_issue_evidence_type
 from .models import MutationResult
 from .reporting import render_report_contents
 from .state import OPEN_ISSUE_STATUSES, SEVERITIES, StateObject, StateRepository
@@ -360,7 +361,7 @@ class IssueService:
             issue = _find_issue(state["issues"]["issues"], canonical_id)
             before = copy.deepcopy(issue)
             self._apply_values(issue, patch.values)
-            self._apply_references(state, issue, patch, warnings)
+            evidence_changed = self._apply_references(state, issue, patch, warnings)
             critical_path_changed = self._apply_critical_path(
                 state, issue, patch.critical_path
             )
@@ -378,6 +379,11 @@ class IssueService:
                 transaction.set_issues(state["issues"])
                 if critical_path_changed:
                     transaction.set_critical_path(state["critical_path"])
+                if evidence_changed:
+                    transaction.set_evidence(state["evidence"])
+            elif evidence_changed:
+                transaction.set_evidence(state["evidence"])
+                transaction.set_issues(state["issues"])
             return transaction.commit(
                 warnings=warnings,
                 changed_fields=changed_fields,
@@ -513,7 +519,7 @@ class IssueService:
         issue: StateObject,
         patch: IssuePatch,
         warnings: list[str],
-    ) -> None:
+    ) -> bool:
         issue_ids = {item["id"] for item in state["issues"]["issues"]}
         evidence_by_id = {item["id"]: item for item in state["evidence"]["evidence"]}
         operations = (
@@ -554,6 +560,7 @@ class IssueService:
                     )
             issue[field_name] = current
 
+        evidence_changed = False
         if patch.add_evidence or patch.remove_evidence:
             current_evidence = list(issue["evidence_references"])
             for reference in _deduplicate(patch.add_evidence):
@@ -563,15 +570,24 @@ class IssueService:
                     current_evidence.append(reference)
                 else:
                     warnings.append(f"{reference} is already attached")
+                related = evidence_by_id[reference]["related_issues"]
+                if issue["id"] not in related:
+                    related.append(issue["id"])
+                    evidence_changed = True
             for reference in _deduplicate(patch.remove_evidence):
                 if reference in current_evidence:
                     current_evidence.remove(reference)
                 else:
                     warnings.append(f"{reference} is not attached")
+                related = evidence_by_id.get(reference, {}).get("related_issues", [])
+                if issue["id"] in related:
+                    related.remove(issue["id"])
+                    evidence_changed = True
             issue["evidence_references"] = current_evidence
-            issue["evidence_type"] = self._evidence_type(
+            issue["evidence_type"] = derive_issue_evidence_type(
                 current_evidence, evidence_by_id
             )
+        return evidence_changed
 
     def _apply_critical_path(
         self,
@@ -695,23 +711,6 @@ class IssueService:
         if issue["severity"] == "critical":
             return "hypothesis-risk"
         return "player-impact"
-
-    @staticmethod
-    def _evidence_type(
-        references: list[str], evidence_by_id: Mapping[str, Mapping[str, Any]]
-    ) -> str:
-        if not references:
-            return "UNKNOWN"
-        priority = {
-            "OBSERVED": 0,
-            "USER_REPORTED": 1,
-            "INFERRED": 2,
-            "UNKNOWN": 3,
-        }
-        return min(
-            (evidence_by_id[reference]["type"] for reference in references),
-            key=priority.__getitem__,
-        )
 
     def _issue_map_workflow(self) -> str:
         catalog = self.repository.root / ".studio" / "workflow-catalog.json"

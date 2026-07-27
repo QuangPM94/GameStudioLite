@@ -28,11 +28,12 @@ Replace active path items with an ordered set of three-to-seven valid items unle
 
 1. Prioritize runnable-build blockers.
 2. Then prioritize critical hypothesis-invalidating issues, blocking user decisions, required dependencies, major high-player-impact issues, and milestone verification.
-3. Order by dependency and explain why delaying each delays the milestone.
-4. Keep only active milestone work; use fewer than three when fewer valid items exist.
-5. Exclude menu polish, saves, content, localization, analytics, asset replacement, broad refactors, optional accessibility, and production architecture unless directly required.
-6. Inspect records with `studio issue list --critical-path` and `studio issue show`. Use `studio issue update ID --on-critical-path` or `--off-critical-path` for explicit membership changes; B2 does not calculate or reorder the path automatically.
-7. Update reports and recommend the first actionable item.
+3. Use `studio evidence list --issue ISSUE-ID` and `studio evidence show` to distinguish active support from superseded, retracted, inferred, or unknown claims.
+4. Order by dependency and explain why delaying each delays the milestone.
+5. Keep only active milestone work; use fewer than three when fewer valid items exist.
+6. Exclude menu polish, saves, content, localization, analytics, asset replacement, broad refactors, optional accessibility, and production architecture unless directly required.
+7. Inspect records with `studio issue list --critical-path` and `studio issue show`. Use `studio issue update ID --on-critical-path` or `--off-critical-path` for explicit membership changes; B3 still does not calculate or reorder the path automatically.
+8. Update reports and recommend the first actionable item.
 
 ## User decision points
 

@@ -6,6 +6,10 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Phase B3 evidence service with classification/source separation, lifecycle history, controlled confidence defaults, bidirectional issue links, and acyclic supersession.
+- `studio evidence add`, `studio evidence list`, `studio evidence show`, and `studio evidence update` with dry-run and stable JSON output.
+- Evidence-quality summaries in status, Direction, issue, and milestone reports.
+- Evidence-management documentation and behavioral coverage for integrity, reporting, rollback, and concurrency.
 - Phase B2 issue service with normalized creation, queries, lifecycle transitions, stable historical ID allocation, and reference checks.
 - `studio issue add`, `studio issue list`, `studio issue show`, and `studio issue update` with human-readable and JSON output.
 - Transactional issue/critical-path membership updates, write-free dry runs, and an issue-management guide.
@@ -19,10 +23,13 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Changed
 
+- Evidence state advances to schema `2.0`; the migration from Phase A records is documented.
+- Issue evidence attachment now updates both canonical relationship directions transactionally.
+- Reports exclude superseded/retracted evidence from current support and apply simulated-review language when direct play evidence is absent.
 - Issue validation now covers lifecycle requirements, self-references, duplicate path membership, and timestamp ordering.
 - Open-issue and Direction reports now prioritize blockers, critical/major issues, user decisions, active path issues, and recent resolutions.
 - Validation now detects stale generated reports, catalog phase mismatches, closed issues on the active path, and additional broken references.
-- Phase B roadmap now marks B1 and B2 complete without marking all of Phase B complete.
+- Phase B roadmap now marks B1 through B3 complete without marking all of Phase B complete.
 
 ## [0.1.0] - 2026-07-27
 

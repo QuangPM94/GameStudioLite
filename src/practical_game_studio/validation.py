@@ -142,6 +142,7 @@ REQUIRED_FILES = (
     "src/practical_game_studio/transaction.py",
     "src/practical_game_studio/initialization.py",
     "src/practical_game_studio/issues.py",
+    "src/practical_game_studio/evidence.py",
     "tests/test_validation.py",
     "tests/test_reporting.py",
     "tests/test_catalog.py",
@@ -150,10 +151,13 @@ REQUIRED_FILES = (
     "tests/test_cli.py",
     "tests/test_issues.py",
     "tests/test_issue_cli.py",
+    "tests/test_evidence.py",
+    "tests/test_evidence_cli.py",
     "tests/conftest.py",
     "tests/__init__.py",
     "tests/fixtures/README.md",
     "docs/issue-management.md",
+    "docs/evidence-management.md",
     "examples/delivery-horror/README.md",
     "examples/delivery-horror/sample-game-brief.md",
     "examples/delivery-horror/sample-evaluation.md",
@@ -308,6 +312,7 @@ def _validate_relationships(
     evidence_ids = {item["id"] for item in evidence}
     cp_ids = {item["id"] for item in cp_items}
     issue_by_id = {item["id"]: item for item in issues}
+    evidence_by_id = {item["id"]: item for item in evidence}
 
     for label, records in (
         ("issue", issues),
@@ -341,6 +346,32 @@ def _validate_relationships(
         for reference in issue["evidence_references"]:
             if reference not in evidence_ids:
                 result.add(f"{issue['id']}: broken evidence reference {reference}")
+            elif issue["id"] not in evidence_by_id[reference]["related_issues"]:
+                result.add(f"{issue['id']}: evidence link {reference} is one-sided")
+        active_classifications = [
+            evidence_by_id[reference]["classification"]
+            for reference in issue["evidence_references"]
+            if reference in evidence_by_id
+            and evidence_by_id[reference]["status"] == "active"
+        ]
+        priority = {
+            "observed": 0,
+            "user-reported": 1,
+            "inferred": 2,
+            "unknown": 3,
+        }
+        expected_type = (
+            min(active_classifications, key=priority.__getitem__)
+            .replace("-", "_")
+            .upper()
+            if active_classifications
+            else "UNKNOWN"
+        )
+        if issue["evidence_type"] != expected_type:
+            result.add(
+                f"{issue['id']}: evidence_type {issue['evidence_type']} does not "
+                f"match active linked evidence ({expected_type})"
+            )
         if (
             issue["status"] in {"resolved", "accepted", "wont-fix"}
             and not issue["resolution"]
@@ -365,9 +396,84 @@ def _validate_relationships(
             and decision["final_decision"] not in option_ids
         ):
             result.add(f"{decision['id']}: final decision does not exist")
+    source_optional = {
+        "runtime",
+        "human-playtest",
+        "user-note",
+        "source-review",
+        "spec-review",
+    }
     for item in evidence:
-        if item["related_issue"] is not None and item["related_issue"] not in issue_ids:
-            result.add(f"{item['id']}: broken related issue {item['related_issue']}")
+        for duplicate in sorted(_duplicates(item["related_issues"])):
+            result.add(f"{item['id']}: duplicate related issue {duplicate}")
+        for issue_id in item["related_issues"]:
+            if issue_id not in issue_ids:
+                result.add(f"{item['id']}: broken related issue {issue_id}")
+            elif item["id"] not in issue_by_id[issue_id]["evidence_references"]:
+                result.add(f"{item['id']}: issue link {issue_id} is one-sided")
+        for duplicate in sorted(_duplicates(item["limitations"])):
+            result.add(f"{item['id']}: duplicate limitation {duplicate}")
+        if item["source"] is None and item["source_type"] not in source_optional:
+            result.add(
+                f"{item['id']}: source is required for source type "
+                f"{item['source_type']}"
+            )
+        if (
+            item["source"] is None
+            and item["source_type"] in source_optional
+            and not item["description"]
+        ):
+            result.add(f"{item['id']}: description is required when source is omitted")
+        try:
+            created = datetime.fromisoformat(item["created_at"])
+            updated = datetime.fromisoformat(item["updated_at"])
+            datetime.fromisoformat(item["captured_at"])
+        except ValueError:
+            # JSON Schema's date-time format error is already more precise.
+            continue
+        if updated < created:
+            result.add(f"{item['id']}: updated_at cannot be earlier than created_at")
+        target_id = item["supersedes"]
+        if target_id is not None:
+            if target_id not in evidence_ids:
+                result.add(f"{item['id']}: missing superseded evidence {target_id}")
+            if target_id == item["id"]:
+                result.add(f"{item['id']}: evidence cannot supersede itself")
+            target = evidence_by_id.get(target_id)
+            if (
+                item["status"] == "active"
+                and target is not None
+                and target["status"] != "superseded"
+            ):
+                result.add(
+                    f"{item['id']}: active superseding evidence requires "
+                    f"{target_id} to have status superseded"
+                )
+
+    supersession = {
+        item["id"]: item["supersedes"]
+        for item in evidence
+        if item["supersedes"] is not None
+    }
+    superseded_targets = set(supersession.values())
+    for duplicate in sorted(_duplicates(supersession.values())):
+        result.add(f"Evidence: {duplicate} has more than one superseding record")
+    for item in evidence:
+        if item["status"] == "superseded" and item["id"] not in superseded_targets:
+            result.add(f"{item['id']}: status superseded has no replacement evidence")
+        if item["status"] == "active" and item["id"] in superseded_targets:
+            result.add(
+                f"{item['id']}: active evidence cannot have a superseding record"
+            )
+    for start in supersession:
+        seen: set[str] = set()
+        current: str | None = start
+        while current is not None:
+            if current in seen:
+                result.add(f"Evidence: circular supersession chain at {current}")
+                break
+            seen.add(current)
+            current = supersession.get(current)
     for item in cp_items:
         if (
             item["source_issue_id"] is not None
@@ -410,6 +516,10 @@ def _validate_relationships(
     for reference in milestone["supporting_evidence"]:
         if reference not in evidence_ids:
             result.add(f"Milestone: broken evidence reference {reference}")
+        elif evidence_by_id[reference]["status"] != "active":
+            result.add(
+                f"Milestone: inactive evidence {reference} cannot be current support"
+            )
     for reference in milestone["blocking_issues"]:
         if reference not in issue_ids:
             result.add(f"Milestone: broken issue reference {reference}")
@@ -418,6 +528,11 @@ def _validate_relationships(
             if reference not in evidence_ids:
                 result.add(
                     f"Milestone criterion: broken evidence reference {reference}"
+                )
+            elif evidence_by_id[reference]["status"] != "active":
+                result.add(
+                    f"Milestone criterion: inactive evidence {reference} cannot "
+                    "be current support"
                 )
 
     project = state["project"]

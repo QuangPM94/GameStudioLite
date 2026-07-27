@@ -6,7 +6,7 @@ Consumer: `/issue-map` and `/milestone-review`. Validation purpose: classify exp
 
 Select all available: source/specification, screenshots, recorded video, runtime, test logs, telemetry, human playtest notes.
 
-When runtime or human evidence is unavailable, include:
+When active observed runtime or observed human-playtest evidence is unavailable, include:
 
 > This is a simulated player-experience review based on available artifacts.
 > It is not a substitute for an observed human playtest.

@@ -39,6 +39,8 @@ All current and future CLI state mutations must use `StateTransaction`; do not i
 
 Use `studio issue add`, `studio issue update`, `studio issue list`, and `studio issue show` for issue work. Prefer these commands over direct edits to `.studio/state/issues.json`; direct state editing is reserved for framework maintenance or recovery. Preview writes with `--dry-run`. Issue reports are derived and must never be parsed as state.
 
+Use `studio evidence add`, `studio evidence update`, `studio evidence list`, and `studio evidence show` for evidence work. Prefer these commands over direct edits to `.studio/state/evidence.json`; direct evidence-state editing is reserved for framework maintenance or recovery. Evidence and issue links must be bidirectional, and only active evidence counts as current support.
+
 ## Workflow selection
 
 Interpret aliases as workflow requests routed through this file; they are not guaranteed native slash commands. Match an explicit alias first, then infer the nearest workflow from the user's intent. Load the playbook named below before acting.

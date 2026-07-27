@@ -30,10 +30,11 @@ Set phase to `iterate`; update issue status/resolution, evidence, assumptions, b
 2. Confirm the smallest change and expected observable result.
 3. Implement within scope and record shortcuts/assumptions.
 4. Run focused tests and the most direct available experience verification.
-5. Use `studio issue update` for status, resolution, owner, relationships, and existing evidence references. Include `--off-critical-path` when closing an active path issue.
-6. Recalculate the path only through the approved workflow; B2 issue commands do not calculate it.
-7. Regenerate reports through the transactional update.
-8. Recommend further iteration or milestone review.
+5. Record the result with `studio evidence add`, or use `studio evidence update` when retracting or superseding an earlier claim. State limitations explicitly.
+6. Use `studio issue update` for status, resolution, owner, relationships, and existing evidence references. Include `--off-critical-path` when closing an active path issue.
+7. Recalculate the path only through the approved workflow; mutation commands do not calculate it.
+8. Regenerate reports through the transactional update.
+9. Recommend further iteration or milestone review.
 
 ## User decision points
 

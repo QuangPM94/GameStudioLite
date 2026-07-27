@@ -27,7 +27,7 @@ Normally none beyond correcting stale direction. Regenerate reports when state c
 ## Execution procedure
 
 1. Confirm goal, evidence, blockers, and pending decisions.
-2. Use `studio issue list` and `studio issue show` to inspect the actionable issue set instead of reading generated Markdown as state.
+2. Use `studio issue list`/`show` and `studio evidence list`/`show` instead of reading generated Markdown as state. Treat only active evidence as current support.
 3. Select the first unblocked critical-path item; if none, choose the missing decision or verification that unlocks one.
 4. Recommend one workflow and define its expected outcome.
 5. Name important work that should not start.

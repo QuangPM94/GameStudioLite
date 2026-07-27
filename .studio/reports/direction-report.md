@@ -22,6 +22,31 @@
 
 - No evidence recorded.
 
+## Evidence Summary
+
+### Observed Findings
+
+- No active observed evidence.
+
+### User-Reported Findings
+
+- No active user-reported evidence.
+
+### Inferred Risks
+
+- No active inferred evidence.
+
+### Important Unknowns
+
+- No active unknown evidence.
+
+### Issues Lacking Evidence
+
+- No active issue lacks evidence.
+
+This is a simulated player-experience review based on available artifacts.
+It is not a substitute for an observed human playtest.
+
 ## Open Decisions
 
 - No pending decisions recorded.

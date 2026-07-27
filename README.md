@@ -21,6 +21,11 @@ studio init --name "My Game"
 studio issue add --title "Prototype does not launch" --severity blocker \
   --milestone-impact "The prototype cannot be evaluated." --yes
 studio issue list
+studio evidence add --title "Prototype launches" \
+  --claim "The launch command completed successfully." \
+  --classification observed --source-type test-output \
+  --source "pytest output" --yes
+studio evidence list
 studio validate
 studio status
 studio report
@@ -49,6 +54,7 @@ Run commands from the PGS root or a child directory. Use `--root PATH` to select
 - `.studio/reports/*.md` is generated human-readable state.
 - `studio init` uses the B1 transaction layer to initialize project identity.
 - `studio issue add|list|show|update` provides transactional B2 issue management.
+- `studio evidence add|list|show|update` provides transactional B3 evidence management.
 - `studio validate`, `studio status`, and `studio report` inspect and render state.
 
 ## Initialization behavior
@@ -97,6 +103,18 @@ studio issue update ISS-0001 --status resolved \
 
 Issues are historical records and cannot be deleted. See `docs/issue-management.md` for lifecycle transitions, filters, critical-path behavior, evidence references, and exit codes.
 
+## Evidence management
+
+Evidence separates classification (`observed`, `user-reported`, `inferred`, or `unknown`) from source type. Records may link to multiple issues, remain auditable after retraction or supersession, and update both relationship directions transactionally.
+
+```bash
+studio evidence list --classification observed
+studio evidence show EVD-0001
+studio evidence update EVD-0001 --status retracted
+```
+
+Only active evidence counts as current support. See `docs/evidence-management.md` for confidence defaults, source requirements, lifecycle rules, supersession, migration, dry runs, and JSON output.
+
 ## Evidence
 
 Every finding uses one of four labels:
@@ -130,7 +148,8 @@ Codex instructions, roles, playbooks, catalog, schemas, initial state, templates
 
 - **B1 complete:** validated transactions, atomic per-file replacement, rollback attempts, concurrent-modification detection, dry runs, and `studio init`.
 - **B2 complete:** transactional `studio issue add`, `issue list`, `issue show`, and `issue update`, including dry runs and JSON output.
-- **Later Phase B work:** decision and evidence mutation plus guided next-action state changes.
+- **B3 complete:** transactional evidence creation, queries, updates, issue linking, retraction, and supersession.
+- **Later Phase B work:** decision mutation and guided next-action state changes.
 
 ### Phase C — Critical-path engine
 
@@ -152,7 +171,7 @@ Add optional Unity, Godot, and Unreal adapters without coupling the core to one 
 
 Use the framework against a small delivery-horror prototype and revise from observed usage.
 
-PGS still excludes decision/evidence creation commands, automatic critical-path calculation, workflow automation, engine/editor control, telemetry/video ingestion, multi-agent spawning, remote APIs, deployment, and full vertical-slice generation.
+PGS still excludes decision mutation, automatic critical-path calculation, workflow automation, engine/editor control, telemetry/video ingestion, multi-agent spawning, remote APIs, deployment, and full vertical-slice generation.
 
 ## License and attribution
 

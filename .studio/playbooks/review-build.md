@@ -31,8 +31,9 @@ Update build status, last verified date, technical issues, evidence, and readine
 3. Compare implemented interactions/states with approved scope and criteria.
 4. Classify stability, defects, and verification gaps by evidence label.
 5. Decide whether player review is supported and state limitations.
-6. Use `studio issue add` for a new build finding or `studio issue update` for an existing one. Use `studio issue show` before changing uncertain relationships.
-7. Update other state and reports; issue writes regenerate all reports transactionally.
+6. Record reproducible commands, test output, build logs, runtime observations, and limitations with `studio evidence add`; use `studio evidence list`/`show` before updating or superseding an existing record.
+7. Use `studio issue add` for a new build finding or `studio issue update` for an existing one, linking the canonical evidence ID rather than a file path.
+8. Transactional issue/evidence writes regenerate all reports.
 
 ## User decision points
 

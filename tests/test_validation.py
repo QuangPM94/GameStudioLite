@@ -83,6 +83,32 @@ def _valid_issue(*, status: str = "open") -> dict[str, object]:
     }
 
 
+def _valid_evidence(
+    *,
+    evidence_id: str = "EVD-0001",
+    status: str = "active",
+    supersedes: str | None = None,
+) -> dict[str, object]:
+    return {
+        "id": evidence_id,
+        "title": "Observed result",
+        "claim": "The prototype launched.",
+        "classification": "observed",
+        "source_type": "test-output",
+        "source": "pytest output",
+        "description": "Launch command completed.",
+        "related_hypothesis": None,
+        "related_issues": [],
+        "confidence": "medium",
+        "limitations": [],
+        "captured_at": "2026-07-27T00:00:00Z",
+        "created_at": "2026-07-27T00:00:00Z",
+        "updated_at": "2026-07-27T00:00:00Z",
+        "status": status,
+        "supersedes": supersedes,
+    }
+
+
 def test_resolved_issue_cannot_remain_on_active_path(framework_repo: Path) -> None:
     state = StateRepository(framework_repo).load_all()
     state["issues"]["issues"] = [_valid_issue(status="resolved")]
@@ -248,3 +274,89 @@ def test_issue_cannot_appear_twice_on_critical_path(framework_repo: Path) -> Non
     assert any(
         "appears in more than one active item" in error for error in result.errors
     )
+
+
+def test_evidence_issue_links_must_be_bidirectional(framework_repo: Path) -> None:
+    state = StateRepository(framework_repo).load_all()
+    issue = _valid_issue()
+    issue["on_critical_path"] = False
+    evidence = _valid_evidence()
+    evidence["related_issues"] = ["ISS-001"]
+    state["issues"]["issues"] = [issue]
+    state["evidence"]["evidence"] = [evidence]
+
+    result = validate_state(framework_repo, state)
+
+    assert any("issue link ISS-001 is one-sided" in error for error in result.errors)
+
+
+def test_issue_evidence_type_matches_active_links(framework_repo: Path) -> None:
+    state = StateRepository(framework_repo).load_all()
+    issue = _valid_issue()
+    issue["on_critical_path"] = False
+    issue["evidence_references"] = ["EVD-0001"]
+    issue["evidence_type"] = "OBSERVED"
+    evidence = _valid_evidence(status="retracted")
+    evidence["related_issues"] = ["ISS-001"]
+    state["issues"]["issues"] = [issue]
+    state["evidence"]["evidence"] = [evidence]
+
+    result = validate_state(framework_repo, state)
+
+    assert any(
+        "does not match active linked evidence" in error for error in result.errors
+    )
+
+
+def test_evidence_source_rule_and_timestamp_order_are_validated(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    evidence = _valid_evidence()
+    evidence["source"] = None
+    evidence["updated_at"] = "2026-07-26T00:00:00Z"
+    state["evidence"]["evidence"] = [evidence]
+
+    result = validate_state(framework_repo, state)
+
+    assert any("source is required" in error for error in result.errors)
+    assert any("updated_at cannot be earlier" in error for error in result.errors)
+
+
+def test_evidence_self_and_circular_supersession_are_invalid(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    first = _valid_evidence(
+        evidence_id="EVD-0001",
+        status="superseded",
+        supersedes="EVD-0002",
+    )
+    second = _valid_evidence(
+        evidence_id="EVD-0002",
+        status="superseded",
+        supersedes="EVD-0001",
+    )
+    state["evidence"]["evidence"] = [first, second]
+
+    result = validate_state(framework_repo, state)
+
+    assert any("circular supersession" in error for error in result.errors)
+
+    first["supersedes"] = "EVD-0001"
+    result = validate_state(framework_repo, state)
+    assert any("cannot supersede itself" in error for error in result.errors)
+
+
+def test_inactive_evidence_cannot_be_current_milestone_support(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    old = _valid_evidence(evidence_id="EVD-0001", status="superseded")
+    replacement = _valid_evidence(evidence_id="EVD-0002", supersedes="EVD-0001")
+    state["evidence"]["evidence"] = [old, replacement]
+    state["milestone"]["supporting_evidence"] = ["EVD-0001"]
+
+    result = validate_state(framework_repo, state)
+
+    assert any("inactive evidence EVD-0001" in error for error in result.errors)

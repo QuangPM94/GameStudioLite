@@ -8,6 +8,10 @@ from typing import Any
 from .state import OPEN_ISSUE_STATUSES, SEVERITIES, build_status_summary, load_state
 
 WARNING = "<!-- Generated file. Do not edit manually. -->"
+SIMULATED_REVIEW_DISCLAIMER = (
+    "This is a simulated player-experience review based on available artifacts.\n"
+    "It is not a substitute for an observed human playtest."
+)
 
 
 def _bullets(values: list[str], empty: str = "None recorded.") -> str:
@@ -43,16 +47,58 @@ def _issue_bullets(issues: list[dict[str, Any]], empty: str) -> str:
     )
 
 
+def _active_evidence(state: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        item for item in state["evidence"]["evidence"] if item["status"] == "active"
+    ]
+
+
+def _has_observed_play_evidence(evidence: list[dict[str, Any]]) -> bool:
+    return any(
+        item["classification"] == "observed"
+        and item["source_type"] in {"runtime", "human-playtest"}
+        for item in evidence
+    )
+
+
+def _evidence_for_issue(
+    issue: dict[str, Any], evidence_by_id: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
+    return [
+        evidence_by_id[reference]
+        for reference in issue["evidence_references"]
+        if reference in evidence_by_id
+        and evidence_by_id[reference]["status"] == "active"
+    ]
+
+
+def _evidence_count_text(items: list[dict[str, Any]]) -> str:
+    if not items:
+        return "None recorded"
+    counts = {
+        classification: sum(item["classification"] == classification for item in items)
+        for classification in (
+            "observed",
+            "user-reported",
+            "inferred",
+            "unknown",
+        )
+    }
+    return "; ".join(
+        f"{counts[classification]} {classification}" for classification in counts
+    )
+
+
 def render_current_state(state: dict[str, Any]) -> str:
     project = state["project"]
-    evidence = state["evidence"]["evidence"]
+    evidence = _active_evidence(state)
     blockers = [
         f"{issue['id']}: {issue['title']}"
         for issue in _open_issues(state)
         if issue["severity"] in {"blocker", "critical"} or issue["status"] == "blocked"
     ]
     evidence_lines = [
-        f"{item['id']} [{item['type']}] {item['description']}" for item in evidence
+        f"{item['id']} [{item['classification']}] {item['claim']}" for item in evidence
     ]
     return f"""{WARNING}
 # Current State
@@ -90,7 +136,7 @@ Run `{project["recommended_next_playbook"]}`.
 def render_direction_report(state: dict[str, Any]) -> str:
     project = state["project"]
     milestone = state["milestone"]
-    evidence = state["evidence"]["evidence"]
+    evidence = _active_evidence(state)
     decisions = [
         decision
         for decision in state["decisions"]["decisions"]
@@ -103,11 +149,39 @@ def render_direction_report(state: dict[str, Any]) -> str:
         for issue in active_issues
         if issue["severity"] == "blocker" or issue["status"] == "blocked"
     ]
-    learned = [f"[{item['type']}] {item['description']}" for item in evidence]
+    learned = [f"[{item['classification']}] {item['claim']}" for item in evidence]
     evidence_lines = [
-        f"{item['id']} — {item['source']} ({item['confidence']} confidence)"
+        f"{item['id']} — {item['source'] or item['source_type']} "
+        f"({item['confidence']} confidence)"
         for item in evidence
     ]
+    evidence_groups = {
+        classification: [
+            f"{item['id']}: {item['claim']}"
+            for item in evidence
+            if item["classification"] == classification
+        ]
+        for classification in (
+            "observed",
+            "user-reported",
+            "inferred",
+            "unknown",
+        )
+    }
+    active_evidence_ids = {item["id"] for item in evidence}
+    unsupported_issues = [
+        f"{item['id']}: {item['title']}"
+        for item in active_issues
+        if not any(
+            reference in active_evidence_ids
+            for reference in item["evidence_references"]
+        )
+    ]
+    disclaimer = (
+        ""
+        if _has_observed_play_evidence(evidence)
+        else f"\n\n{SIMULATED_REVIEW_DISCLAIMER}"
+    )
     decision_lines = [
         f"{item['id']}: {item['question']} — recommendation: {item['recommended_option']}"
         for item in decisions
@@ -153,6 +227,28 @@ def render_direction_report(state: dict[str, Any]) -> str:
 
 {_bullets(evidence_lines, "No evidence recorded.")}
 
+## Evidence Summary
+
+### Observed Findings
+
+{_bullets(evidence_groups["observed"], "No active observed evidence.")}
+
+### User-Reported Findings
+
+{_bullets(evidence_groups["user-reported"], "No active user-reported evidence.")}
+
+### Inferred Risks
+
+{_bullets(evidence_groups["inferred"], "No active inferred evidence.")}
+
+### Important Unknowns
+
+{_bullets(evidence_groups["unknown"], "No active unknown evidence.")}
+
+### Issues Lacking Evidence
+
+{_bullets(unsupported_issues, "No active issue lacks evidence.")}{disclaimer}
+
 ## Open Decisions
 
 {_bullets(decision_lines, "No pending decisions recorded.")}
@@ -177,6 +273,7 @@ def render_direction_report(state: dict[str, Any]) -> str:
 
 def render_open_issues(state: dict[str, Any]) -> str:
     issues = _open_issues(state)
+    evidence_by_id = {item["id"]: item for item in state["evidence"]["evidence"]}
     blockers = [
         item
         for item in issues
@@ -197,11 +294,7 @@ def render_open_issues(state: dict[str, Any]) -> str:
     )[:5]
     rows = []
     for item in issues:
-        evidence = (
-            f"{item['evidence_type']}: {', '.join(item['evidence_references'])}"
-            if item["evidence_references"]
-            else "UNKNOWN"
-        )
+        evidence = _evidence_count_text(_evidence_for_issue(item, evidence_by_id))
         rows.append(
             f"| {item['id']} | {item['severity']} | {item['status']} | "
             f"{item['title']} | {evidence} | {item['recommended_action']} |"
@@ -293,8 +386,15 @@ def render_critical_path(state: dict[str, Any]) -> str:
 
 def render_milestone_review(state: dict[str, Any]) -> str:
     milestone = state["milestone"]
+    support_labels = {
+        "pass": "verified",
+        "partial": "partially-supported",
+        "fail": "contradicted",
+        "unknown": "unsupported",
+    }
     rows = [
-        f"| {item['criterion']} | {item['result']} | {', '.join(item['evidence_references']) or 'None'} | {item['notes']} |"
+        f"| {item['criterion']} | {support_labels[item['result']]} | "
+        f"{', '.join(item['evidence_references']) or 'None'} | {item['notes']} |"
         for item in milestone["criteria_results"]
     ]
     return f"""{WARNING}
@@ -374,11 +474,19 @@ def format_status(state: dict[str, Any]) -> str:
     )
     decisions = _bullets(summary.pending_decisions, "No pending user decisions.")
     path = _bullets(summary.critical_path_items, "No critical-path items.")
+    evidence = "\n".join(
+        f"- {classification.replace('-', ' ').title()}: {count}"
+        for classification, count in summary.active_evidence_by_classification.items()
+    )
     return (
         f"Current phase: {summary.phase}\n"
         f"Current milestone: {summary.milestone}\n"
         f"Build status: {summary.build_status}\n"
         f"Open issues: {issue_counts}\n"
+        "Evidence:\n"
+        f"{evidence}\n"
+        "Critical issues without evidence: "
+        f"{summary.critical_issues_without_evidence}\n"
         "Pending user decisions:\n"
         f"{decisions}\n"
         "Critical-path items:\n"

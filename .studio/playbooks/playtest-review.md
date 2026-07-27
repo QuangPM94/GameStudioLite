@@ -26,13 +26,14 @@ Set phase to `evaluate`; append evidence and issue candidates without overwritin
 
 ## Execution procedure
 
-1. Inventory evidence and limitations.
+1. Inventory evidence with `studio evidence list` and inspect relevant records with `studio evidence show`.
 2. Select relevant profiles from first-time, genre fan, casual, explorer, optimization-focused, and skeptical.
 3. For each, evaluate clarity, engagement, intended emotion/tension, pacing, feedback, friction, payoff, desire to continue, and stability.
-4. Label every finding and include the simulated-review disclaimer when runtime/human evidence is unavailable.
+4. Record separately what was directly observed, what the tester reported, what was inferred, and what remains unknown. Use `studio evidence add`/`update` and record tester count, build version, incomplete recording, and other limitations.
 5. Name the strongest, weakest, confusing, and likely abandonment moments; main risk; most important improvement; and real-playtest questions.
-6. Inspect existing findings with `studio issue list`/`show`; record accepted findings with `studio issue add` and refine them with `studio issue update`. Do not attach an evidence ID until that canonical evidence record exists.
-7. Transactional issue writes regenerate reports.
+6. Include the simulated-review disclaimer when active observed runtime or observed human-playtest evidence is unavailable.
+7. Inspect existing findings with `studio issue list`/`show`; record accepted findings with `studio issue add` and refine them with `studio issue update`. Link only existing evidence IDs.
+8. Transactional issue/evidence writes regenerate reports.
 
 ## User decision points
 

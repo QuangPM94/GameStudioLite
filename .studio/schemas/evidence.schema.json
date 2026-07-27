@@ -6,23 +6,30 @@
   "additionalProperties": false,
   "required": ["schema_version", "evidence"],
   "properties": {
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "2.0"},
     "evidence": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "type", "source", "description", "related_hypothesis", "related_issue", "confidence", "date", "limitations"],
+        "required": ["id", "title", "claim", "classification", "source_type", "source", "description", "related_hypothesis", "related_issues", "confidence", "limitations", "captured_at", "created_at", "updated_at", "status", "supersedes"],
         "properties": {
           "id": {"type": "string", "pattern": "^EVD-[0-9]{3,}$"},
-          "type": {"enum": ["OBSERVED", "USER_REPORTED", "INFERRED", "UNKNOWN"]},
-          "source": {"type": "string", "minLength": 1},
-          "description": {"type": "string", "minLength": 1},
-          "related_hypothesis": {"type": ["string", "null"]},
-          "related_issue": {"type": ["string", "null"], "pattern": "^ISS-[0-9]{3,}$"},
+          "title": {"type": "string", "minLength": 1},
+          "claim": {"type": "string", "minLength": 1},
+          "classification": {"enum": ["observed", "user-reported", "inferred", "unknown"]},
+          "source_type": {"enum": ["runtime", "human-playtest", "screenshot", "video", "telemetry", "test-output", "build-log", "source-review", "spec-review", "user-note", "external-report", "other"]},
+          "source": {"type": ["string", "null"], "minLength": 1},
+          "description": {"type": ["string", "null"], "minLength": 1},
+          "related_hypothesis": {"type": ["string", "null"], "minLength": 1},
+          "related_issues": {"type": "array", "items": {"type": "string", "pattern": "^ISS-[0-9]{3,}$"}, "uniqueItems": true},
           "confidence": {"enum": ["low", "medium", "high"]},
-          "date": {"type": "string", "format": "date"},
-          "limitations": {"type": "array", "items": {"type": "string"}}
+          "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "captured_at": {"type": "string", "format": "date-time"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"},
+          "status": {"enum": ["active", "superseded", "retracted"]},
+          "supersedes": {"type": ["string", "null"], "pattern": "^EVD-[0-9]{3,}$"}
         }
       }
     }

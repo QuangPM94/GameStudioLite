@@ -69,7 +69,7 @@ The schema has no completed-path history, so B2 uses explicit removal rather tha
 
 ## Evidence references
 
-`--add-evidence EVD-ID` attaches an existing evidence record; it never creates one. Missing evidence fails the transaction. Duplicate additions and removal of an absent reference are successful no-ops with warnings. The issue evidence classification reflects the strongest attached canonical evidence type and becomes `UNKNOWN` when none remain.
+`--add-evidence EVD-ID` attaches an existing evidence record bidirectionally; it never creates one. Missing evidence fails the transaction. Duplicate additions and removal of an absent reference are successful no-ops with warnings. The issue evidence classification reflects the strongest active linked canonical evidence type and becomes `UNKNOWN` when none remain active.
 
 Evidence creation is outside B2 scope.
 

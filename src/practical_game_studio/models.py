@@ -28,6 +28,8 @@ class StatusSummary:
     milestone: str
     build_status: str
     open_issues_by_severity: dict[str, int]
+    active_evidence_by_classification: dict[str, int]
+    critical_issues_without_evidence: int
     pending_decisions: list[str]
     critical_path_items: list[str]
     recommended_next_playbook: str
