@@ -33,6 +33,7 @@ Update criterion results, supporting evidence, blocking issues, verdict, recomme
 5. Choose `PROCEED`, `ITERATE`, `PIVOT`, `PAUSE`, or `STOP`.
 6. Create or update a meaningful unresolved fork with `studio decision add`/`update`, present the recommendation, and use `studio decision resolve` only after the owner chooses.
 7. Recommend one next workflow, identify non-critical work, update milestone state, and regenerate reports.
+8. Run `studio path check`; recalculate after criterion, verdict, blocker, decision, or evidence changes, then use `studio path show` to state whether active blockers/decisions/verification remain and name the exact next item.
 
 ## User decision points
 

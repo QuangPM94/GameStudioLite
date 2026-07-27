@@ -509,9 +509,17 @@ class DecisionService:
                     "new": "superseded",
                 }
                 superseded_record["updated_at"] = timestamp
+            path_changed = self._synchronize_path_decision(state, record, timestamp)
+            if superseded_record is not None:
+                path_changed = (
+                    self._synchronize_path_decision(state, superseded_record, timestamp)
+                    or path_changed
+                )
             changed = bool(changed_fields)
             if changed:
                 transaction.set_decisions(state["decisions"])
+            if path_changed:
+                transaction.set_critical_path(state["critical_path"])
             warnings.extend(self._evidence_warnings(state, record))
             return transaction.commit(
                 warnings=warnings,
@@ -604,6 +612,8 @@ class DecisionService:
             self._validate_decision(state, record)
             changed_fields = self._changes(before, record, include_updated=True)
             transaction.set_decisions(state["decisions"])
+            if self._synchronize_path_decision(state, record, timestamp):
+                transaction.set_critical_path(state["critical_path"])
             return transaction.commit(
                 warnings=self._evidence_warnings(state, record),
                 changed_fields=changed_fields,
@@ -612,6 +622,92 @@ class DecisionService:
                     "recommended_next_workflow": "/iterate",
                 },
             )
+
+    def _synchronize_path_decision(
+        self, state: dict[str, StateObject], record: StateObject, timestamp: str
+    ) -> bool:
+        critical_path = state["critical_path"]
+        matching = [
+            item
+            for item in critical_path["items"]
+            if item["source_id"] == record["id"]
+            and item["type"] in {"decision", "verification"}
+        ]
+        if record["status"] in {"resolved", "rejected", "superseded"}:
+            if not matching:
+                return False
+            matching_ids = {item["id"] for item in matching}
+            critical_path["items"] = [
+                item
+                for item in critical_path["items"]
+                if item["id"] not in matching_ids
+            ]
+            for downstream in critical_path["items"]:
+                dependencies = [
+                    dependency
+                    for dependency in downstream["dependencies"]
+                    if dependency not in matching_ids
+                ]
+                if dependencies != downstream["dependencies"]:
+                    downstream["dependencies"] = dependencies
+                    if (
+                        not dependencies
+                        and downstream["status"] == "blocked"
+                        and downstream["source_status"] != "blocked"
+                    ):
+                        downstream["status"] = "ready"
+            for item in matching:
+                item["status"] = (
+                    "completed" if record["status"] == "resolved" else "removed"
+                )
+                item["source_status"] = record["status"]
+                item["updated_at"] = timestamp
+                critical_path["history"] = [
+                    history
+                    for history in critical_path["history"]
+                    if history["source_key"] != item["source_key"]
+                ]
+                critical_path["history"].append(item)
+                if item["source_key"] in critical_path["pinned_sources"]:
+                    critical_path["pinned_sources"].remove(item["source_key"])
+            if critical_path["recommended_next_id"] in matching_ids:
+                critical_path["recommended_next_id"] = None
+            critical_path["freshness"] = {
+                "status": "stale",
+                "reasons": [
+                    f"{record['id']} is now {record['status']}; recalculate the path."
+                ],
+            }
+            return True
+        if not matching:
+            return False
+        evidence_by_id = {item["id"]: item for item in state["evidence"]["evidence"]}
+        support = recommendation_support(record, evidence_by_id)["level"]
+        changed = False
+        for item in matching:
+            if item["type"] != "decision":
+                continue
+            expected = {
+                "title": record["question"],
+                "description": record["context"],
+                "reason": record["recommendation_reason"],
+                "source_status": record["status"],
+                "evidence_state": support,
+                "owner": record["decision_owner"],
+                "evidence_required": list(record["supporting_evidence"]),
+            }
+            if any(item[field_name] != value for field_name, value in expected.items()):
+                item.update(expected)
+                item["updated_at"] = timestamp
+                changed = True
+        if changed:
+            critical_path["freshness"] = {
+                "status": "stale",
+                "reasons": [
+                    f"{record['id']} materially changed; recalculate the path."
+                ],
+            }
+        return changed
 
     def _build_decision(
         self, state: dict[str, StateObject], request: DecisionCreateRequest

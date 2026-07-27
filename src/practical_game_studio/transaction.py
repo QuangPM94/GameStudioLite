@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from types import TracebackType
@@ -24,6 +25,8 @@ from .state import (
 from .validation import validate_state
 
 ReportRenderer = Callable[[CanonicalState], dict[str, str]]
+WINDOWS_REPLACE_ATTEMPTS = 5
+WINDOWS_REPLACE_DELAY_SECONDS = 0.01
 
 
 class TransactionError(RuntimeError):
@@ -48,6 +51,19 @@ def deterministic_json(value: StateObject) -> bytes:
 
 def _digest(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
+
+
+def _replace_file(source: Path, target: Path) -> None:
+    """Replace a file, tolerating brief Windows scanner/indexer locks."""
+
+    for attempt in range(WINDOWS_REPLACE_ATTEMPTS):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt + 1 == WINDOWS_REPLACE_ATTEMPTS:
+                raise
+            time.sleep(WINDOWS_REPLACE_DELAY_SECONDS)
 
 
 class StateTransaction:
@@ -320,7 +336,7 @@ class StateTransaction:
         replaced: list[Path] = []
         try:
             for target, temporary in staged.items():
-                os.replace(temporary, target)
+                _replace_file(temporary, target)
                 self._temporary_paths.discard(temporary)
                 replaced.append(target)
         except OSError as exc:
@@ -345,7 +361,7 @@ class StateTransaction:
             target.unlink(missing_ok=True)
             return
         temporary = self._write_temporary(target, original)
-        os.replace(temporary, target)
+        _replace_file(temporary, target)
         self._temporary_paths.discard(temporary)
 
     def _cleanup_temporaries(self) -> None:

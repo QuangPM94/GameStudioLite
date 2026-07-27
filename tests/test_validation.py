@@ -109,6 +109,28 @@ def _valid_evidence(
     }
 
 
+def _set_path_issue(item: dict[str, object], issue_id: str) -> None:
+    item.update(
+        {
+            "type": "issue",
+            "source_id": issue_id,
+            "source_key": f"issue:{issue_id}",
+            "manual": False,
+        }
+    )
+
+
+def _set_path_decision(item: dict[str, object], decision_id: str) -> None:
+    item.update(
+        {
+            "type": "decision",
+            "source_id": decision_id,
+            "source_key": f"decision:{decision_id}",
+            "manual": False,
+        }
+    )
+
+
 def _valid_decision(
     *,
     decision_id: str = "DEC-0001",
@@ -177,11 +199,11 @@ def _valid_decision(
 def test_resolved_issue_cannot_remain_on_active_path(framework_repo: Path) -> None:
     state = StateRepository(framework_repo).load_all()
     state["issues"]["issues"] = [_valid_issue(status="resolved")]
-    state["critical_path"]["items"][0]["source_issue_id"] = "ISS-001"
+    _set_path_issue(state["critical_path"]["items"][0], "ISS-001")
 
     result = validate_state(framework_repo, state)
 
-    assert any("closed issue ISS-001" in error for error in result.errors)
+    assert any("inactive issue ISS-001" in error for error in result.errors)
 
 
 def test_issue_evidence_reference_must_exist(framework_repo: Path) -> None:
@@ -215,7 +237,7 @@ def test_freeform_issue_evidence_reference_is_not_canonical(
 
 def test_critical_path_decision_reference_must_exist(framework_repo: Path) -> None:
     state = StateRepository(framework_repo).load_all()
-    state["critical_path"]["items"][0]["source_decision_id"] = "DEC-999"
+    _set_path_decision(state["critical_path"]["items"][0], "DEC-999")
 
     result = validate_state(framework_repo, state)
 
@@ -239,7 +261,9 @@ def test_duplicate_critical_path_item_ids_fail(framework_repo: Path) -> None:
 
     result = validate_state(framework_repo, state)
 
-    assert any("Duplicate critical-path id: CP-001" in error for error in result.errors)
+    assert any(
+        "Duplicate critical-path id: CP-0001" in error for error in result.errors
+    )
 
 
 def test_recommended_workflow_must_exist(framework_repo: Path) -> None:
@@ -329,16 +353,14 @@ def test_issue_cannot_appear_twice_on_critical_path(framework_repo: Path) -> Non
     issue = _valid_issue()
     state["issues"]["issues"] = [issue]
     first = state["critical_path"]["items"][0]
-    first["source_issue_id"] = "ISS-001"
+    _set_path_issue(first, "ISS-001")
     duplicate = dict(first)
-    duplicate["id"] = "CP-002"
+    duplicate["id"] = "CP-0002"
     state["critical_path"]["items"].append(duplicate)
 
     result = validate_state(framework_repo, state)
 
-    assert any(
-        "appears in more than one active item" in error for error in result.errors
-    )
+    assert any("duplicate source key issue:ISS-001" in error for error in result.errors)
 
 
 def test_evidence_issue_links_must_be_bidirectional(framework_repo: Path) -> None:
@@ -487,8 +509,8 @@ def test_closed_decision_cannot_remain_on_critical_path(
 ) -> None:
     state = StateRepository(framework_repo).load_all()
     state["decisions"]["decisions"] = [_valid_decision(status="resolved")]
-    state["critical_path"]["items"][0]["source_decision_id"] = "DEC-0001"
+    _set_path_decision(state["critical_path"]["items"][0], "DEC-0001")
 
     result = validate_state(framework_repo, state)
 
-    assert any("closed decision DEC-0001" in error for error in result.errors)
+    assert any("historical decision DEC-0001" in error for error in result.errors)

@@ -7,9 +7,9 @@ Clarify the game idea
 
 ## Success Criteria and Results
 
-| Criterion | Result | Evidence | Notes |
-|---|---|---|---|
-| A project profile and falsifiable prototype hypothesis exist. | unsupported | None | Guided intake has not run for a game project. |
+| ID | Criterion | Required | Result | Evidence | Notes |
+|---|---|---|---|---|---|
+| MC-001 | A project profile and falsifiable prototype hypothesis exist. | yes | unsupported | None | Guided intake has not run for a game project. |
 
 ## Supporting Evidence
 
@@ -22,6 +22,14 @@ Clarify the game idea
 ## Relevant Decisions
 
 - No milestone-relevant decisions recorded.
+
+## Critical Path Readiness
+
+- Active blockers remain: yes
+- Required decisions remain: no
+- Verification is incomplete: no
+- Path freshness: Stale
+- Path empty because milestone is complete: no
 
 ## Verdict
 

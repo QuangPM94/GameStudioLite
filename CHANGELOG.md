@@ -6,6 +6,9 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Phase C1 dependency-aware milestone critical-path service with typed candidates, deterministic priority tiers, topological ordering, cycle reporting, three-to-seven guidance, stable IDs, history reconciliation, manual controls, and freshness snapshots.
+- `studio path calculate`, `studio path show`, `studio path explain`, and `studio path check`, including transactional dry runs and stable JSON output.
+- Critical-path, direction, current-state, issue, milestone-review, status, playbook, validation, and documentation integration.
 - Phase B4 decision service with stable options, lifecycle transitions, resolution history, evidence-quality summaries, issue/evidence traceability, and acyclic supersession.
 - `studio decision add`, `studio decision list`, `studio decision show`, `studio decision update`, and `studio decision resolve` with dry-run and stable JSON output.
 - Decision-management documentation and behavioral coverage for recommendations, overrides, reopening, rollback, concurrency, and reporting.
@@ -26,6 +29,8 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Changed
 
+- Critical-path and milestone state advance to schema `2.0`; migration is documented in `docs/critical-path-engine.md`.
+- Phase C1 is complete. Workflow automation and automatic phase transitions remain out of scope.
 - Decision state advances to schema `2.0`; migration from the Phase A decision shape is documented.
 - Direction, Current State, Open Issues, Milestone Review, and status output now expose prioritized decisions and evidence support without duplicating canonical relationships.
 - Phase B roadmap now marks B1 through B4 complete without marking workflow automation or critical-path calculation complete.

@@ -154,4 +154,4 @@ Do not guess evidence links or historical resolution times. Run `studio validate
 
 ## Known limitations
 
-B4 does not score options, infer which option an evidence claim supports, automate workflow state, resolve issues, calculate critical paths, or build a general decision graph. Explicit evidence conflict markers are required for the `conflicted` support level.
+B4 does not score options, infer which option an evidence claim supports, automate workflow state, resolve issues, or build a general decision graph. Phase C1 can place blocking/high decisions and explicitly required verification on the milestone path, but never chooses for the owner. Explicit evidence conflict markers are required for the `conflicted` support level.

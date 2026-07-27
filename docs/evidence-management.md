@@ -103,6 +103,6 @@ Migration must preserve the original source and limitations. Run `studio validat
 
 ## Known limitations
 
-B3 does not collect telemetry, inspect media, execute engines, calculate critical paths, mutate milestone decisions, or resolve conflicts between competing evidence automatically. Supersession is a small acyclic chain model, not a general evidence graph.
+B3 does not collect telemetry, inspect media, execute engines, mutate milestone decisions, or resolve conflicts between competing evidence automatically. Phase C1 consumes active evidence support when calculating and checking paths, but does not gather evidence. Supersession is a small acyclic chain model, not a general evidence graph.
 
 Decision records may reference evidence as recommendation support. The decision owns that one-way relationship; evidence state is not changed. Only active evidence counts toward the derived decision support level, and removing evidence never rewrites a recommendation automatically.

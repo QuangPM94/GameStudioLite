@@ -1,35 +1,238 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://practical-game-studio.dev/schemas/critical-path.schema.json",
-  "title": "PGS Critical Path",
+  "title": "PGS Dependency-Aware Milestone Critical Path",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "current_milestone", "milestone_success_criteria", "items", "exit_condition", "non_critical_work"],
+  "required": [
+    "schema_version",
+    "current_milestone",
+    "milestone_override",
+    "milestone_success_criteria",
+    "configured_max_items",
+    "items",
+    "history",
+    "recommended_next_id",
+    "pinned_sources",
+    "excluded_sources",
+    "exclusion_reasons",
+    "non_critical_work",
+    "exit_condition",
+    "calculated_at",
+    "calculation_snapshot",
+    "freshness",
+    "warnings"
+  ],
   "properties": {
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "2.0"},
     "current_milestone": {"type": "string", "minLength": 1},
-    "milestone_success_criteria": {"type": "array", "items": {"type": "string"}},
+    "milestone_override": {"type": "boolean"},
+    "milestone_success_criteria": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "configured_max_items": {"type": "integer", "minimum": 3, "maximum": 10},
     "items": {
       "type": "array",
-      "maxItems": 7,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "title", "type", "source_issue_id", "source_decision_id", "dependencies", "blocked", "why_critical", "exit_condition"],
-        "properties": {
-          "id": {"type": "string", "pattern": "^CP-[0-9]{3,}$"},
-          "title": {"type": "string", "minLength": 1},
-          "type": {"enum": ["build-blocker", "hypothesis-risk", "user-decision", "dependency", "player-impact", "verification"]},
-          "source_issue_id": {"type": ["string", "null"], "pattern": "^ISS-[0-9]{3,}$"},
-          "source_decision_id": {"type": ["string", "null"], "pattern": "^DEC-[0-9]{3,}$"},
-          "dependencies": {"type": "array", "items": {"type": "string", "pattern": "^CP-[0-9]{3,}$"}, "uniqueItems": true},
-          "blocked": {"type": "boolean"},
-          "why_critical": {"type": "string", "minLength": 1},
-          "exit_condition": {"type": "string", "minLength": 1}
+      "items": {"$ref": "#/$defs/pathItem"}
+    },
+    "history": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/pathItem"}
+    },
+    "recommended_next_id": {
+      "type": ["string", "null"],
+      "pattern": "^CP-[0-9]{4,}$"
+    },
+    "pinned_sources": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/sourceKey"},
+      "uniqueItems": true
+    },
+    "excluded_sources": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/sourceKey"},
+      "uniqueItems": true
+    },
+    "exclusion_reasons": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^(?:issue:ISS-[0-9]{3,}|decision:DEC-[0-9]{3,}|milestone:MC-[0-9]{3,}|verification:(?:ISS|DEC|MC)-[0-9]{3,}:[a-z0-9-]+|manual:[a-z0-9][a-z0-9-]*)$"
+      },
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "non_critical_work": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "exit_condition": {"type": "string", "minLength": 1},
+    "calculated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "calculation_snapshot": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/calculationSnapshot"}
+      ]
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reasons"],
+      "properties": {
+        "status": {"enum": ["current", "stale", "absent"]},
+        "reasons": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
         }
       }
     },
-    "exit_condition": {"type": "string", "minLength": 1},
-    "non_critical_work": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "sourceKey": {
+      "type": "string",
+      "pattern": "^(?:issue:ISS-[0-9]{3,}|decision:DEC-[0-9]{3,}|milestone:MC-[0-9]{3,}|verification:(?:ISS|DEC|MC)-[0-9]{3,}:[a-z0-9-]+|manual:[a-z0-9][a-z0-9-]*)$"
+    },
+    "pathItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "source_id",
+        "source_key",
+        "title",
+        "description",
+        "reason",
+        "milestone_impact",
+        "priority_tier",
+        "dependencies",
+        "status",
+        "completion_condition",
+        "recommended_action",
+        "owner",
+        "evidence_required",
+        "pinned",
+        "manual",
+        "created_at",
+        "updated_at",
+        "source_status",
+        "evidence_state"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^CP-[0-9]{4,}$"},
+        "type": {
+          "enum": [
+            "issue",
+            "decision",
+            "verification",
+            "milestone-criterion",
+            "manual-action"
+          ]
+        },
+        "source_id": {
+          "type": ["string", "null"],
+          "pattern": "^(?:ISS|DEC|MC)-[0-9]{3,}$"
+        },
+        "source_key": {"$ref": "#/$defs/sourceKey"},
+        "title": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "milestone_impact": {"type": "string", "minLength": 1},
+        "priority_tier": {"type": "integer", "minimum": 1, "maximum": 5},
+        "dependencies": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^CP-[0-9]{4,}$"},
+          "uniqueItems": true
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "ready",
+            "blocked",
+            "in-progress",
+            "completed",
+            "removed"
+          ]
+        },
+        "completion_condition": {"type": "string", "minLength": 1},
+        "recommended_action": {"type": "string", "minLength": 1},
+        "owner": {"type": "string", "minLength": 1},
+        "evidence_required": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "pinned": {"type": "boolean"},
+        "manual": {"type": "boolean"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "updated_at": {"type": "string", "format": "date-time"},
+        "source_status": {"type": "string", "minLength": 1},
+        "evidence_state": {"type": "string", "minLength": 1}
+      }
+    },
+    "calculationSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "milestone",
+        "candidates",
+        "criteria_fingerprint",
+        "evidence_sources",
+        "evidence_fingerprint",
+        "manual_controls_fingerprint"
+      ],
+      "properties": {
+        "milestone": {"type": "string", "minLength": 1},
+        "candidates": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^(?:issue:ISS-[0-9]{3,}|decision:DEC-[0-9]{3,}|milestone:MC-[0-9]{3,}|verification:(?:ISS|DEC|MC)-[0-9]{3,}:[a-z0-9-]+|manual:[a-z0-9][a-z0-9-]*)$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fingerprint",
+              "priority_tier",
+              "source_status",
+              "evidence_state"
+            ],
+            "properties": {
+              "fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+              "priority_tier": {"type": "integer", "minimum": 1, "maximum": 5},
+              "source_status": {"type": "string", "minLength": 1},
+              "evidence_state": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "criteria_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "evidence_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "evidence_sources": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^EVD-[0-9]{3,}$"},
+          "uniqueItems": true
+        },
+        "manual_controls_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
   }
 }

@@ -32,7 +32,8 @@ Update the project profile, detected phase, build status, assumptions, and recom
 4. Classify the current stage as idea, prototype, vertical slice, or production project; label uncertain classification `INFERRED`.
 5. Check whether a build is accessible and distinguish its existence from verified launchability.
 6. Produce the project profile, detected phase, and recommended entry workflow.
-7. Apply state changes through the validated transaction layer, then run `studio validate` and present the Direction Summary.
+7. Run `studio path check`; calculate when absent/stale, then use `studio path show` to identify the exact recommended item.
+8. Apply state changes through the validated transaction layer, then run `studio validate` and present the Direction Summary.
 
 ## User decision points
 

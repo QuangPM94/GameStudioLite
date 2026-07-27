@@ -32,6 +32,14 @@ Clarify the game idea
 - Open: 0
 - Deferred: 0
 
+## Milestone Critical Path
+
+- Active items: 1
+- Ready items: 1
+- Blocked items: 0
+- Path freshness: Stale
+- Recommended next action: CP-0001 — Run guided intake
+
 ## Recommended Next Action
 
-Run `/start`.
+CP-0001 — Run guided intake

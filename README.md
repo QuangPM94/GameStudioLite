@@ -137,6 +137,20 @@ studio decision resolve DEC-0001 --option OPT-B \
 
 Issue and evidence references are owned by decision state and derived into reports. See `docs/decision-management.md` for option syntax, lifecycle transitions, resolution history, evidence-support levels, migration, dry runs, JSON output, and exit codes.
 
+## Milestone critical path
+
+Phase C1 calculates a deterministic, dependency-aware milestone priority path:
+
+```bash
+studio path calculate --dry-run
+studio path calculate --yes
+studio path show
+studio path explain CP-0001
+studio path check
+```
+
+The active path normally contains three to seven items, but fewer legitimate blockers are valid and never padded. Stable `CP-` IDs survive recalculation, completed work remains in compact history, and persistent include/exclude controls are visible. This is not duration-based Critical Path Method and does not promise an exact schedule. See `docs/critical-path-engine.md`.
+
 ## Evidence
 
 Every finding uses one of four labels:
@@ -172,11 +186,12 @@ Codex instructions, roles, playbooks, catalog, schemas, initial state, templates
 - **B2 complete:** transactional `studio issue add`, `issue list`, `issue show`, and `issue update`, including dry runs and JSON output.
 - **B3 complete:** transactional evidence creation, queries, updates, issue linking, retraction, and supersession.
 - **B4 complete:** transactional decision creation, queries, updates, resolution history, recommendation support, and supersession.
-- **Later Phase B work:** guided next-action state changes.
+- **Phase B complete.**
 
 ### Phase C — Critical-path engine
 
-Add dependency-aware ordering, milestone blocking analysis, and three-to-seven-item path generation.
+- **C1 complete:** dependency-aware candidate selection, deterministic ordering, three-to-seven guidance, stable path IDs/history, manual controls, freshness checks, reports, and `studio path calculate|show|explain|check`.
+- **Later Phase C work:** bounded workflow guidance built on the calculated path.
 
 ### Phase D — Guided workflow execution
 
@@ -194,7 +209,7 @@ Add optional Unity, Godot, and Unreal adapters without coupling the core to one 
 
 Use the framework against a small delivery-horror prototype and revise from observed usage.
 
-PGS still excludes automatic critical-path calculation, workflow automation, engine/editor control, telemetry/video ingestion, multi-agent spawning, remote APIs, deployment, and full vertical-slice generation.
+PGS still excludes automatic phase transitions, workflow execution, engine/editor control, telemetry/video ingestion, autonomous game implementation, multi-agent orchestration, remote APIs, deployment, and full vertical-slice generation.
 
 ## License and attribution
 

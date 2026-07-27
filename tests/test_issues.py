@@ -395,40 +395,35 @@ def test_critical_path_membership_is_transactionally_consistent(
     service.create_issue(_request(on_critical_path=True))
     state = StateRepository(framework_repo).load_all()
     assert state["issues"]["issues"][0]["on_critical_path"] is True
-    assert state["critical_path"]["items"][-1]["source_issue_id"] == "ISS-0001"
+    assert state["critical_path"]["items"][-1]["source_id"] == "ISS-0001"
 
     service.update_issue("ISS-0001", IssuePatch(critical_path=False))
     state = StateRepository(framework_repo).load_all()
     assert state["issues"]["issues"][0]["on_critical_path"] is False
     assert all(
-        item["source_issue_id"] != "ISS-0001"
-        for item in state["critical_path"]["items"]
+        item["source_id"] != "ISS-0001" for item in state["critical_path"]["items"]
     )
+    assert state["critical_path"]["history"][-1]["source_id"] == "ISS-0001"
 
 
-def test_terminal_path_issue_requires_explicit_removal(framework_repo: Path) -> None:
+def test_terminal_path_issue_moves_to_completed_history(framework_repo: Path) -> None:
     service = _service(framework_repo)
     service.create_issue(_request(on_critical_path=True))
-    with pytest.raises(IssueInputError, match="--off-critical-path"):
-        service.update_issue(
-            "ISS-0001",
-            IssuePatch(values={"status": "resolved", "resolution": "Fixed."}),
-        )
     result = service.update_issue(
         "ISS-0001",
-        IssuePatch(
-            values={"status": "resolved", "resolution": "Fixed."},
-            critical_path=False,
-        ),
+        IssuePatch(values={"status": "resolved", "resolution": "Fixed."}),
     )
     assert result.details["issue"]["status"] == "resolved"
+    path = StateRepository(framework_repo).load_critical_path()
+    assert path["history"][-1]["status"] == "completed"
 
 
-def test_deferred_path_issue_requires_explicit_removal(framework_repo: Path) -> None:
+def test_deferred_path_issue_moves_to_removed_history(framework_repo: Path) -> None:
     service = _service(framework_repo)
     service.create_issue(_request(on_critical_path=True))
-    with pytest.raises(IssueInputError, match="--off-critical-path"):
-        service.update_issue("ISS-0001", IssuePatch(values={"status": "deferred"}))
+    service.update_issue("ISS-0001", IssuePatch(values={"status": "deferred"}))
+    path = StateRepository(framework_repo).load_critical_path()
+    assert path["history"][-1]["status"] == "removed"
 
 
 def test_report_render_failure_rolls_back_issue(framework_repo: Path) -> None:

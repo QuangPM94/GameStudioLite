@@ -43,6 +43,8 @@ Use `studio evidence add`, `studio evidence update`, `studio evidence list`, and
 
 Use `studio decision add`, `studio decision update`, `studio decision list`, `studio decision show`, and `studio decision resolve` for meaningful project decisions. Prefer these commands over direct edits to `.studio/state/decisions.json`; direct decision-state editing is reserved for framework maintenance or recovery. Before asking the user, check for an existing record, attach relevant issues and evidence, present the recommendation and trade-offs, resolve the record after the choice, regenerate reports, and state the next workflow.
 
+Use `studio path check` before recommending major next work. If the milestone path is absent or stale, use `studio path calculate`; use `studio path show` for direction and `studio path explain CP-ID` when rationale is requested. Do not edit `.studio/state/critical-path.json` directly except for framework maintenance or recovery. Recalculate after material issue, evidence, decision, dependency, or milestone changes, but not after trivial wording edits. State the exact next path item.
+
 ## Workflow selection
 
 Interpret aliases as workflow requests routed through this file; they are not guaranteed native slash commands. Match an explicit alias first, then infer the nearest workflow from the user's intent. Load the playbook named below before acting.

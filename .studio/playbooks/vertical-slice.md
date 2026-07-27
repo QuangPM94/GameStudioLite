@@ -32,6 +32,7 @@ Set phase to `vertical-slice-decision`; record exactly one verdict: `PROCEED`, `
 4. For `PROCEED`, outline a bounded vertical-slice plan: representative loop, target quality, evidence goals, exclusions, and next planning step.
 5. For other verdicts, identify one next experiment, decision, or pause condition.
 6. After approval, resolve the decision with `studio decision resolve`, record the verdict in milestone state, and regenerate reports.
+7. Run `studio path check`; recalculate for the approved milestone state and use `studio path show` before recommending investment work.
 
 ## User decision points
 

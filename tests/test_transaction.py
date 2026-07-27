@@ -56,7 +56,14 @@ def test_schema_failure_writes_nothing(framework_repo: Path) -> None:
 def test_cross_reference_failure_writes_nothing(framework_repo: Path) -> None:
     before = managed_bytes(framework_repo)
     critical_path = StateRepository(framework_repo).load_critical_path()
-    critical_path["items"][0]["source_issue_id"] = "ISS-999"
+    critical_path["items"][0].update(
+        {
+            "type": "issue",
+            "source_id": "ISS-999",
+            "source_key": "issue:ISS-999",
+            "manual": False,
+        }
+    )
 
     with (
         pytest.raises(TransactionError, match="broken source issue"),
@@ -132,6 +139,33 @@ def test_replace_failure_rolls_back_and_cleans_temporaries(
 
     assert managed_bytes(framework_repo) == before
     assert not list(framework_repo.rglob(".*.pgs-*.tmp"))
+
+
+def test_transient_windows_permission_error_is_retried(
+    framework_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_replace = transaction_module.os.replace
+    calls = 0
+
+    def fail_once(source: object, target: object) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise PermissionError("injected transient scanner lock")
+        real_replace(source, target)
+
+    monkeypatch.setattr(transaction_module.os, "replace", fail_once)
+
+    with StateTransaction(framework_repo) as transaction:
+        transaction.set_project(_updated_project(framework_repo))
+        result = transaction.commit()
+
+    assert result.success
+    assert calls > 1
+    assert (
+        StateRepository(framework_repo).load_project()["project_name"]
+        == "Transactional Game"
+    )
 
 
 def test_loaded_state_is_isolated_from_repository(framework_repo: Path) -> None:

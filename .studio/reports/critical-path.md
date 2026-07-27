@@ -1,5 +1,5 @@
 <!-- Generated file. Do not edit manually. -->
-# Critical Path
+# Milestone Critical Path
 
 ## Current Milestone
 
@@ -9,19 +9,30 @@ Clarify the game idea
 
 - A project profile and falsifiable prototype hypothesis exist.
 
-## Ordered Active Items
+## Active Critical Path
 
-### 1. CP-001: Run guided intake
+### 1. CP-0001 — Run guided intake
 
-- Type: user-decision
-- Blocked: no
+- Type: manual-action
+- Source: manual:guided-intake
+- Status: ready
+- Priority tier: 1
 - Dependencies: None
 - Why critical: Without the project context gathered by intake, the framework cannot define a valid prototype hypothesis or plan.
-- Exit condition: Project stage, intent, and recommended entry workflow are recorded.
+- Milestone impact: The framework cannot define a valid prototype hypothesis or plan without project context.
+- Completion condition: Project stage, intent, and recommended entry workflow are recorded.
 
-## Path Exit Condition
+## Recommended Next Action
 
-A falsifiable prototype hypothesis is approved.
+CP-0001 — Run guided intake
+
+## Blocked Items
+
+- No blocked active items.
+
+## Manual Inclusions and Exclusions
+
+- No manual controls.
 
 ## Non-Critical Work
 
@@ -30,3 +41,13 @@ A falsifiable prototype hypothesis is approved.
 - Additional content
 - Save systems
 - Menu polish
+
+## Completed Path History
+
+- No completed or removed path history.
+
+## Freshness
+
+Status: Stale
+
+- The path predates freshness snapshots.

@@ -2,62 +2,62 @@
 
 ## Purpose
 
-Select the smallest ordered set of work whose delay would delay the milestone.
+Calculate the smallest ordered set of work whose delay most directly delays the current milestone.
 
 ## When to use
 
-Use for `/critical-path` after planning, issue mapping, a blocker, or changed evidence.
+Use for `/critical-path` after planning, issue mapping, a blocker, or a material issue, evidence, decision, dependency, or milestone change.
 
 ## Required inputs
 
-Current milestone, success criteria, open issues, pending decisions, and dependencies.
+Current project/milestone state, success criteria, issues, evidence, decisions, explicit dependencies, and manual path controls.
 
 ## Optional inputs
 
-Effort estimates, build verification, and accepted risks.
+A milestone override, explicit include/exclude sources, an exclusion reason, and a custom maximum from three to ten.
 
 ## Files to read
 
-Project, issues, decisions, evidence, milestone, and current critical path.
+`AGENTS.md`, `.studio/state/project.json`, `.studio/state/milestone.json`, `.studio/state/issues.json`, `.studio/state/evidence.json`, `.studio/state/decisions.json`, and `.studio/state/critical-path.json`.
 
 ## State changes
 
-Replace active path items with an ordered set of three-to-seven valid items unless fewer exist; update blocked state, exit conditions, and non-critical work.
+Use `studio path calculate` to transactionally replace active path membership/order, reconcile stable IDs and history, persist manual controls, update freshness snapshots, synchronize issue path flags, and regenerate reports. Never edit `critical-path.json` or generated reports directly.
 
 ## Execution procedure
 
-1. Prioritize runnable-build blockers.
-2. Then prioritize critical hypothesis-invalidating issues, blocking user decisions, required dependencies, major high-player-impact issues, and milestone verification. Inspect decisions with `studio decision list`/`show`, including evidence support and required-by dates.
-3. Use `studio evidence list --issue ISSUE-ID` and `studio evidence show` to distinguish active support from superseded, retracted, inferred, or unknown claims.
-4. Order by dependency and explain why delaying each delays the milestone.
-5. Keep only active milestone work; use fewer than three when fewer valid items exist.
-6. Exclude menu polish, saves, content, localization, analytics, asset replacement, broad refactors, optional accessibility, and production architecture unless directly required.
-7. Inspect records with `studio issue list --critical-path` and `studio issue show`. Use `studio issue update ID --on-critical-path` or `--off-critical-path` for explicit membership changes; B3 still does not calculate or reorder the path automatically.
-8. Use `studio decision update` for decision readiness or traceability changes; do not resolve choices without the owner. Update reports and recommend the first actionable item.
+1. Run `studio path check`.
+2. If the path is absent or stale, preview `studio path calculate --dry-run`; review cycle, missing-reference, exclusion-conflict, and oversize warnings.
+3. Use repeated `--include SOURCE-ID` or `--exclude SOURCE-ID --exclude-reason TEXT` only for explicit user direction. Do not use them to hide inconvenient blockers.
+4. Commit with `studio path calculate` (and `--yes` in guided/strict non-interactive use).
+5. Run `studio path show` and identify its exact recommended-next `CP-` item.
+6. Use `studio path explain CP-ID` when the item’s rationale, evidence state, dependencies, downstream work, or manual context needs review.
+7. Treat the result as a dependency-aware milestone priority path, not a mathematically exact schedule.
+8. Run validation and return the Direction Summary with exactly one next workflow.
 
 ## User decision points
 
-Ask when a pending user decision is the first unresolved dependency or prioritization changes milestone criteria/trade-offs.
+Ask when a manual inclusion/exclusion, milestone override, or prioritization change alters milestone success criteria, core direction, or an expensive scope/schedule/quality trade-off. Present the recommendation and accepted trade-off.
 
 ## Outputs
 
-Ordered critical path, blocker state, exit condition, deferred work, and Direction Summary.
+Calculated active path, stable history, one recommended-next item, manual controls, non-critical work, freshness state, generated reports, and Direction Summary.
 
 ## Validation
 
-Check length, ordering, dependencies, references, and rationale; run `studio validate`, `studio report`, and `studio status`.
+Run `studio path check`, `studio validate`, `studio report`, and `studio status`. Confirm dependency order, source references, three-to-seven guidance, recommended-next actionability, and exact warnings.
 
 ## Completion criteria
 
-Every active item has a direct milestone-delay explanation and the first unblocked action is identifiable.
+The path is current, every active item has a direct milestone-delay explanation and completion condition, and one unblocked next item is named (or a concrete blocker explains why none is actionable).
 
 ## Next recommended workflows
 
-`/next-step`, or the playbook that executes the first item.
+`/next-step`, `/iterate`, `/build-prototype`, or the workflow that executes the exact recommended item.
 
 ## Failure and blocker behavior
 
-If dependencies form a cycle or are unknown, record a verification/decision item rather than inventing an order.
+Do not write a cyclic or missing-reference path. Report the exact dependency cycle or excluded prerequisite conflict. Use a smaller valid path when fewer than three items exist; never add filler.
 
 ## Direction Summary
 

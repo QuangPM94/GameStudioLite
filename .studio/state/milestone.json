@@ -1,14 +1,18 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "milestone": "Clarify the game idea",
   "success_criteria": [
     "A project profile and falsifiable prototype hypothesis exist."
   ],
   "criteria_results": [
     {
+      "id": "MC-001",
       "criterion": "A project profile and falsifiable prototype hypothesis exist.",
+      "required": true,
       "result": "unknown",
       "evidence_references": [],
+      "related_issues": [],
+      "related_decisions": [],
       "notes": "Guided intake has not run for a game project."
     }
   ],

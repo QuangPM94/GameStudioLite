@@ -63,9 +63,9 @@ Ordering is severity, critical-path membership, blocked status, creation time, t
 
 ## Critical path
 
-`.studio/state/critical-path.json` is the authoritative ordered path; issue `on_critical_path` is validation-enforced against it. `--on-critical-path` appends an issue-backed item without reordering unrelated entries. `--off-critical-path` removes only items sourced from that issue.
+`.studio/state/critical-path.json` is the authoritative ordered path; issue `on_critical_path` is validation-enforced against active issue-backed items. Phase C1 calculates full membership and order with `studio path calculate`.
 
-The schema has no completed-path history, so B2 uses explicit removal rather than automatic archival. A path issue cannot enter `resolved`, `accepted`, `wont-fix`, or `deferred` unless the same update includes `--off-critical-path` (or it was removed earlier). No automatic critical-path calculation occurs in B2.
+The legacy `--on-critical-path` flag remains an explicit compatibility inclusion: it creates/pins one issue item and marks the calculated path stale. `--off-critical-path` removes that item to compact history. Resolving, accepting, rejecting, or deferring an active source archives it transactionally and marks the path stale; the next calculation reconciles the complete path and can reuse the ID after reopening. Prefer `studio path calculate --include/--exclude` for direction work.
 
 ## Evidence references
 

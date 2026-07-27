@@ -1,6 +1,6 @@
 # State Mutation Safety
 
-Phase B1 introduced the shared mutation path. Phases B2 through B4 route issue, evidence, and decision writes through that path, including coordinated updates across canonical state and generated reports.
+Phase B1 introduced the shared mutation path. Phases B2 through B4 and Phase C1 route issue, evidence, decision, and critical-path writes through that path, including coordinated updates across canonical state and generated reports.
 
 ## Commit stages
 
@@ -16,6 +16,8 @@ Phase B1 introduced the shared mutation path. Phases B2 through B4 route issue, 
 10. Replace targets one at a time with `os.replace`.
 
 If validation, rendering, staging, or the concurrent-modification check fails, tracked state and reports are not replaced. If a replacement fails, the transaction restores outputs already replaced from their original bytes and removes temporary files. The error identifies the failed stage.
+
+On Windows, a scanner or indexer can hold a just-written file for a few milliseconds. PGS retries only `PermissionError` replacement failures five times with a 10 ms interval before entering the normal rollback path. Other replacement errors are never retried.
 
 ## Honest boundary
 
@@ -33,6 +35,8 @@ Evidence dry runs provide the same guarantee, including proposed ID allocation a
 
 Decision dry runs allocate a proposed historical ID and exercise option, reference, lifecycle, resolution-history, support-quality, and supersession validation without consuming the ID or writing outputs.
 
+Critical-path dry runs collect candidates, close dependencies, detect cycles, allocate proposed `CP-` IDs, reconcile active/history state, validate manual controls, and render every report. They do not persist controls or history and do not consume IDs. A real calculation against the same revision receives the same IDs.
+
 ## Schema compatibility
 
-B1 did not change the Phase A schemas. B2 extends the issue status enum while retaining compatibility. B3 advances evidence state to schema `2.0`; legacy evidence records require the field migration documented in `docs/evidence-management.md`. B4 advances decision state to schema `2.0`; its migration is documented in `docs/decision-management.md`. PGS retains the Phase A-compatible reference namespaces and allocates fixed-width historical IDs.
+B1 did not change the Phase A schemas. B2 extends the issue status enum while retaining compatibility. B3 advances evidence state to schema `2.0`; legacy evidence records require the field migration documented in `docs/evidence-management.md`. B4 advances decision state to schema `2.0`; its migration is documented in `docs/decision-management.md`. C1 advances critical-path and milestone state to schema `2.0`; its explicit migration is documented in `docs/critical-path-engine.md`. PGS retains the established reference namespaces and allocates fixed-width historical IDs.

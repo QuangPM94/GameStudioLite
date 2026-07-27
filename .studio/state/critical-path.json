@@ -1,28 +1,56 @@
 {
-  "schema_version": "1.0",
+  "calculated_at": null,
+  "calculation_snapshot": null,
+  "configured_max_items": 7,
   "current_milestone": "Clarify the game idea",
+  "excluded_sources": [],
+  "exclusion_reasons": {},
+  "exit_condition": "A falsifiable prototype hypothesis is approved.",
+  "freshness": {
+    "reasons": [
+      "The migrated Phase B path has not been calculated by the Phase C1 engine."
+    ],
+    "status": "absent"
+  },
+  "history": [],
+  "items": [
+    {
+      "completion_condition": "Project stage, intent, and recommended entry workflow are recorded.",
+      "created_at": "2025-01-01T00:00:00Z",
+      "dependencies": [],
+      "description": "Run the guided intake needed to establish project context.",
+      "evidence_required": [],
+      "evidence_state": "unknown",
+      "id": "CP-0001",
+      "manual": true,
+      "milestone_impact": "The framework cannot define a valid prototype hypothesis or plan without project context.",
+      "owner": "producer",
+      "pinned": false,
+      "priority_tier": 1,
+      "reason": "Without the project context gathered by intake, the framework cannot define a valid prototype hypothesis or plan.",
+      "recommended_action": "Run guided intake.",
+      "source_id": null,
+      "source_key": "manual:guided-intake",
+      "source_status": "active",
+      "status": "ready",
+      "title": "Run guided intake",
+      "type": "manual-action",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  ],
+  "milestone_override": false,
   "milestone_success_criteria": [
     "A project profile and falsifiable prototype hypothesis exist."
   ],
-  "items": [
-    {
-      "id": "CP-001",
-      "title": "Run guided intake",
-      "type": "user-decision",
-      "source_issue_id": null,
-      "source_decision_id": null,
-      "dependencies": [],
-      "blocked": false,
-      "why_critical": "Without the project context gathered by intake, the framework cannot define a valid prototype hypothesis or plan.",
-      "exit_condition": "Project stage, intent, and recommended entry workflow are recorded."
-    }
-  ],
-  "exit_condition": "A falsifiable prototype hypothesis is approved.",
   "non_critical_work": [
     "Engine-specific architecture",
     "Production asset creation",
     "Additional content",
     "Save systems",
     "Menu polish"
-  ]
+  ],
+  "pinned_sources": [],
+  "recommended_next_id": "CP-0001",
+  "schema_version": "2.0",
+  "warnings": []
 }

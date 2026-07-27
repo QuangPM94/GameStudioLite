@@ -37,15 +37,11 @@ def test_report_generation_includes_warning_and_direction_sections() -> None:
         REPOSITORY_ROOT / ".studio" / "reports" / "direction-report.md"
     ).read_text(encoding="utf-8")
     for heading in (
-        "## Current State",
-        "## What We Learned",
-        "## Evidence",
-        "## Evidence Summary",
-        "## Open Decisions",
-        "## Critical Path",
-        "## Recommended Next Step",
+        "## Critical Path Summary",
+        "## Recommended Next Item",
+        "## Blocking User Decision",
+        "## Evidence Gap",
         "## Do Not Work On Yet",
-        "## Next Command",
     ):
         assert heading in direction
 
@@ -80,12 +76,13 @@ def test_issue_reports_prioritize_actionable_and_recent_history(
     assert "## Blockers" in open_issues
     assert "## Major Issues" in open_issues
     assert "## User Decisions Required" in open_issues
-    assert "## Critical-Path Issues" in open_issues
+    assert "## On Milestone Critical Path" in open_issues
+    assert "## Not On Milestone Critical Path" in open_issues
     assert "## Recently Resolved" in open_issues
     assert "ISS-0002 [major/resolved]" in open_issues
     direction = reports["direction-report.md"]
-    assert "## Current Blockers" in direction
-    assert "`/issue-map`" in direction
+    assert "## Critical Path Summary" in direction
+    assert "CP-0002 — Build fails" in direction
 
 
 def test_evidence_reports_count_only_active_support(
@@ -127,10 +124,9 @@ def test_evidence_reports_count_only_active_support(
 
     open_issues = reports["open-issues.md"]
     assert "1 observed; 0 user-reported; 0 inferred; 0 unknown" in open_issues
-    direction = reports["direction-report.md"]
-    assert "EVD-0001: Player stopped in corridor." in direction
-    assert "EVD-0002" not in direction
-    assert "This is a simulated player-experience review" not in direction
+    current = reports["current-state.md"]
+    assert "EVD-0001 [observed] Player stopped in corridor." in current
+    assert "EVD-0002" not in current
 
 
 def test_reports_identify_unsupported_issues_and_simulated_review(
@@ -155,7 +151,7 @@ def test_reports_identify_unsupported_issues_and_simulated_review(
     reports = render_report_contents(StateRepository(framework_repo).load_all())
 
     direction = reports["direction-report.md"]
-    assert "### Issues Lacking Evidence" in direction
+    assert "## Evidence Gap" in direction
     assert "ISS-0001: Unsupported clarity risk" in direction
     assert (
         "This is a simulated player-experience review based on available artifacts."

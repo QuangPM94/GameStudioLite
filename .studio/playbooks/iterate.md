@@ -31,10 +31,10 @@ Set phase to `iterate`; update issue status/resolution, evidence, assumptions, b
 3. Implement within scope and record shortcuts/assumptions.
 4. Run focused tests and the most direct available experience verification.
 5. Record the result with `studio evidence add`, or use `studio evidence update` when retracting or superseding an earlier claim. State limitations explicitly.
-6. Use `studio issue update` for status, resolution, owner, relationships, and existing evidence references. Use `studio decision update` to add new evidence or consequences, and `studio decision resolve` only after the owner chooses. Include `--off-critical-path` when closing an active path issue.
-7. Recalculate the path only through the approved workflow; mutation commands do not calculate it.
-8. Regenerate reports through the transactional update.
-9. Recommend further iteration or milestone review.
+6. Use `studio issue update` for status, resolution, owner, relationships, and existing evidence references. Use `studio decision update` to add new evidence or consequences, and `studio decision resolve` only after the owner chooses. Source lifecycle changes preserve path history and mark direction stale.
+7. Run `studio path check` after material changes; if stale, preview and run `studio path calculate`, then use `studio path show`.
+8. Regenerate reports through transactional updates.
+9. State the exact next `CP-` item and recommend further iteration or milestone review.
 
 ## User decision points
 

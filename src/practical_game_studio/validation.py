@@ -136,13 +136,17 @@ REQUIRED_FILES = (
     "src/practical_game_studio/__init__.py",
     "src/practical_game_studio/cli.py",
     "src/practical_game_studio/decisions.py",
+    "src/practical_game_studio/critical_path.py",
     "src/practical_game_studio/validation.py",
     "src/practical_game_studio/reporting.py",
     "src/practical_game_studio/state.py",
     "src/practical_game_studio/models.py",
     "docs/decision-management.md",
+    "docs/critical-path-engine.md",
     "tests/test_decisions.py",
     "tests/test_decision_cli.py",
+    "tests/test_critical_path.py",
+    "tests/test_critical_path_cli.py",
     "src/practical_game_studio/transaction.py",
     "src/practical_game_studio/initialization.py",
     "src/practical_game_studio/issues.py",
@@ -310,11 +314,15 @@ def _validate_relationships(
     issues = state["issues"]["issues"]
     decisions = state["decisions"]["decisions"]
     evidence = state["evidence"]["evidence"]
-    cp_items = state["critical_path"]["items"]
+    critical_path = state["critical_path"]
+    cp_items = critical_path["items"]
+    cp_history = critical_path.get("history", [])
     issue_ids = {item["id"] for item in issues}
     decision_ids = {item["id"] for item in decisions}
     evidence_ids = {item["id"] for item in evidence}
+    all_cp_items = [*cp_items, *cp_history]
     cp_ids = {item["id"] for item in cp_items}
+    historical_cp_ids = {item["id"] for item in cp_history}
     issue_by_id = {item["id"]: item for item in issues}
     decision_by_id = {item["id"]: item for item in decisions}
     evidence_by_id = {item["id"]: item for item in evidence}
@@ -323,7 +331,7 @@ def _validate_relationships(
         ("issue", issues),
         ("decision", decisions),
         ("evidence", evidence),
-        ("critical-path", cp_items),
+        ("critical-path", all_cp_items),
     ):
         for duplicate in sorted(_duplicates(item["id"] for item in records)):
             result.add(f"Duplicate {label} id: {duplicate}")
@@ -595,53 +603,217 @@ def _validate_relationships(
                 break
             seen.add(current)
             current = supersession.get(current)
+    criterion_ids = {
+        item.get("id", f"MC-{index:03d}")
+        for index, item in enumerate(state["milestone"]["criteria_results"], start=1)
+    }
+    source_keys = {item["source_key"] for item in all_cp_items}
+    for duplicate in sorted(_duplicates(item["source_key"] for item in all_cp_items)):
+        result.add(f"Critical path: duplicate source key {duplicate}")
+    id_to_source: dict[str, str] = {}
+    for item in all_cp_items:
+        previous_source = id_to_source.get(item["id"])
+        if previous_source is not None and previous_source != item["source_key"]:
+            result.add(
+                f"{item['id']}: reused CP ID for a different source key "
+                f"({previous_source} and {item['source_key']})"
+            )
+        id_to_source[item["id"]] = item["source_key"]
+        try:
+            created = datetime.fromisoformat(item["created_at"])
+            updated = datetime.fromisoformat(item["updated_at"])
+        except ValueError:
+            continue
+        if updated < created:
+            result.add(f"{item['id']}: updated_at cannot be earlier than created_at")
+
+    active_statuses = {"pending", "ready", "blocked", "in-progress"}
+    historical_statuses = {"completed", "removed"}
     for item in cp_items:
-        if (
-            item["source_issue_id"] is not None
-            and item["source_issue_id"] not in issue_ids
-        ):
-            result.add(f"{item['id']}: broken source issue {item['source_issue_id']}")
-        if (
-            item["source_decision_id"] is not None
-            and item["source_decision_id"] not in decision_ids
-        ):
+        if item["status"] not in active_statuses:
             result.add(
-                f"{item['id']}: broken source decision {item['source_decision_id']}"
+                f"{item['id']}: active path item has invalid status {item['status']}"
             )
-        source_decision = decision_by_id.get(item["source_decision_id"])
-        if source_decision is not None and source_decision["status"] in {
-            "resolved",
-            "rejected",
-            "superseded",
-        }:
-            result.add(
-                f"{item['id']}: closed decision {source_decision['id']} cannot "
-                "remain on the active critical path"
-            )
-        source_issue = issue_by_id.get(item["source_issue_id"])
-        if source_issue is not None:
-            if source_issue["status"] in {
+        source_id = item["source_id"]
+        source_key = item["source_key"]
+        if item["type"] == "issue":
+            source_issue = issue_by_id.get(source_id)
+            if source_issue is None:
+                result.add(f"{item['id']}: broken source issue {source_id}")
+            else:
+                if source_issue["status"] in {
+                    "resolved",
+                    "accepted",
+                    "wont-fix",
+                    "deferred",
+                }:
+                    result.add(
+                        f"{item['id']}: inactive issue {source_id} cannot remain "
+                        "on the active critical path"
+                    )
+                if not source_issue["on_critical_path"]:
+                    result.add(
+                        f"{item['id']}: source issue {source_id} is not marked "
+                        "on_critical_path"
+                    )
+            if source_key != f"issue:{source_id}":
+                result.add(f"{item['id']}: issue source key does not match source")
+        elif item["type"] == "decision":
+            source_decision = decision_by_id.get(source_id)
+            if source_decision is None:
+                result.add(f"{item['id']}: broken source decision {source_id}")
+            elif source_decision["status"] in {
                 "resolved",
-                "accepted",
-                "wont-fix",
-                "deferred",
+                "rejected",
+                "superseded",
             }:
                 result.add(
-                    f"{item['id']}: closed issue {source_issue['id']} cannot remain "
+                    f"{item['id']}: historical decision {source_id} cannot remain "
                     "on the active critical path"
                 )
-            if not source_issue["on_critical_path"]:
+            if source_key != f"decision:{source_id}":
+                result.add(f"{item['id']}: decision source key does not match source")
+        elif item["type"] == "milestone-criterion":
+            if source_id not in criterion_ids:
                 result.add(
-                    f"{item['id']}: source issue {source_issue['id']} is not marked "
-                    "on_critical_path"
+                    f"{item['id']}: invalid milestone criterion source {source_id}"
                 )
+            if source_key != f"milestone:{source_id}":
+                result.add(f"{item['id']}: milestone source key does not match source")
+        elif item["type"] == "verification":
+            if source_id is None:
+                result.add(f"{item['id']}: verification source is missing")
+            elif source_id.startswith("ISS-") and source_id not in issue_ids:
+                result.add(f"{item['id']}: broken verification issue {source_id}")
+            elif source_id.startswith("DEC-") and source_id not in decision_ids:
+                result.add(f"{item['id']}: broken verification decision {source_id}")
+            elif source_id.startswith("MC-") and source_id not in criterion_ids:
+                result.add(f"{item['id']}: broken verification criterion {source_id}")
+        elif item["type"] == "manual-action":
+            if not item["manual"]:
+                result.add(f"{item['id']}: manual action must set manual to true")
+            if not source_key.startswith("manual:"):
+                result.add(f"{item['id']}: invalid manual action source key")
+        else:
+            result.add(f"{item['id']}: invalid source type {item['type']}")
+        for duplicate in sorted(_duplicates(item["dependencies"])):
+            result.add(f"{item['id']}: duplicate dependency {duplicate}")
         for dependency in item["dependencies"]:
             if dependency not in cp_ids:
-                result.add(
-                    f"{item['id']}: broken critical-path dependency {dependency}"
-                )
+                if dependency in historical_cp_ids:
+                    result.add(
+                        f"{item['id']}: active item depends on removed or completed "
+                        f"item {dependency}"
+                    )
+                else:
+                    result.add(
+                        f"{item['id']}: missing critical-path dependency {dependency}"
+                    )
             if dependency == item["id"]:
                 result.add(f"{item['id']}: cannot depend on itself")
+    for item in cp_history:
+        if item["status"] not in historical_statuses:
+            result.add(
+                f"{item['id']}: historical path item has invalid status "
+                f"{item['status']}"
+            )
+
+    cp_dependencies = {
+        item["id"]: [
+            dependency for dependency in item["dependencies"] if dependency in cp_ids
+        ]
+        for item in cp_items
+    }
+    stack: list[str] = []
+    visited: set[str] = set()
+
+    def visit_path(item_id: str) -> list[str] | None:
+        if item_id in stack:
+            index = stack.index(item_id)
+            return [*stack[index:], item_id]
+        if item_id in visited:
+            return None
+        stack.append(item_id)
+        for dependency_id in cp_dependencies[item_id]:
+            cycle = visit_path(dependency_id)
+            if cycle:
+                return cycle
+        stack.pop()
+        visited.add(item_id)
+        return None
+
+    for start in sorted(cp_dependencies):
+        cycle = visit_path(start)
+        if cycle:
+            result.add("Critical path dependency cycle: " + " -> ".join(cycle))
+            break
+    max_items = critical_path["configured_max_items"]
+    if len(cp_items) > max_items and not any(
+        "more than" in warning and "mandatory dependency items" in warning
+        for warning in critical_path["warnings"]
+    ):
+        result.add(
+            "Critical path exceeds configured maximum without mandatory-dependency "
+            "warning metadata"
+        )
+    freshness = critical_path["freshness"]
+    snapshot = critical_path["calculation_snapshot"]
+    calculated_at = critical_path["calculated_at"]
+    if freshness["status"] == "current" and (snapshot is None or freshness["reasons"]):
+        result.add("Critical path current freshness requires a snapshot and no reasons")
+    if freshness["status"] == "stale" and not freshness["reasons"]:
+        result.add("Critical path stale freshness requires at least one reason")
+    if (snapshot is None) != (calculated_at is None):
+        result.add(
+            "Critical path calculation snapshot and timestamp must both be set "
+            "or both be null"
+        )
+    if (
+        snapshot is not None
+        and snapshot["milestone"] != critical_path["current_milestone"]
+    ):
+        result.add("Critical path calculation snapshot milestone does not match")
+    recommended = critical_path["recommended_next_id"]
+    if recommended is not None:
+        recommended_item = next(
+            (item for item in cp_items if item["id"] == recommended), None
+        )
+        if recommended_item is None:
+            result.add("Critical path recommended-next item is missing")
+        elif recommended_item["dependencies"]:
+            result.add("Critical path recommended-next item is blocked by dependencies")
+        elif recommended_item["status"] not in {"ready", "in-progress"}:
+            result.add("Critical path recommended-next item is not actionable")
+    pinned = critical_path["pinned_sources"]
+    excluded = critical_path["excluded_sources"]
+    for duplicate in sorted(_duplicates(pinned)):
+        result.add(f"Critical path: duplicate pinned source {duplicate}")
+    for duplicate in sorted(_duplicates(excluded)):
+        result.add(f"Critical path: duplicate excluded source {duplicate}")
+    for source_key in sorted(set(pinned) & set(excluded)):
+        result.add(f"Critical path: source both pinned and excluded: {source_key}")
+    for source_key in excluded:
+        if source_key not in critical_path["exclusion_reasons"]:
+            result.add(f"Critical path: excluded source {source_key} has no reason")
+    for source_key in critical_path["exclusion_reasons"]:
+        if source_key not in excluded:
+            result.add(
+                f"Critical path: exclusion reason has no excluded source {source_key}"
+            )
+    active_source_keys = {item["source_key"] for item in cp_items}
+    known_source_keys = {
+        *(f"issue:{item}" for item in issue_ids),
+        *(f"decision:{item}" for item in decision_ids),
+        *(f"milestone:{item}" for item in criterion_ids),
+        *active_source_keys,
+        *source_keys,
+    }
+    for source_key in pinned:
+        if source_key not in active_source_keys:
+            result.add(f"Critical path: invalid pinned source {source_key}")
+    for source_key in excluded:
+        if source_key not in known_source_keys:
+            result.add(f"Critical path: invalid excluded source {source_key}")
 
     milestone = state["milestone"]
     for reference in milestone["supporting_evidence"]:
@@ -655,6 +827,18 @@ def _validate_relationships(
         if reference not in issue_ids:
             result.add(f"Milestone: broken issue reference {reference}")
     for criterion in milestone["criteria_results"]:
+        for reference in criterion.get("related_issues", []):
+            if reference not in issue_ids:
+                result.add(
+                    f"Milestone criterion {criterion.get('id')}: broken issue "
+                    f"reference {reference}"
+                )
+        for reference in criterion.get("related_decisions", []):
+            if reference not in decision_ids:
+                result.add(
+                    f"Milestone criterion {criterion.get('id')}: broken decision "
+                    f"reference {reference}"
+                )
         for reference in criterion["evidence_references"]:
             if reference not in evidence_ids:
                 result.add(
@@ -675,7 +859,9 @@ def _validate_relationships(
         result.add("Project: current phase is not present in the workflow catalog")
     if project["recommended_next_playbook"] not in aliases:
         result.add("Project: recommended next playbook is not in workflow catalog")
-    if state["critical_path"]["current_milestone"] != project["current_milestone"]:
+    if state["critical_path"]["current_milestone"] != project[
+        "current_milestone"
+    ] and not state["critical_path"].get("milestone_override", False):
         result.add("Critical path milestone does not match project milestone")
     if milestone["milestone"] != project["current_milestone"]:
         result.add("Milestone review does not match project milestone")
@@ -684,26 +870,17 @@ def _validate_relationships(
 
     criteria = milestone["success_criteria"]
     result_criteria = [item["criterion"] for item in milestone["criteria_results"]]
+    criterion_result_ids = [item.get("id") for item in milestone["criteria_results"]]
+    for duplicate in sorted(_duplicates(criterion_result_ids)):
+        result.add(f"Milestone: duplicate criterion ID {duplicate}")
     if len(result_criteria) != len(set(result_criteria)):
         result.add("Milestone: duplicate criterion result")
     if set(criteria) != set(result_criteria):
         result.add("Milestone: success criteria and criterion results do not match")
 
     referenced_issue_ids = {
-        item["source_issue_id"]
-        for item in cp_items
-        if item["source_issue_id"] is not None
+        item["source_id"] for item in cp_items if item["type"] == "issue"
     }
-    for duplicate in sorted(
-        _duplicates(
-            item["source_issue_id"]
-            for item in cp_items
-            if item["source_issue_id"] is not None
-        )
-    ):
-        result.add(
-            f"Critical path: issue {duplicate} appears in more than one active item"
-        )
     for issue in issues:
         if issue["on_critical_path"] and issue["id"] not in referenced_issue_ids:
             result.add(

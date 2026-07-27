@@ -26,12 +26,13 @@ Normally none beyond correcting stale direction. Regenerate reports when state c
 
 ## Execution procedure
 
-1. Confirm goal, evidence, blockers, and pending decisions.
-2. Use `studio issue list`/`show`, `studio evidence list`/`show`, and `studio decision list`/`show` instead of reading generated Markdown as state. Treat only active evidence as current support.
-3. Select the first unblocked critical-path item; if a decision unlocks it, update the existing record with issues/evidence and present its recommendation before asking.
-4. Recommend one workflow and define its expected outcome.
-5. Name important work that should not start.
-6. Return the Direction Summary.
+1. Run `studio path check`; if absent or stale, preview and run `studio path calculate`.
+2. Use `studio path show` to confirm goal, evidence gaps, blockers, manual controls, and the recommended-next item.
+3. Use `studio issue list`/`show`, `studio evidence list`/`show`, and `studio decision list`/`show` instead of reading generated Markdown as state. Treat only active evidence as current support.
+4. Select the exact recommended `CP-` item; use `studio path explain CP-ID` when its rationale is questioned. If a decision unlocks it, update the existing record with issues/evidence and present its recommendation before asking.
+5. Recommend one workflow and define its expected outcome.
+6. Name important work that should not start.
+7. Return the Direction Summary.
 
 ## User decision points
 

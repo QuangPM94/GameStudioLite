@@ -33,6 +33,7 @@ Create or update issue records, relationships, severity, milestone/player impact
 5. Use `studio issue list` and `studio issue show` to inspect history, then `studio issue add` or `studio issue update` for each accepted record. Prefer `--dry-run` when evidence relationships or path membership change.
 6. Separate active milestone issues from later work. Do not delete history.
 7. Resolve a decision with `studio decision resolve` only after the user chooses. Transactional issue/decision commands regenerate reports.
+8. When issue severity, dependencies, milestone impact, or decision requirements changed materially, run `studio path check`, recalculate if stale, and state the exact recommended item from `studio path show`.
 
 ## User decision points
 

@@ -23,9 +23,15 @@ Open counts — blocker: 0, critical: 0, major: 0, minor: 0, later: 0.
 
 - No issue requires a user decision.
 
-## Critical-Path Issues
+## On Milestone Critical Path
 
 - No issue is on the active critical path.
+
+## Not On Milestone Critical Path
+
+These issues may still matter, but they are not currently gating this milestone.
+
+- No active off-path issues.
 
 ## Recently Resolved
 

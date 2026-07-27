@@ -18,7 +18,7 @@ from .state import OPEN_ISSUE_STATUSES, SEVERITIES, StateObject, StateRepository
 from .transaction import ReportRenderer, StateTransaction
 
 ISSUE_ID_PATTERN = re.compile(r"^ISS-(\d{3,})$")
-CP_ID_PATTERN = re.compile(r"^CP-(\d{3,})$")
+CP_ID_PATTERN = re.compile(r"^CP-(\d{4,})$")
 CATEGORIES = (
     "build",
     "mechanic",
@@ -219,7 +219,7 @@ def _allocate_cp_id(items: Iterable[Mapping[str, Any]]) -> str:
         match = CP_ID_PATTERN.fullmatch(str(item.get("id", "")))
         if match:
             highest = max(highest, int(match.group(1)))
-    return f"CP-{highest + 1:03d}"
+    return f"CP-{highest + 1:04d}"
 
 
 def _sort_key(issue: Mapping[str, Any]) -> tuple[Any, ...]:
@@ -282,12 +282,20 @@ class IssueService:
             transaction.set_issues(issues)
             if issue["on_critical_path"]:
                 critical_path = state["critical_path"]
-                if len(critical_path["items"]) >= 7:
+                if len(critical_path["items"]) >= critical_path["configured_max_items"]:
                     raise IssueInputError(
-                        "cannot add issue to the critical path: it already has 7 items"
+                        "cannot add issue to the critical path: it is already at "
+                        "its configured maximum"
                     )
+                source_key = f"issue:{issue['id']}"
+                if source_key not in critical_path["pinned_sources"]:
+                    critical_path["pinned_sources"].append(source_key)
                 critical_path["items"].append(
-                    self._critical_path_item(issue, critical_path["items"])
+                    self._critical_path_item(issue, critical_path)
+                )
+                self._mark_path_stale(
+                    critical_path,
+                    f"{issue['id']} was manually included; recalculate the path.",
                 )
                 transaction.set_critical_path(critical_path)
             return transaction.commit(
@@ -597,8 +605,10 @@ class IssueService:
     ) -> bool:
         if requested is None:
             return False
-        items = state["critical_path"]["items"]
-        matches = [item for item in items if item["source_issue_id"] == issue["id"]]
+        critical_path = state["critical_path"]
+        items = critical_path["items"]
+        source_key = f"issue:{issue['id']}"
+        matches = [item for item in items if item["source_key"] == source_key]
         if requested:
             if issue["status"] in INACTIVE_STATUSES:
                 raise IssueInputError(
@@ -606,20 +616,66 @@ class IssueService:
                     "critical path"
                 )
             issue["on_critical_path"] = True
+            if source_key not in critical_path["pinned_sources"]:
+                critical_path["pinned_sources"].append(source_key)
             if matches:
                 return False
-            if len(items) >= 7:
+            if len(items) >= critical_path["configured_max_items"]:
                 raise IssueInputError(
-                    "cannot add issue to the critical path: it already has 7 items"
+                    "cannot add issue to the critical path: it is already at "
+                    "its configured maximum"
                 )
-            items.append(self._critical_path_item(issue, items))
+            items.append(self._critical_path_item(issue, critical_path))
+            self._mark_path_stale(
+                critical_path,
+                f"{issue['id']} was manually included; recalculate the path.",
+            )
             return True
         issue["on_critical_path"] = False
+        if source_key in critical_path["pinned_sources"]:
+            critical_path["pinned_sources"].remove(source_key)
         if not matches:
             return False
+        removed = [item for item in items if item["source_key"] == source_key]
         state["critical_path"]["items"] = [
-            item for item in items if item["source_issue_id"] != issue["id"]
+            item for item in items if item["source_key"] != source_key
         ]
+        removed_ids = {item["id"] for item in removed}
+        for downstream in state["critical_path"]["items"]:
+            dependencies = [
+                dependency
+                for dependency in downstream["dependencies"]
+                if dependency not in removed_ids
+            ]
+            if dependencies != downstream["dependencies"]:
+                downstream["dependencies"] = dependencies
+                if (
+                    not dependencies
+                    and downstream["status"] == "blocked"
+                    and downstream["source_status"] != "blocked"
+                ):
+                    downstream["status"] = "ready"
+        timestamp = _timestamp(self.clock)
+        for item in removed:
+            item["status"] = (
+                "completed"
+                if issue["status"] in {"resolved", "accepted"}
+                else "removed"
+            )
+            item["source_status"] = issue["status"]
+            item["updated_at"] = timestamp
+            critical_path["history"] = [
+                history
+                for history in critical_path["history"]
+                if history["source_key"] != source_key
+            ]
+            critical_path["history"].append(item)
+        if critical_path["recommended_next_id"] in {item["id"] for item in removed}:
+            critical_path["recommended_next_id"] = None
+        self._mark_path_stale(
+            critical_path,
+            f"{issue['id']} was manually excluded from the active path; recalculate.",
+        )
         return True
 
     def _validate_transition(
@@ -641,15 +697,6 @@ class IssueService:
             )
         if new_status in TERMINAL_STATUSES and not issue["resolution"]:
             raise IssueInputError(f"resolution is required when status is {new_status}")
-        if (
-            new_status in INACTIVE_STATUSES
-            and before["on_critical_path"]
-            and requested_path is not False
-        ):
-            raise IssueInputError(
-                f"{before['id']} is on the active critical path; include "
-                "--off-critical-path before making it inactive"
-            )
 
     def _synchronize_path_item(
         self, state: dict[str, StateObject], issue: StateObject
@@ -657,24 +704,95 @@ class IssueService:
         """Keep issue-backed path display fields aligned without reordering."""
 
         changed = False
-        for item in state["critical_path"]["items"]:
-            if item["source_issue_id"] != issue["id"]:
+        critical_path = state["critical_path"]
+        source_key = f"issue:{issue['id']}"
+        if issue["status"] in INACTIVE_STATUSES:
+            matching = [
+                item
+                for item in critical_path["items"]
+                if item["source_key"] == source_key
+            ]
+            if not matching:
+                return False
+            issue["on_critical_path"] = False
+            critical_path["items"] = [
+                item
+                for item in critical_path["items"]
+                if item["source_key"] != source_key
+            ]
+            removed_ids = {item["id"] for item in matching}
+            for downstream in critical_path["items"]:
+                dependencies = [
+                    dependency
+                    for dependency in downstream["dependencies"]
+                    if dependency not in removed_ids
+                ]
+                if dependencies != downstream["dependencies"]:
+                    downstream["dependencies"] = dependencies
+                    if (
+                        not dependencies
+                        and downstream["status"] == "blocked"
+                        and downstream["source_status"] != "blocked"
+                    ):
+                        downstream["status"] = "ready"
+            timestamp = _timestamp(self.clock)
+            for item in matching:
+                item["status"] = (
+                    "completed"
+                    if issue["status"] in {"resolved", "accepted"}
+                    else "removed"
+                )
+                item["source_status"] = issue["status"]
+                item["updated_at"] = timestamp
+                critical_path["history"] = [
+                    history
+                    for history in critical_path["history"]
+                    if history["source_key"] != source_key
+                ]
+                critical_path["history"].append(item)
+            if source_key in critical_path["pinned_sources"]:
+                critical_path["pinned_sources"].remove(source_key)
+            if critical_path["recommended_next_id"] in {
+                item["id"] for item in matching
+            }:
+                critical_path["recommended_next_id"] = None
+            self._mark_path_stale(
+                critical_path,
+                f"{issue['id']} is now {issue['status']}; recalculate the path.",
+            )
+            return True
+
+        for item in critical_path["items"]:
+            if item["source_key"] != f"issue:{issue['id']}":
                 continue
             expected = {
                 "title": issue["title"],
-                "type": self._critical_path_type(issue),
-                "blocked": issue["status"] == "blocked",
-                "why_critical": (
+                "description": issue["description"],
+                "reason": (
                     issue["milestone_impact"]
                     or issue["player_impact"]
                     or issue["description"]
                 ),
-                "exit_condition": issue["recommended_action"],
+                "milestone_impact": (
+                    issue["milestone_impact"]
+                    or issue["player_impact"]
+                    or issue["description"]
+                ),
+                "completion_condition": issue["recommended_action"],
+                "recommended_action": issue["recommended_action"],
+                "owner": issue["owner"],
+                "source_status": issue["status"],
+                "evidence_state": issue["evidence_type"].casefold().replace("_", "-"),
             }
-            for field_name, value in expected.items():
-                if item[field_name] != value:
+            if any(item[field_name] != value for field_name, value in expected.items()):
+                for field_name, value in expected.items():
                     item[field_name] = value
-                    changed = True
+                changed = True
+                item["updated_at"] = _timestamp(self.clock)
+                self._mark_path_stale(
+                    critical_path,
+                    f"{issue['id']} materially changed; recalculate the path.",
+                )
         return changed
 
     def _changes(
@@ -687,30 +805,54 @@ class IssueService:
         }
 
     def _critical_path_item(
-        self, issue: StateObject, items: list[StateObject]
+        self, issue: StateObject, critical_path: StateObject
     ) -> StateObject:
         why = (
             issue["milestone_impact"] or issue["player_impact"] or issue["description"]
         )
+        timestamp = _timestamp(self.clock)
+        all_items = [
+            *critical_path["items"],
+            *critical_path["history"],
+        ]
         return {
-            "id": _allocate_cp_id(items),
+            "id": _allocate_cp_id(all_items),
+            "type": "issue",
+            "source_id": issue["id"],
+            "source_key": f"issue:{issue['id']}",
             "title": issue["title"],
-            "type": self._critical_path_type(issue),
-            "source_issue_id": issue["id"],
-            "source_decision_id": None,
+            "description": issue["description"],
+            "reason": why,
+            "milestone_impact": why,
+            "priority_tier": self._critical_path_tier(issue),
             "dependencies": [],
-            "blocked": issue["status"] == "blocked",
-            "why_critical": why,
-            "exit_condition": issue["recommended_action"],
+            "status": "blocked" if issue["status"] == "blocked" else "ready",
+            "completion_condition": issue["recommended_action"],
+            "recommended_action": issue["recommended_action"],
+            "owner": issue["owner"],
+            "evidence_required": list(issue["evidence_references"]),
+            "pinned": True,
+            "manual": False,
+            "created_at": timestamp,
+            "updated_at": timestamp,
+            "source_status": issue["status"],
+            "evidence_state": issue["evidence_type"].casefold().replace("_", "-"),
         }
 
     @staticmethod
-    def _critical_path_type(issue: StateObject) -> str:
+    def _critical_path_tier(issue: StateObject) -> int:
         if issue["severity"] == "blocker" or issue["category"] == "build":
-            return "build-blocker"
+            return 1
         if issue["severity"] == "critical":
-            return "hypothesis-risk"
-        return "player-impact"
+            return 2
+        return 5
+
+    @staticmethod
+    def _mark_path_stale(critical_path: StateObject, reason: str) -> None:
+        critical_path["freshness"] = {
+            "status": "stale",
+            "reasons": [reason],
+        }
 
     def _issue_map_workflow(self) -> str:
         catalog = self.repository.root / ".studio" / "workflow-catalog.json"
