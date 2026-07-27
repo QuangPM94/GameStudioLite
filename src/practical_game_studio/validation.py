@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -140,15 +141,19 @@ REQUIRED_FILES = (
     "src/practical_game_studio/models.py",
     "src/practical_game_studio/transaction.py",
     "src/practical_game_studio/initialization.py",
+    "src/practical_game_studio/issues.py",
     "tests/test_validation.py",
     "tests/test_reporting.py",
     "tests/test_catalog.py",
     "tests/test_initialization.py",
     "tests/test_transaction.py",
     "tests/test_cli.py",
+    "tests/test_issues.py",
+    "tests/test_issue_cli.py",
     "tests/conftest.py",
     "tests/__init__.py",
     "tests/fixtures/README.md",
+    "docs/issue-management.md",
     "examples/delivery-horror/README.md",
     "examples/delivery-horror/sample-game-brief.md",
     "examples/delivery-horror/sample-evaluation.md",
@@ -314,12 +319,43 @@ def _validate_relationships(
             result.add(f"Duplicate {label} id: {duplicate}")
 
     for issue in issues:
-        for related in (*issue["dependencies"], *issue["issues_blocked"]):
-            if related not in issue_ids:
-                result.add(f"{issue['id']}: broken issue relationship {related}")
+        for field_name in ("dependencies", "issues_blocked"):
+            references = issue[field_name]
+            for duplicate in sorted(_duplicates(references)):
+                result.add(
+                    f"{issue['id']}: duplicate {field_name.replace('_', ' ')} "
+                    f"reference {duplicate}"
+                )
+            for related in references:
+                if related == issue["id"]:
+                    relationship = (
+                        "depend on itself"
+                        if field_name == "dependencies"
+                        else "block itself"
+                    )
+                    result.add(f"{issue['id']}: cannot {relationship}")
+                if related not in issue_ids:
+                    result.add(f"{issue['id']}: broken issue relationship {related}")
+        for duplicate in sorted(_duplicates(issue["evidence_references"])):
+            result.add(f"{issue['id']}: duplicate evidence reference {duplicate}")
         for reference in issue["evidence_references"]:
-            if reference.startswith("EVD-") and reference not in evidence_ids:
+            if reference not in evidence_ids:
                 result.add(f"{issue['id']}: broken evidence reference {reference}")
+        if (
+            issue["status"] in {"resolved", "accepted", "wont-fix"}
+            and not issue["resolution"]
+        ):
+            result.add(
+                f"{issue['id']}: resolution is required for status {issue['status']}"
+            )
+        try:
+            created = datetime.fromisoformat(issue["created_at"])
+            updated = datetime.fromisoformat(issue["updated_at"])
+        except ValueError:
+            # JSON Schema's date-time format error is already more precise.
+            continue
+        if updated < created:
+            result.add(f"{issue['id']}: updated_at cannot be earlier than created_at")
     for decision in decisions:
         option_ids = {option["id"] for option in decision["options"]}
         if decision["recommended_option"] not in option_ids:
@@ -347,7 +383,12 @@ def _validate_relationships(
             )
         source_issue = issue_by_id.get(item["source_issue_id"])
         if source_issue is not None:
-            if source_issue["status"] in {"resolved", "accepted", "deferred"}:
+            if source_issue["status"] in {
+                "resolved",
+                "accepted",
+                "wont-fix",
+                "deferred",
+            }:
                 result.add(
                     f"{item['id']}: closed issue {source_issue['id']} cannot remain "
                     "on the active critical path"
@@ -407,6 +448,16 @@ def _validate_relationships(
         for item in cp_items
         if item["source_issue_id"] is not None
     }
+    for duplicate in sorted(
+        _duplicates(
+            item["source_issue_id"]
+            for item in cp_items
+            if item["source_issue_id"] is not None
+        )
+    ):
+        result.add(
+            f"Critical path: issue {duplicate} appears in more than one active item"
+        )
     for issue in issues:
         if issue["on_critical_path"] and issue["id"] not in referenced_issue_ids:
             result.add(

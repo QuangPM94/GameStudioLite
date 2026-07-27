@@ -31,7 +31,8 @@ Update build status, last verified date, technical issues, evidence, and readine
 3. Compare implemented interactions/states with approved scope and criteria.
 4. Classify stability, defects, and verification gaps by evidence label.
 5. Decide whether player review is supported and state limitations.
-6. Update state and reports.
+6. Use `studio issue add` for a new build finding or `studio issue update` for an existing one. Use `studio issue show` before changing uncertain relationships.
+7. Update other state and reports; issue writes regenerate all reports transactionally.
 
 ## User decision points
 

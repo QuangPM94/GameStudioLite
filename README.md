@@ -18,6 +18,9 @@ PGS requires Python 3.11 or later.
 ```bash
 python -m pip install -e ".[dev]"
 studio init --name "My Game"
+studio issue add --title "Prototype does not launch" --severity blocker \
+  --milestone-impact "The prototype cannot be evaluated." --yes
+studio issue list
 studio validate
 studio status
 studio report
@@ -45,6 +48,7 @@ Run commands from the PGS root or a child directory. Use `--root PATH` to select
 - `.studio/state/*.json` is canonical machine-readable state.
 - `.studio/reports/*.md` is generated human-readable state.
 - `studio init` uses the B1 transaction layer to initialize project identity.
+- `studio issue add|list|show|update` provides transactional B2 issue management.
 - `studio validate`, `studio status`, and `studio report` inspect and render state.
 
 ## Initialization behavior
@@ -67,6 +71,31 @@ If the project is already initialized, `studio init` is a successful no-op and r
 State mutations load and copy all canonical state, validate schemas and relationships, render every report in memory, and hash-check canonical files before staging. Changed JSON and reports are written to flushed temporary files on the same filesystem and atomically replaced one file at a time. A replacement error triggers restoration of outputs already replaced, and temporary files are cleaned.
 
 This is not a database or a claim of full ACID behavior: a process crash, power loss, filesystem failure, or non-cooperating writer during the narrow multi-file replacement window can still leave a mixed revision. Concurrent canonical edits detected before replacement abort with the changed path and a reload-and-retry instruction. See `docs/state-mutation-safety.md`.
+
+## Issue management
+
+Record an issue with a title, severity, and at least one useful context field:
+
+```bash
+studio issue add \
+  --title "Player cannot identify the delivery room" \
+  --severity critical \
+  --player-impact "The player stops progressing in the corridor." \
+  --recommended-action "Improve apartment-number visibility." \
+  --yes
+```
+
+Guided and strict projects confirm issue creation; use `--yes` for non-interactive writes. Fast mode commits without that extra confirmation. `--dry-run` validates and renders the proposed revision without writing, and `--json` returns a stable automation envelope.
+
+```bash
+studio issue list
+studio issue show ISS-0001
+studio issue update ISS-0001 --status in-progress --owner developer
+studio issue update ISS-0001 --status resolved \
+  --resolution "Increased contrast and added directional signage."
+```
+
+Issues are historical records and cannot be deleted. See `docs/issue-management.md` for lifecycle transitions, filters, critical-path behavior, evidence references, and exit codes.
 
 ## Evidence
 
@@ -100,7 +129,8 @@ Codex instructions, roles, playbooks, catalog, schemas, initial state, templates
 ### Phase B — State mutation and issue management
 
 - **B1 complete:** validated transactions, atomic per-file replacement, rollback attempts, concurrent-modification detection, dry runs, and `studio init`.
-- **B2 pending:** `studio issue add`, `studio issue update`, `studio decision add`, `studio decision resolve`, `studio evidence add`, and `studio next`.
+- **B2 complete:** transactional `studio issue add`, `issue list`, `issue show`, and `issue update`, including dry runs and JSON output.
+- **Later Phase B work:** decision and evidence mutation plus guided next-action state changes.
 
 ### Phase C — Critical-path engine
 
@@ -122,7 +152,7 @@ Add optional Unity, Godot, and Unreal adapters without coupling the core to one 
 
 Use the framework against a small delivery-horror prototype and revise from observed usage.
 
-PGS still excludes issue/decision/evidence mutation commands, a graph-based critical-path engine, engine/editor control, telemetry/video ingestion, multi-agent spawning, remote APIs, deployment, and full vertical-slice generation.
+PGS still excludes decision/evidence creation commands, automatic critical-path calculation, workflow automation, engine/editor control, telemetry/video ingestion, multi-agent spawning, remote APIs, deployment, and full vertical-slice generation.
 
 ## License and attribution
 

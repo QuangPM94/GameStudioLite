@@ -30,8 +30,9 @@ Create or update issue records, relationships, severity, milestone/player impact
 2. Classify severity/category and connect evidence.
 3. Describe player and milestone impact separately.
 4. Identify dependencies, issues blocked, alternatives, effort, owner, and whether user input is required.
-5. Separate active milestone issues from later work.
-6. Regenerate open-issues and direction reports.
+5. Use `studio issue list` and `studio issue show` to inspect history, then `studio issue add` or `studio issue update` for each accepted record. Prefer `--dry-run` when relationships or path membership change.
+6. Separate active milestone issues from later work. Do not delete history.
+7. Transactional issue commands regenerate open-issues and direction reports.
 
 ## User decision points
 

@@ -75,7 +75,9 @@ def _valid_issue(*, status: str = "open") -> dict[str, object]:
         "on_critical_path": True,
         "user_decision_required": False,
         "owner": "developer",
-        "resolution": None,
+        "resolution": "Handled."
+        if status in {"resolved", "accepted", "wont-fix"}
+        else None,
         "created_at": "2026-07-27T00:00:00Z",
         "updated_at": "2026-07-27T00:00:00Z",
     }
@@ -101,6 +103,23 @@ def test_issue_evidence_reference_must_exist(framework_repo: Path) -> None:
     result = validate_state(framework_repo, state)
 
     assert any("broken evidence reference EVD-999" in error for error in result.errors)
+
+
+def test_freeform_issue_evidence_reference_is_not_canonical(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    issue = _valid_issue()
+    issue["evidence_references"] = ["screenshots/corridor.png"]
+    issue["on_critical_path"] = False
+    state["issues"]["issues"] = [issue]
+
+    result = validate_state(framework_repo, state)
+
+    assert any(
+        "broken evidence reference screenshots/corridor.png" in error
+        for error in result.errors
+    )
 
 
 def test_critical_path_decision_reference_must_exist(framework_repo: Path) -> None:
@@ -159,4 +178,73 @@ def test_stale_generated_report_is_detected(framework_repo: Path) -> None:
     assert any(
         "current-state.md: generated report is stale" in error
         for error in result.errors
+    )
+
+
+def test_duplicate_issue_ids_fail_relationship_validation(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    first = _valid_issue()
+    first["on_critical_path"] = False
+    state["issues"]["issues"] = [first, dict(first)]
+
+    result = validate_state(framework_repo, state)
+
+    assert "Duplicate issue id: ISS-001" in result.errors
+
+
+def test_issue_cannot_depend_on_or_block_itself(framework_repo: Path) -> None:
+    state = StateRepository(framework_repo).load_all()
+    issue = _valid_issue()
+    issue["on_critical_path"] = False
+    issue["dependencies"] = ["ISS-001"]
+    issue["issues_blocked"] = ["ISS-001"]
+    state["issues"]["issues"] = [issue]
+
+    result = validate_state(framework_repo, state)
+
+    assert any("cannot depend on itself" in error for error in result.errors)
+    assert any("cannot block itself" in error for error in result.errors)
+
+
+def test_terminal_issue_requires_resolution(framework_repo: Path) -> None:
+    state = StateRepository(framework_repo).load_all()
+    issue = _valid_issue(status="wont-fix")
+    issue["on_critical_path"] = False
+    issue["resolution"] = None
+    state["issues"]["issues"] = [issue]
+
+    result = validate_state(framework_repo, state)
+
+    assert any("resolution is required" in error for error in result.errors)
+
+
+def test_issue_timestamp_order_is_validated(framework_repo: Path) -> None:
+    state = StateRepository(framework_repo).load_all()
+    issue = _valid_issue()
+    issue["on_critical_path"] = False
+    issue["created_at"] = "2026-07-27T02:00:00Z"
+    issue["updated_at"] = "2026-07-27T01:00:00Z"
+    state["issues"]["issues"] = [issue]
+
+    result = validate_state(framework_repo, state)
+
+    assert any("updated_at cannot be earlier" in error for error in result.errors)
+
+
+def test_issue_cannot_appear_twice_on_critical_path(framework_repo: Path) -> None:
+    state = StateRepository(framework_repo).load_all()
+    issue = _valid_issue()
+    state["issues"]["issues"] = [issue]
+    first = state["critical_path"]["items"][0]
+    first["source_issue_id"] = "ISS-001"
+    duplicate = dict(first)
+    duplicate["id"] = "CP-002"
+    state["critical_path"]["items"].append(duplicate)
+
+    result = validate_state(framework_repo, state)
+
+    assert any(
+        "appears in more than one active item" in error for error in result.errors
     )

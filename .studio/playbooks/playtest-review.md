@@ -31,7 +31,8 @@ Set phase to `evaluate`; append evidence and issue candidates without overwritin
 3. For each, evaluate clarity, engagement, intended emotion/tension, pacing, feedback, friction, payoff, desire to continue, and stability.
 4. Label every finding and include the simulated-review disclaimer when runtime/human evidence is unavailable.
 5. Name the strongest, weakest, confusing, and likely abandonment moments; main risk; most important improvement; and real-playtest questions.
-6. Update evidence/issues and regenerate reports.
+6. Inspect existing findings with `studio issue list`/`show`; record accepted findings with `studio issue add` and refine them with `studio issue update`. Do not attach an evidence ID until that canonical evidence record exists.
+7. Transactional issue writes regenerate reports.
 
 ## User decision points
 

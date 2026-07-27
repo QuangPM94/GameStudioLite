@@ -31,7 +31,8 @@ Replace active path items with an ordered set of three-to-seven valid items unle
 3. Order by dependency and explain why delaying each delays the milestone.
 4. Keep only active milestone work; use fewer than three when fewer valid items exist.
 5. Exclude menu polish, saves, content, localization, analytics, asset replacement, broad refactors, optional accessibility, and production architecture unless directly required.
-6. Update reports and recommend the first actionable item.
+6. Inspect records with `studio issue list --critical-path` and `studio issue show`. Use `studio issue update ID --on-critical-path` or `--off-critical-path` for explicit membership changes; B2 does not calculate or reorder the path automatically.
+7. Update reports and recommend the first actionable item.
 
 ## User decision points
 

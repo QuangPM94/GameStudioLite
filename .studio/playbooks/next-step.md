@@ -27,10 +27,11 @@ Normally none beyond correcting stale direction. Regenerate reports when state c
 ## Execution procedure
 
 1. Confirm goal, evidence, blockers, and pending decisions.
-2. Select the first unblocked critical-path item; if none, choose the missing decision or verification that unlocks one.
-3. Recommend one workflow and define its expected outcome.
-4. Name important work that should not start.
-5. Return the Direction Summary.
+2. Use `studio issue list` and `studio issue show` to inspect the actionable issue set instead of reading generated Markdown as state.
+3. Select the first unblocked critical-path item; if none, choose the missing decision or verification that unlocks one.
+4. Recommend one workflow and define its expected outcome.
+5. Name important work that should not start.
+6. Return the Direction Summary.
 
 ## User decision points
 

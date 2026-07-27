@@ -1,6 +1,6 @@
 # State Mutation Safety
 
-Phase B1 introduces the shared mutation path for current and future CLI commands.
+Phase B1 introduced the shared mutation path. Phase B2 routes issue creation and updates through that same path, including coordinated writes to issue and critical-path state.
 
 ## Commit stages
 
@@ -27,6 +27,8 @@ Concurrent protection is optimistic: hashes detect canonical files changed from 
 
 Dry runs perform input normalization, loading, copying, validation, relationship checks, report rendering, deterministic comparison, and change reporting. They do not create target-path outputs or replace canonical state and reports.
 
-## B1 schema compatibility
+For issue creation, a dry run proposes an ID from the current historical maximum but does not consume it. A subsequent real add against the same canonical revision receives the same ID. Issue updates that normalize to the existing value are successful no-ops: they do not change `updated_at` or rewrite reports.
 
-B1 does not change the Phase A JSON Schemas or require a state migration. It strengthens relationship and generated-report validation around the existing schema vocabulary.
+## Schema compatibility
+
+B1 did not change the Phase A schemas. B2 extends the existing issue status enum with `acknowledged` and `wont-fix` while retaining `deferred`; existing valid state requires no migration. PGS retains the Phase A-compatible `ISS-` reference namespace and allocates new fixed-width IDs such as `ISS-0001`.

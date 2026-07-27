@@ -10,6 +10,10 @@
 - Prototype hypothesis: Not defined
 - Milestone verdict: PAUSE
 
+## Current Blockers
+
+- No active blocker issue recorded.
+
 ## What We Learned
 
 - No evidence-backed learning has been recorded yet.

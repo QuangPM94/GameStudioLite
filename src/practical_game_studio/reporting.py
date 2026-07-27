@@ -15,11 +15,32 @@ def _bullets(values: list[str], empty: str = "None recorded.") -> str:
 
 
 def _open_issues(state: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
+    issues = [
         issue
         for issue in state["issues"]["issues"]
         if issue["status"] in OPEN_ISSUE_STATUSES
     ]
+    priority = {severity: index for index, severity in enumerate(SEVERITIES)}
+    return sorted(
+        issues,
+        key=lambda issue: (
+            priority[issue["severity"]],
+            not issue["on_critical_path"],
+            issue["status"] != "blocked",
+            issue["created_at"],
+            issue["id"],
+        ),
+    )
+
+
+def _issue_bullets(issues: list[dict[str, Any]], empty: str) -> str:
+    return _bullets(
+        [
+            f"{item['id']} [{item['severity']}/{item['status']}]: {item['title']}"
+            for item in issues
+        ],
+        empty,
+    )
 
 
 def render_current_state(state: dict[str, Any]) -> str:
@@ -76,6 +97,12 @@ def render_direction_report(state: dict[str, Any]) -> str:
         if decision["status"] == "pending"
     ]
     cp_items = state["critical_path"]["items"]
+    active_issues = _open_issues(state)
+    blockers = [
+        issue
+        for issue in active_issues
+        if issue["severity"] == "blocker" or issue["status"] == "blocked"
+    ]
     learned = [f"[{item['type']}] {item['description']}" for item in evidence]
     evidence_lines = [
         f"{item['id']} — {item['source']} ({item['confidence']} confidence)"
@@ -85,10 +112,23 @@ def render_direction_report(state: dict[str, Any]) -> str:
         f"{item['id']}: {item['question']} — recommendation: {item['recommended_option']}"
         for item in decisions
     ]
+    decision_lines.extend(
+        f"{item['id']}: {item['title']} — issue requires a user decision"
+        for item in active_issues
+        if item["user_decision_required"]
+    )
     critical_path_lines = [
         f"{index}. {item['id']}: {item['title']} — {item['why_critical']}"
         for index, item in enumerate(cp_items, 1)
     ]
+    next_workflow = (
+        "/issue-map" if active_issues else project["recommended_next_playbook"]
+    )
+    recommendation = (
+        "Review and prioritize the active issue map."
+        if active_issues
+        else milestone["recommendation"]
+    )
     return f"""{WARNING}
 # Direction Report
 
@@ -100,6 +140,10 @@ def render_direction_report(state: dict[str, Any]) -> str:
 - Review mode: {project["review_mode"]}
 - Prototype hypothesis: {project["prototype_hypothesis"] or "Not defined"}
 - Milestone verdict: {milestone["verdict"]}
+
+## Current Blockers
+
+{_issue_bullets(blockers, "No active blocker issue recorded.")}
 
 ## What We Learned
 
@@ -119,7 +163,7 @@ def render_direction_report(state: dict[str, Any]) -> str:
 
 ## Recommended Next Step
 
-{milestone["recommendation"]}
+{recommendation}
 
 ## Do Not Work On Yet
 
@@ -127,20 +171,47 @@ def render_direction_report(state: dict[str, Any]) -> str:
 
 ## Next Command
 
-`{project["recommended_next_playbook"]}`
+`{next_workflow}`
 """
 
 
 def render_open_issues(state: dict[str, Any]) -> str:
     issues = _open_issues(state)
-    rows = [
-        f"| {item['id']} | {item['severity']} | {item['status']} | {item['title']} | {item['evidence_type']} | {item['recommended_action']} |"
+    blockers = [
+        item
         for item in issues
+        if item["severity"] == "blocker" or item["status"] == "blocked"
     ]
+    critical = [item for item in issues if item["severity"] == "critical"]
+    major = [item for item in issues if item["severity"] == "major"]
+    user_decisions = [item for item in issues if item["user_decision_required"]]
+    path_issues = [item for item in issues if item["on_critical_path"]]
+    recently_resolved = sorted(
+        (
+            item
+            for item in state["issues"]["issues"]
+            if item["status"] in {"resolved", "accepted", "wont-fix"}
+        ),
+        key=lambda item: (item["updated_at"], item["id"]),
+        reverse=True,
+    )[:5]
+    rows = []
+    for item in issues:
+        evidence = (
+            f"{item['evidence_type']}: {', '.join(item['evidence_references'])}"
+            if item["evidence_references"]
+            else "UNKNOWN"
+        )
+        rows.append(
+            f"| {item['id']} | {item['severity']} | {item['status']} | "
+            f"{item['title']} | {evidence} | {item['recommended_action']} |"
+        )
     table = (
         "\n".join(rows)
         if rows
-        else "| — | — | — | No open issues recorded | — | Run the next workflow |"
+        else (
+            "| — | — | — | No active issues recorded | UNKNOWN | Run the next workflow |"
+        )
     )
     counts = {severity: 0 for severity in SEVERITIES}
     for issue in issues:
@@ -154,6 +225,30 @@ Open counts — {count_line}.
 | ID | Severity | Status | Title | Evidence | Recommended action |
 |---|---|---|---|---|---|
 {table}
+
+## Blockers
+
+{_issue_bullets(blockers, "No active blockers.")}
+
+## Critical Issues
+
+{_issue_bullets(critical, "No active critical issues.")}
+
+## Major Issues
+
+{_issue_bullets(major, "No active major issues.")}
+
+## User Decisions Required
+
+{_issue_bullets(user_decisions, "No issue requires a user decision.")}
+
+## Critical-Path Issues
+
+{_issue_bullets(path_issues, "No issue is on the active critical path.")}
+
+## Recently Resolved
+
+{_issue_bullets(recently_resolved, "No recently resolved issues.")}
 """
 
 

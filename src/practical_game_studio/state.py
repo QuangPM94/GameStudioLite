@@ -19,7 +19,7 @@ STATE_FILES = {
 }
 
 SEVERITIES = ("blocker", "critical", "major", "minor", "later")
-OPEN_ISSUE_STATUSES = {"open", "in-progress", "blocked"}
+OPEN_ISSUE_STATUSES = {"open", "acknowledged", "in-progress", "blocked"}
 ROOT_MARKERS = ("AGENTS.md", ".studio", "pyproject.toml")
 
 StateObject = dict[str, Any]

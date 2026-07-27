@@ -19,7 +19,7 @@
           "description": {"type": "string", "minLength": 1},
           "severity": {"enum": ["blocker", "critical", "major", "minor", "later"]},
           "category": {"enum": ["build", "mechanic", "clarity", "engagement", "pacing", "feedback", "friction", "emotion", "stability", "scope", "technical", "evidence", "other"]},
-          "status": {"enum": ["open", "in-progress", "blocked", "resolved", "accepted", "deferred"]},
+          "status": {"enum": ["open", "acknowledged", "in-progress", "blocked", "resolved", "accepted", "wont-fix", "deferred"]},
           "phase_discovered": {"enum": ["intake", "clarify", "prototype-plan", "prototype-build", "evaluate", "iterate", "vertical-slice-decision", "vertical-slice", "production"]},
           "evidence_type": {"enum": ["OBSERVED", "USER_REPORTED", "INFERRED", "UNKNOWN"]},
           "evidence_references": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
