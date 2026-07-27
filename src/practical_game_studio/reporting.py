@@ -89,6 +89,32 @@ def _evidence_count_text(items: list[dict[str, Any]]) -> str:
     )
 
 
+def _decision_support(
+    decision: dict[str, Any], evidence_by_id: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    from .decisions import recommendation_support
+
+    return recommendation_support(decision, evidence_by_id)
+
+
+def _pending_decisions(state: dict[str, Any]) -> list[dict[str, Any]]:
+    urgency = {"blocking": 0, "high": 1, "medium": 2, "low": 3}
+    return sorted(
+        (
+            item
+            for item in state["decisions"]["decisions"]
+            if item["status"] in {"open", "ready", "blocked", "deferred"}
+        ),
+        key=lambda item: (
+            urgency[item["urgency"]],
+            item["decision_required_by"] or "9999-12-31",
+            item["milestone"] != state["project"]["current_milestone"],
+            item["created_at"],
+            item["id"],
+        ),
+    )
+
+
 def render_current_state(state: dict[str, Any]) -> str:
     project = state["project"]
     evidence = _active_evidence(state)
@@ -100,6 +126,14 @@ def render_current_state(state: dict[str, Any]) -> str:
     evidence_lines = [
         f"{item['id']} [{item['classification']}] {item['claim']}" for item in evidence
     ]
+    decisions = _pending_decisions(state)
+    decision_counts = {
+        "Blocking": sum(item["urgency"] == "blocking" for item in decisions),
+        "Ready": sum(item["status"] == "ready" for item in decisions),
+        "Open": sum(item["status"] == "open" for item in decisions),
+        "Deferred": sum(item["status"] == "deferred" for item in decisions),
+    }
+    decision_lines = [f"{label}: {count}" for label, count in decision_counts.items()]
     return f"""{WARNING}
 # Current State
 
@@ -127,6 +161,10 @@ def render_current_state(state: dict[str, Any]) -> str:
 
 {_bullets(blockers, "No blocker or critical issue recorded.")}
 
+## Decisions
+
+{_bullets(decision_lines)}
+
 ## Recommended Next Action
 
 Run `{project["recommended_next_playbook"]}`.
@@ -137,11 +175,11 @@ def render_direction_report(state: dict[str, Any]) -> str:
     project = state["project"]
     milestone = state["milestone"]
     evidence = _active_evidence(state)
-    decisions = [
-        decision
-        for decision in state["decisions"]["decisions"]
-        if decision["status"] == "pending"
+    all_decisions = _pending_decisions(state)
+    high_priority_decisions = [
+        item for item in all_decisions if item["urgency"] in {"blocking", "high"}
     ]
+    decisions = high_priority_decisions or all_decisions[:1]
     cp_items = state["critical_path"]["items"]
     active_issues = _open_issues(state)
     blockers = [
@@ -182,10 +220,25 @@ def render_direction_report(state: dict[str, Any]) -> str:
         if _has_observed_play_evidence(evidence)
         else f"\n\n{SIMULATED_REVIEW_DISCLAIMER}"
     )
-    decision_lines = [
-        f"{item['id']}: {item['question']} — recommendation: {item['recommended_option']}"
-        for item in decisions
-    ]
+    evidence_by_id = {item["id"]: item for item in state["evidence"]["evidence"]}
+    decision_lines = []
+    for item in decisions:
+        recommended = next(
+            option
+            for option in item["options"]
+            if option["id"] == item["recommended_option"]
+        )
+        support = _decision_support(item, evidence_by_id)["level"]
+        support_text = support if item["supporting_evidence"] else "None recorded"
+        blocking = ", ".join(item["affected_issues"]) or item["milestone"]
+        required = item["decision_required_by"] or "not set"
+        decision_lines.append(
+            f"{item['id']} [{item['urgency']}/{item['status']}] "
+            f"{item['question']} — owner: {item['decision_owner']}; "
+            f"recommendation: {recommended['id']} — {recommended['label']}; "
+            f"evidence: {support_text}; affects: {blocking}; required by: {required}. "
+            f"Inspect with `studio decision show {item['id']}`."
+        )
     decision_lines.extend(
         f"{item['id']}: {item['title']} — issue requires a user decision"
         for item in active_issues
@@ -292,6 +345,10 @@ def render_open_issues(state: dict[str, Any]) -> str:
         key=lambda item: (item["updated_at"], item["id"]),
         reverse=True,
     )[:5]
+    decisions_by_issue: dict[str, list[dict[str, Any]]] = {}
+    for decision in state["decisions"]["decisions"]:
+        for issue_id in decision["affected_issues"]:
+            decisions_by_issue.setdefault(issue_id, []).append(decision)
     rows = []
     for item in issues:
         evidence = _evidence_count_text(_evidence_for_issue(item, evidence_by_id))
@@ -299,6 +356,19 @@ def render_open_issues(state: dict[str, Any]) -> str:
             f"| {item['id']} | {item['severity']} | {item['status']} | "
             f"{item['title']} | {evidence} | {item['recommended_action']} |"
         )
+        related = sorted(
+            decisions_by_issue.get(item["id"], []),
+            key=lambda decision: decision["id"],
+        )
+        if related:
+            rows.append(
+                "|  |  |  | Related decisions | "
+                + "; ".join(
+                    f"{decision['id']} — {decision['status'].title()}"
+                    for decision in related
+                )
+                + " |  |"
+            )
     table = (
         "\n".join(rows)
         if rows
@@ -386,6 +456,30 @@ def render_critical_path(state: dict[str, Any]) -> str:
 
 def render_milestone_review(state: dict[str, Any]) -> str:
     milestone = state["milestone"]
+    evidence_by_id = {item["id"]: item for item in state["evidence"]["evidence"]}
+    relevant_decisions = [
+        item
+        for item in state["decisions"]["decisions"]
+        if item["milestone"] == milestone["milestone"]
+        and (
+            item["urgency"] == "blocking"
+            or item["status"] == "resolved"
+            or _decision_support(item, evidence_by_id)["level"]
+            in {"weak", "unsupported", "conflicted"}
+            or item["revisit_condition"]
+        )
+    ]
+    decision_lines = [
+        f"{item['id']} [{item['status']}/{item['urgency']}]: "
+        f"{item['question']} — evidence "
+        f"{_decision_support(item, evidence_by_id)['level']}"
+        + (
+            f"; revisit: {item['revisit_condition']}"
+            if item["revisit_condition"]
+            else ""
+        )
+        for item in relevant_decisions
+    ]
     support_labels = {
         "pass": "verified",
         "partial": "partially-supported",
@@ -417,6 +511,10 @@ def render_milestone_review(state: dict[str, Any]) -> str:
 ## Blocking Issues
 
 {_bullets(milestone["blocking_issues"], "No blocking issues recorded.")}
+
+## Relevant Decisions
+
+{_bullets(decision_lines, "No milestone-relevant decisions recorded.")}
 
 ## Verdict
 
@@ -472,11 +570,15 @@ def format_status(state: dict[str, Any]) -> str:
         f"{severity}={count}"
         for severity, count in summary.open_issues_by_severity.items()
     )
-    decisions = _bullets(summary.pending_decisions, "No pending user decisions.")
+    decisions = _bullets(summary.pending_decisions, "No pending decisions.")
     path = _bullets(summary.critical_path_items, "No critical-path items.")
     evidence = "\n".join(
         f"- {classification.replace('-', ' ').title()}: {count}"
         for classification, count in summary.active_evidence_by_classification.items()
+    )
+    decision_counts = "\n".join(
+        f"- {urgency.title()}: {count}"
+        for urgency, count in summary.pending_decisions_by_urgency.items()
     )
     return (
         f"Current phase: {summary.phase}\n"
@@ -487,7 +589,11 @@ def format_status(state: dict[str, Any]) -> str:
         f"{evidence}\n"
         "Critical issues without evidence: "
         f"{summary.critical_issues_without_evidence}\n"
-        "Pending user decisions:\n"
+        "Pending decisions:\n"
+        f"{decision_counts}\n"
+        "Next required decision:\n"
+        f"{summary.next_required_decision or 'None'}\n"
+        "Decision queue:\n"
         f"{decisions}\n"
         "Critical-path items:\n"
         f"{path}\n"

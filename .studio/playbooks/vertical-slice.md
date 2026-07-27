@@ -28,10 +28,10 @@ Set phase to `vertical-slice-decision`; record exactly one verdict: `PROCEED`, `
 
 1. Compare each success criterion with supporting evidence and limitations.
 2. Identify unresolved hypothesis, experience, and stability risks.
-3. Select one verdict and explain the evidence threshold.
+3. Inspect the phase-boundary choice with `studio decision list`/`show`; create or update one decision record with verdict options, recommendation, trade-offs, milestone, issues, and evidence.
 4. For `PROCEED`, outline a bounded vertical-slice plan: representative loop, target quality, evidence goals, exclusions, and next planning step.
 5. For other verdicts, identify one next experiment, decision, or pause condition.
-6. Regenerate milestone and direction reports.
+6. After approval, resolve the decision with `studio decision resolve`, record the verdict in milestone state, and regenerate reports.
 
 ## User decision points
 

@@ -6,6 +6,9 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Phase B4 decision service with stable options, lifecycle transitions, resolution history, evidence-quality summaries, issue/evidence traceability, and acyclic supersession.
+- `studio decision add`, `studio decision list`, `studio decision show`, `studio decision update`, and `studio decision resolve` with dry-run and stable JSON output.
+- Decision-management documentation and behavioral coverage for recommendations, overrides, reopening, rollback, concurrency, and reporting.
 - Phase B3 evidence service with classification/source separation, lifecycle history, controlled confidence defaults, bidirectional issue links, and acyclic supersession.
 - `studio evidence add`, `studio evidence list`, `studio evidence show`, and `studio evidence update` with dry-run and stable JSON output.
 - Evidence-quality summaries in status, Direction, issue, and milestone reports.
@@ -23,13 +26,15 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Changed
 
+- Decision state advances to schema `2.0`; migration from the Phase A decision shape is documented.
+- Direction, Current State, Open Issues, Milestone Review, and status output now expose prioritized decisions and evidence support without duplicating canonical relationships.
+- Phase B roadmap now marks B1 through B4 complete without marking workflow automation or critical-path calculation complete.
 - Evidence state advances to schema `2.0`; the migration from Phase A records is documented.
 - Issue evidence attachment now updates both canonical relationship directions transactionally.
 - Reports exclude superseded/retracted evidence from current support and apply simulated-review language when direct play evidence is absent.
 - Issue validation now covers lifecycle requirements, self-references, duplicate path membership, and timestamp ordering.
 - Open-issue and Direction reports now prioritize blockers, critical/major issues, user decisions, active path issues, and recent resolutions.
 - Validation now detects stale generated reports, catalog phase mismatches, closed issues on the active path, and additional broken references.
-- Phase B roadmap now marks B1 through B3 complete without marking all of Phase B complete.
 
 ## [0.1.0] - 2026-07-27
 

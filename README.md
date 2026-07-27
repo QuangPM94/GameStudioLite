@@ -26,6 +26,13 @@ studio evidence add --title "Prototype launches" \
   --classification observed --source-type test-output \
   --source "pytest output" --yes
 studio evidence list
+studio decision add --question "How should the player find the room?" \
+  --context "The corridor lacks sufficient guidance." \
+  --option 'OPT-A|Waypoint|Show an explicit marker.' \
+  --option 'OPT-B|Signs|Improve environmental guidance.' \
+  --recommended-option OPT-B \
+  --recommendation-reason "Signs preserve immersion." --yes
+studio decision list
 studio validate
 studio status
 studio report
@@ -55,6 +62,7 @@ Run commands from the PGS root or a child directory. Use `--root PATH` to select
 - `studio init` uses the B1 transaction layer to initialize project identity.
 - `studio issue add|list|show|update` provides transactional B2 issue management.
 - `studio evidence add|list|show|update` provides transactional B3 evidence management.
+- `studio decision add|list|show|update|resolve` provides transactional B4 decision management.
 - `studio validate`, `studio status`, and `studio report` inspect and render state.
 
 ## Initialization behavior
@@ -115,6 +123,20 @@ studio evidence update EVD-0001 --status retracted
 
 Only active evidence counts as current support. See `docs/evidence-management.md` for confidence defaults, source requirements, lifecycle rules, supersession, migration, dry runs, and JSON output.
 
+## Decision management
+
+Decisions represent meaningful forks with two-to-six stable options, a recommendation, its reason and trade-offs, evidence support, affected issues, owner, and urgency. They remain historical after resolution, rejection, or supersession.
+
+```bash
+studio decision list
+studio decision show DEC-0001
+studio decision update DEC-0001 --urgency blocking
+studio decision resolve DEC-0001 --option OPT-B \
+  --reason "It improves clarity without adding HUD guidance." --yes
+```
+
+Issue and evidence references are owned by decision state and derived into reports. See `docs/decision-management.md` for option syntax, lifecycle transitions, resolution history, evidence-support levels, migration, dry runs, JSON output, and exit codes.
+
 ## Evidence
 
 Every finding uses one of four labels:
@@ -149,7 +171,8 @@ Codex instructions, roles, playbooks, catalog, schemas, initial state, templates
 - **B1 complete:** validated transactions, atomic per-file replacement, rollback attempts, concurrent-modification detection, dry runs, and `studio init`.
 - **B2 complete:** transactional `studio issue add`, `issue list`, `issue show`, and `issue update`, including dry runs and JSON output.
 - **B3 complete:** transactional evidence creation, queries, updates, issue linking, retraction, and supersession.
-- **Later Phase B work:** decision mutation and guided next-action state changes.
+- **B4 complete:** transactional decision creation, queries, updates, resolution history, recommendation support, and supersession.
+- **Later Phase B work:** guided next-action state changes.
 
 ### Phase C — Critical-path engine
 
@@ -171,7 +194,7 @@ Add optional Unity, Godot, and Unreal adapters without coupling the core to one 
 
 Use the framework against a small delivery-horror prototype and revise from observed usage.
 
-PGS still excludes decision mutation, automatic critical-path calculation, workflow automation, engine/editor control, telemetry/video ingestion, multi-agent spawning, remote APIs, deployment, and full vertical-slice generation.
+PGS still excludes automatic critical-path calculation, workflow automation, engine/editor control, telemetry/video ingestion, multi-agent spawning, remote APIs, deployment, and full vertical-slice generation.
 
 ## License and attribution
 

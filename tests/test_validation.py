@@ -109,6 +109,71 @@ def _valid_evidence(
     }
 
 
+def _valid_decision(
+    *,
+    decision_id: str = "DEC-0001",
+    status: str = "ready",
+    supersedes: str | None = None,
+) -> dict[str, object]:
+    resolved = status == "resolved"
+    resolution = {
+        "final_decision": "OPT-B — Signs",
+        "final_option_id": "OPT-B",
+        "decision_reason": "Preserve immersion.",
+        "consequences": ["Update signage."],
+        "follow_up_actions": ["Retest."],
+        "revisit_condition": None,
+        "recommendation_followed": True,
+        "resolved_at": "2026-07-27T01:00:00Z",
+    }
+    return {
+        "id": decision_id,
+        "question": "How should the player find the room?",
+        "context": "The corridor is unclear.",
+        "phase": "evaluate",
+        "milestone": "Clarify the game idea",
+        "urgency": "high",
+        "status": status,
+        "options": [
+            {
+                "id": "OPT-A",
+                "label": "Waypoint",
+                "description": "Show a marker.",
+                "benefits": [],
+                "risks": [],
+                "effort": None,
+            },
+            {
+                "id": "OPT-B",
+                "label": "Signs",
+                "description": "Improve signage.",
+                "benefits": [],
+                "risks": [],
+                "effort": None,
+            },
+        ],
+        "recommended_option": "OPT-B",
+        "recommendation_reason": "Preserves immersion.",
+        "trade_offs": [],
+        "affected_issues": [],
+        "supporting_evidence": [],
+        "decision_owner": "user",
+        "decision_required_by": None,
+        "final_decision": resolution["final_decision"] if resolved else None,
+        "final_option_id": resolution["final_option_id"] if resolved else None,
+        "decision_reason": resolution["decision_reason"] if resolved else None,
+        "consequences": resolution["consequences"] if resolved else [],
+        "follow_up_actions": resolution["follow_up_actions"] if resolved else [],
+        "revisit_condition": None,
+        "recommendation_followed": True if resolved else None,
+        "resolved_at": resolution["resolved_at"] if resolved else None,
+        "created_at": "2026-07-27T00:00:00Z",
+        "updated_at": "2026-07-27T01:00:00Z" if resolved else "2026-07-27T00:00:00Z",
+        "supersedes": supersedes,
+        "resolution_history": [resolution] if resolved else [],
+    }
+
+
 def test_resolved_issue_cannot_remain_on_active_path(framework_repo: Path) -> None:
     state = StateRepository(framework_repo).load_all()
     state["issues"]["issues"] = [_valid_issue(status="resolved")]
@@ -360,3 +425,70 @@ def test_inactive_evidence_cannot_be_current_milestone_support(
     result = validate_state(framework_repo, state)
 
     assert any("inactive evidence EVD-0001" in error for error in result.errors)
+
+
+def test_decision_option_and_reference_relationships_are_validated(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    decision = _valid_decision()
+    decision["options"][1]["id"] = "OPT-A"  # type: ignore[index]
+    decision["affected_issues"] = ["ISS-9999"]
+    decision["supporting_evidence"] = ["EVD-9999"]
+    state["decisions"]["decisions"] = [decision]
+
+    result = validate_state(framework_repo, state)
+
+    assert any("duplicate option ID" in error for error in result.errors)
+    assert any("broken issue reference" in error for error in result.errors)
+    assert any("broken evidence reference" in error for error in result.errors)
+
+
+def test_resolved_decision_requires_resolution_fields_and_history(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    decision = _valid_decision(status="resolved")
+    decision["decision_reason"] = None
+    decision["resolution_history"] = []
+    state["decisions"]["decisions"] = [decision]
+
+    result = validate_state(framework_repo, state)
+
+    assert any("needs a reason" in error for error in result.errors)
+    assert any("needs resolution history" in error for error in result.errors)
+
+
+def test_decision_supersession_self_cycle_and_multiple_replacements(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    first = _valid_decision(
+        decision_id="DEC-0001", status="superseded", supersedes="DEC-0002"
+    )
+    second = _valid_decision(
+        decision_id="DEC-0002", status="superseded", supersedes="DEC-0001"
+    )
+    third = _valid_decision(decision_id="DEC-0003", supersedes="DEC-0001")
+    state["decisions"]["decisions"] = [first, second, third]
+
+    result = validate_state(framework_repo, state)
+
+    assert any("circular supersession" in error for error in result.errors)
+    assert any("more than one replacement" in error for error in result.errors)
+
+    first["supersedes"] = "DEC-0001"
+    result = validate_state(framework_repo, state)
+    assert any("cannot supersede itself" in error for error in result.errors)
+
+
+def test_closed_decision_cannot_remain_on_critical_path(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    state["decisions"]["decisions"] = [_valid_decision(status="resolved")]
+    state["critical_path"]["items"][0]["source_decision_id"] = "DEC-0001"
+
+    result = validate_state(framework_repo, state)
+
+    assert any("closed decision DEC-0001" in error for error in result.errors)

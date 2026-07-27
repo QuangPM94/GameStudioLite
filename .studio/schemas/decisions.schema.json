@@ -6,43 +6,80 @@
   "additionalProperties": false,
   "required": ["schema_version", "decisions"],
   "properties": {
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "2.0"},
     "decisions": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "question", "context", "phase", "urgency", "options", "recommended_option", "recommendation_reason", "trade_offs", "decision_owner", "status", "final_decision", "consequences", "revisit_condition"],
+        "required": ["id", "question", "context", "phase", "milestone", "urgency", "status", "options", "recommended_option", "recommendation_reason", "trade_offs", "affected_issues", "supporting_evidence", "decision_owner", "decision_required_by", "final_decision", "final_option_id", "decision_reason", "consequences", "follow_up_actions", "revisit_condition", "recommendation_followed", "resolved_at", "created_at", "updated_at", "supersedes", "resolution_history"],
         "properties": {
           "id": {"type": "string", "pattern": "^DEC-[0-9]{3,}$"},
           "question": {"type": "string", "minLength": 1},
           "context": {"type": "string", "minLength": 1},
           "phase": {"enum": ["intake", "clarify", "prototype-plan", "prototype-build", "evaluate", "iterate", "vertical-slice-decision", "vertical-slice", "production"]},
-          "urgency": {"enum": ["blocking", "soon", "later"]},
+          "milestone": {"type": "string", "minLength": 1},
+          "urgency": {"enum": ["low", "medium", "high", "blocking"]},
+          "status": {"enum": ["open", "ready", "blocked", "resolved", "deferred", "rejected", "superseded"]},
           "options": {
             "type": "array",
             "minItems": 2,
-            "maxItems": 4,
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["id", "label", "description"],
-              "properties": {
-                "id": {"type": "string", "minLength": 1},
-                "label": {"type": "string", "minLength": 1},
-                "description": {"type": "string", "minLength": 1}
-              }
-            }
+            "maxItems": 6,
+            "items": {"$ref": "#/$defs/option"}
           },
-          "recommended_option": {"type": "string", "minLength": 1},
+          "recommended_option": {"type": "string", "pattern": "^OPT-[A-Z0-9][A-Z0-9-]*$"},
           "recommendation_reason": {"type": "string", "minLength": 1},
-          "trade_offs": {"type": "array", "items": {"type": "string"}},
-          "decision_owner": {"enum": ["user", "producer", "game-designer", "technical-lead"]},
-          "status": {"enum": ["pending", "decided", "deferred"]},
-          "final_decision": {"type": ["string", "null"]},
-          "consequences": {"type": "array", "items": {"type": "string"}},
-          "revisit_condition": {"type": ["string", "null"]}
+          "trade_offs": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "affected_issues": {"type": "array", "items": {"type": "string", "pattern": "^ISS-[0-9]{3,}$"}, "uniqueItems": true},
+          "supporting_evidence": {"type": "array", "items": {"type": "string", "pattern": "^EVD-[0-9]{3,}$"}, "uniqueItems": true},
+          "decision_owner": {"type": "string", "minLength": 1},
+          "decision_required_by": {"type": ["string", "null"], "format": "date"},
+          "final_decision": {"type": ["string", "null"], "minLength": 1},
+          "final_option_id": {"type": ["string", "null"], "pattern": "^OPT-[A-Z0-9][A-Z0-9-]*$"},
+          "decision_reason": {"type": ["string", "null"], "minLength": 1},
+          "consequences": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "follow_up_actions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "revisit_condition": {"type": ["string", "null"], "minLength": 1},
+          "recommendation_followed": {"type": ["boolean", "null"]},
+          "resolved_at": {"type": ["string", "null"], "format": "date-time"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"},
+          "supersedes": {"type": ["string", "null"], "pattern": "^DEC-[0-9]{3,}$"},
+          "resolution_history": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/resolution"}
+          }
         }
+      }
+    }
+  },
+  "$defs": {
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "description", "benefits", "risks", "effort"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^OPT-[A-Z0-9][A-Z0-9-]*$"},
+        "label": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1},
+        "benefits": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "risks": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "effort": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["final_decision", "final_option_id", "decision_reason", "consequences", "follow_up_actions", "revisit_condition", "recommendation_followed", "resolved_at"],
+      "properties": {
+        "final_decision": {"type": "string", "minLength": 1},
+        "final_option_id": {"type": ["string", "null"], "pattern": "^OPT-[A-Z0-9][A-Z0-9-]*$"},
+        "decision_reason": {"type": "string", "minLength": 1},
+        "consequences": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "follow_up_actions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "revisit_condition": {"type": ["string", "null"], "minLength": 1},
+        "recommendation_followed": {"type": ["boolean", "null"]},
+        "resolved_at": {"type": "string", "format": "date-time"}
       }
     }
   }

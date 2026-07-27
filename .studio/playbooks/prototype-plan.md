@@ -30,9 +30,9 @@ Set phase to `prototype-plan`; update milestone, success criteria, assumptions, 
 2. Define the smallest playable loop, interactions, scenes/states, and placeholder strategy.
 3. Define observable success and failure criteria and a realistic timebox.
 4. List explicit exclusions, including production architecture and unrelated polish.
-5. Resolve critical design ambiguity or queue a user decision.
+5. Resolve critical design ambiguity or inspect/create it through `studio decision list`, `show`, `add`, and `update`; attach relevant issues/evidence and present the recommendation before asking.
 6. Order implementation tasks by runnable-build blockers, dependencies, hypothesis risk, and verification.
-7. Generate scope and criteria artifacts, update state, and regenerate reports.
+7. Use `studio decision resolve` after an approved choice, then generate scope and criteria artifacts, update state, and regenerate reports.
 
 ## User decision points
 

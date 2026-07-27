@@ -2,6 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from practical_game_studio.decisions import (
+    DecisionCreateRequest,
+    DecisionOption,
+    DecisionPatch,
+    DecisionResolution,
+    DecisionService,
+)
 from practical_game_studio.evidence import (
     EvidenceCreateRequest,
     EvidencePatch,
@@ -227,3 +234,111 @@ def test_status_includes_evidence_counts_and_unsupported_critical_issues(
     output = format_status(StateRepository(framework_repo).load_all())
     assert "- Inferred: 1" in output
     assert "Critical issues without evidence: 1" in output
+
+
+def _decision_request(**changes: object) -> DecisionCreateRequest:
+    values: dict[str, object] = {
+        "question": "How should the player find the room?",
+        "context": "The current corridor is unclear.",
+        "options": (
+            DecisionOption("OPT-A", "Waypoint", "Show an explicit marker."),
+            DecisionOption("OPT-B", "Signs", "Improve environmental guidance."),
+        ),
+        "recommended_option": "OPT-B",
+        "recommendation_reason": "Signs preserve immersion.",
+        "urgency": "blocking",
+        "status": "ready",
+    }
+    values.update(changes)
+    return DecisionCreateRequest(**values)  # type: ignore[arg-type]
+
+
+def test_decision_reports_show_priority_support_and_related_issue(
+    framework_repo: Path,
+) -> None:
+    IssueService(framework_repo).create_issue(
+        IssueCreateRequest(
+            title="Room is unclear",
+            severity="critical",
+            player_impact="Progress stops.",
+        )
+    )
+    EvidenceService(framework_repo).create_evidence(
+        EvidenceCreateRequest(
+            title="Observed stop",
+            claim="A player stopped in the corridor.",
+            classification="observed",
+            source_type="runtime",
+            description="Observed in an accessible build.",
+        )
+    )
+    DecisionService(framework_repo).create_decision(
+        _decision_request(
+            affected_issues=("ISS-0001",),
+            supporting_evidence=("EVD-0001",),
+        )
+    )
+    reports = render_report_contents(StateRepository(framework_repo).load_all())
+
+    assert "DEC-0001 [blocking/ready]" in reports["direction-report.md"]
+    assert "evidence: strong" in reports["direction-report.md"]
+    assert "DEC-0001 — Ready" in reports["open-issues.md"]
+    assert "## Relevant Decisions" in reports["milestone-review.md"]
+    assert "evidence strong" in reports["milestone-review.md"]
+    assert "Blocking: 1" in reports["current-state.md"]
+
+
+def test_resolved_and_reopened_decisions_leave_and_return_to_pending_reports(
+    framework_repo: Path,
+) -> None:
+    service = DecisionService(framework_repo)
+    service.create_decision(_decision_request())
+    service.resolve_decision(
+        "DEC-0001",
+        DecisionResolution(option_id="OPT-B", reason="Preserve immersion."),
+    )
+    resolved = render_report_contents(StateRepository(framework_repo).load_all())
+    assert "DEC-0001 [blocking/ready]" not in resolved["direction-report.md"]
+
+    service.update_decision("DEC-0001", DecisionPatch(values={"status": "open"}))
+    reopened = render_report_contents(StateRepository(framework_repo).load_all())
+    assert "DEC-0001 [blocking/open]" in reopened["direction-report.md"]
+
+
+def test_status_shows_pending_decision_counts_and_next_required(
+    framework_repo: Path,
+) -> None:
+    service = DecisionService(framework_repo)
+    service.create_decision(_decision_request())
+    service.create_decision(
+        _decision_request(question="Second decision?", urgency="high")
+    )
+    output = format_status(StateRepository(framework_repo).load_all())
+    assert "- Blocking: 1" in output
+    assert "- High: 1" in output
+    assert (
+        "Next required decision:\nDEC-0001 — How should the player find the room?"
+        in output
+    )
+
+
+def test_inactive_evidence_is_ignored_for_decision_support(
+    framework_repo: Path,
+) -> None:
+    EvidenceService(framework_repo).create_evidence(
+        EvidenceCreateRequest(
+            title="Old observation",
+            claim="An old build was unclear.",
+            classification="observed",
+            source_type="runtime",
+            description="Old build.",
+        )
+    )
+    EvidenceService(framework_repo).update_evidence(
+        "EVD-0001", EvidencePatch(values={"status": "retracted"})
+    )
+    DecisionService(framework_repo).create_decision(
+        _decision_request(supporting_evidence=("EVD-0001",))
+    )
+    reports = render_report_contents(StateRepository(framework_repo).load_all())
+    assert "evidence: unsupported" in reports["direction-report.md"]

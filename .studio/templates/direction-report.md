@@ -9,7 +9,11 @@ Consumer: the user and every workflow completion. Generated from canonical JSON 
 
 ## Evidence
 
+## Evidence Summary
+
 ## Open Decisions
+
+Show only the recommended option, evidence support, owner, urgency, affected issue/milestone, required date, and the decision ID for inspection.
 
 ## Critical Path
 

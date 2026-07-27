@@ -27,11 +27,11 @@ Set phase to `iterate`; update issue status/resolution, evidence, assumptions, b
 ## Execution procedure
 
 1. State the issue and evidence gap being addressed.
-2. Confirm the smallest change and expected observable result.
+2. Confirm the smallest change and expected observable result. Inspect any governing choice with `studio decision list`/`show`.
 3. Implement within scope and record shortcuts/assumptions.
 4. Run focused tests and the most direct available experience verification.
 5. Record the result with `studio evidence add`, or use `studio evidence update` when retracting or superseding an earlier claim. State limitations explicitly.
-6. Use `studio issue update` for status, resolution, owner, relationships, and existing evidence references. Include `--off-critical-path` when closing an active path issue.
+6. Use `studio issue update` for status, resolution, owner, relationships, and existing evidence references. Use `studio decision update` to add new evidence or consequences, and `studio decision resolve` only after the owner chooses. Include `--off-critical-path` when closing an active path issue.
 7. Recalculate the path only through the approved workflow; mutation commands do not calculate it.
 8. Regenerate reports through the transactional update.
 9. Recommend further iteration or milestone review.

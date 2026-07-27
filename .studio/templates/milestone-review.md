@@ -1,7 +1,7 @@
 <!-- Generated file. Do not edit manually. -->
 # Milestone Review
 
-Consumer: `/vertical-slice`. Generated from `.studio/state/milestone.json`, issues, and evidence.
+Consumer: `/vertical-slice`. Generated from `.studio/state/milestone.json`, issues, evidence, and decisions.
 
 ## Milestone
 
@@ -12,6 +12,10 @@ Label each criterion `verified`, `partially-supported`, `unsupported`, or `contr
 ## Supporting Evidence
 
 ## Blocking Issues
+
+## Relevant Decisions
+
+Show blocking, ambiguity-resolving, weakly supported, and revisit-required decisions.
 
 ## Verdict
 

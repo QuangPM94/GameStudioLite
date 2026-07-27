@@ -31,6 +31,8 @@ class StatusSummary:
     active_evidence_by_classification: dict[str, int]
     critical_issues_without_evidence: int
     pending_decisions: list[str]
+    pending_decisions_by_urgency: dict[str, int]
+    next_required_decision: str | None
     critical_path_items: list[str]
     recommended_next_playbook: str
 

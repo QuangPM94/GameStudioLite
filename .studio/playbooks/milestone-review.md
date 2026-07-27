@@ -28,11 +28,11 @@ Update criterion results, supporting evidence, blocking issues, verdict, recomme
 
 1. Inspect active evidence with `studio evidence list`/`show`; do not count superseded or retracted records as current support.
 2. Evaluate every criterion independently as `verified`, `partially-supported`, `unsupported`, or `contradicted`. An evidence record alone never makes a criterion verified.
-3. Identify blocking issues and material unknowns.
+3. Identify blocking issues and material unknowns. Inspect `studio decision list`/`show` for blocking, weakly supported, resolved, or revisit-required milestone decisions.
 4. Distinguish an accessible build from a verified experience.
 5. Choose `PROCEED`, `ITERATE`, `PIVOT`, `PAUSE`, or `STOP`.
-6. Recommend one next workflow and identify non-critical work.
-7. Update milestone state and regenerate reports.
+6. Create or update a meaningful unresolved fork with `studio decision add`/`update`, present the recommendation, and use `studio decision resolve` only after the owner chooses.
+7. Recommend one next workflow, identify non-critical work, update milestone state, and regenerate reports.
 
 ## User decision points
 

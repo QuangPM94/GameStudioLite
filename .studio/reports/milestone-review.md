@@ -19,6 +19,10 @@ Clarify the game idea
 
 - No blocking issues recorded.
 
+## Relevant Decisions
+
+- No milestone-relevant decisions recorded.
+
 ## Verdict
 
 `PAUSE`

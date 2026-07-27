@@ -1,6 +1,6 @@
 # State Mutation Safety
 
-Phase B1 introduced the shared mutation path. Phases B2 and B3 route issue and evidence writes through that path, including coordinated updates across issue, evidence, critical-path, and generated-report files.
+Phase B1 introduced the shared mutation path. Phases B2 through B4 route issue, evidence, and decision writes through that path, including coordinated updates across canonical state and generated reports.
 
 ## Commit stages
 
@@ -31,6 +31,8 @@ For issue creation, a dry run proposes an ID from the current historical maximum
 
 Evidence dry runs provide the same guarantee, including proposed ID allocation and bidirectional issue links. Retraction, reactivation, linking, and supersession are validated and rendered before any target is replaced.
 
+Decision dry runs allocate a proposed historical ID and exercise option, reference, lifecycle, resolution-history, support-quality, and supersession validation without consuming the ID or writing outputs.
+
 ## Schema compatibility
 
-B1 did not change the Phase A schemas. B2 extends the issue status enum while retaining compatibility. B3 advances evidence state to schema `2.0`; legacy evidence records require the field migration documented in `docs/evidence-management.md`. PGS retains the Phase A-compatible `ISS-` and `EVD-` reference namespaces and allocates fixed-width IDs.
+B1 did not change the Phase A schemas. B2 extends the issue status enum while retaining compatibility. B3 advances evidence state to schema `2.0`; legacy evidence records require the field migration documented in `docs/evidence-management.md`. B4 advances decision state to schema `2.0`; its migration is documented in `docs/decision-management.md`. PGS retains the Phase A-compatible reference namespaces and allocates fixed-width historical IDs.

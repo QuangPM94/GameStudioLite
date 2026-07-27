@@ -104,3 +104,7 @@ Errors use the same envelope with an `error` object and no decorative output.
 - `1`: transaction, validation, rendering, staging, replacement, or concurrency failure.
 - `2`: invalid or missing user input.
 - `3`: requested issue not found.
+
+## Related decisions
+
+Decision state owns its `affected_issues` references. `studio report` derives related decision IDs and statuses under issues without adding a redundant decision list to `issues.json`. Resolving a decision never resolves an issue automatically.

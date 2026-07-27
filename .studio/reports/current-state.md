@@ -25,6 +25,13 @@ Clarify the game idea
 
 - No blocker or critical issue recorded.
 
+## Decisions
+
+- Blocking: 0
+- Ready: 0
+- Open: 0
+- Deferred: 0
+
 ## Recommended Next Action
 
 Run `/start`.

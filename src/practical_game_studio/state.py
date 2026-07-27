@@ -161,11 +161,32 @@ def build_status_summary(state: dict[str, Any]) -> StatusSummary:
         for issue in state["issues"]["issues"]
     )
 
-    pending = [
-        f"{decision['id']}: {decision['question']}"
+    pending_records = [
+        decision
         for decision in state["decisions"]["decisions"]
-        if decision["status"] == "pending" and decision["decision_owner"] == "user"
+        if decision["status"] in {"open", "ready", "blocked", "deferred"}
     ]
+    urgency_priority = {"blocking": 0, "high": 1, "medium": 2, "low": 3}
+    pending_records.sort(
+        key=lambda item: (
+            urgency_priority[item["urgency"]],
+            item["decision_required_by"] or "9999-12-31",
+            item["created_at"],
+            item["id"],
+        )
+    )
+    pending = [
+        f"{decision['id']}: {decision['question']}" for decision in pending_records
+    ]
+    pending_by_urgency = {
+        urgency: sum(item["urgency"] == urgency for item in pending_records)
+        for urgency in ("blocking", "high")
+    }
+    next_required = (
+        f"{pending_records[0]['id']} — {pending_records[0]['question']}"
+        if pending_records
+        else None
+    )
     path_items = [
         f"{item['id']}: {item['title']}" for item in state["critical_path"]["items"]
     ]
@@ -178,6 +199,8 @@ def build_status_summary(state: dict[str, Any]) -> StatusSummary:
         active_evidence_by_classification=evidence_counts,
         critical_issues_without_evidence=unsupported_critical,
         pending_decisions=pending,
+        pending_decisions_by_urgency=pending_by_urgency,
+        next_required_decision=next_required,
         critical_path_items=path_items,
         recommended_next_playbook=project["recommended_next_playbook"],
     )

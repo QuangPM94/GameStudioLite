@@ -41,6 +41,8 @@ Use `studio issue add`, `studio issue update`, `studio issue list`, and `studio 
 
 Use `studio evidence add`, `studio evidence update`, `studio evidence list`, and `studio evidence show` for evidence work. Prefer these commands over direct edits to `.studio/state/evidence.json`; direct evidence-state editing is reserved for framework maintenance or recovery. Evidence and issue links must be bidirectional, and only active evidence counts as current support.
 
+Use `studio decision add`, `studio decision update`, `studio decision list`, `studio decision show`, and `studio decision resolve` for meaningful project decisions. Prefer these commands over direct edits to `.studio/state/decisions.json`; direct decision-state editing is reserved for framework maintenance or recovery. Before asking the user, check for an existing record, attach relevant issues and evidence, present the recommendation and trade-offs, resolve the record after the choice, regenerate reports, and state the next workflow.
+
 ## Workflow selection
 
 Interpret aliases as workflow requests routed through this file; they are not guaranteed native slash commands. Match an explicit alias first, then infer the nearest workflow from the user's intent. Load the playbook named below before acting.

@@ -29,10 +29,10 @@ Create or update issue records, relationships, severity, milestone/player impact
 1. Deduplicate findings by underlying cause.
 2. Inspect support with `studio evidence list --issue ISSUE-ID` and `studio evidence show`. Create or correct evidence through `studio evidence add`/`update` before connecting it.
 3. Describe player and milestone impact separately.
-4. Identify dependencies, issues blocked, alternatives, effort, owner, and whether user input is required.
+4. Identify dependencies, issues blocked, alternatives, effort, owner, and whether user input is required. When it is, inspect the decision queue and use `studio decision add`/`update` instead of writing `decisions.json`.
 5. Use `studio issue list` and `studio issue show` to inspect history, then `studio issue add` or `studio issue update` for each accepted record. Prefer `--dry-run` when evidence relationships or path membership change.
 6. Separate active milestone issues from later work. Do not delete history.
-7. Transactional issue commands regenerate open-issues and direction reports.
+7. Resolve a decision with `studio decision resolve` only after the user chooses. Transactional issue/decision commands regenerate reports.
 
 ## User decision points
 

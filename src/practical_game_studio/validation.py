@@ -135,10 +135,14 @@ REQUIRED_FILES = (
     ),
     "src/practical_game_studio/__init__.py",
     "src/practical_game_studio/cli.py",
+    "src/practical_game_studio/decisions.py",
     "src/practical_game_studio/validation.py",
     "src/practical_game_studio/reporting.py",
     "src/practical_game_studio/state.py",
     "src/practical_game_studio/models.py",
+    "docs/decision-management.md",
+    "tests/test_decisions.py",
+    "tests/test_decision_cli.py",
     "src/practical_game_studio/transaction.py",
     "src/practical_game_studio/initialization.py",
     "src/practical_game_studio/issues.py",
@@ -312,6 +316,7 @@ def _validate_relationships(
     evidence_ids = {item["id"] for item in evidence}
     cp_ids = {item["id"] for item in cp_items}
     issue_by_id = {item["id"]: item for item in issues}
+    decision_by_id = {item["id"]: item for item in decisions}
     evidence_by_id = {item["id"]: item for item in evidence}
 
     for label, records in (
@@ -388,14 +393,130 @@ def _validate_relationships(
         if updated < created:
             result.add(f"{issue['id']}: updated_at cannot be earlier than created_at")
     for decision in decisions:
-        option_ids = {option["id"] for option in decision["options"]}
+        option_ids = [option["id"] for option in decision["options"]]
+        option_labels = [option["label"].casefold() for option in decision["options"]]
+        for duplicate in sorted(_duplicates(option_ids)):
+            result.add(f"{decision['id']}: duplicate option ID {duplicate}")
+        for duplicate in sorted(_duplicates(option_labels)):
+            result.add(f"{decision['id']}: duplicate option label {duplicate}")
+        if not 2 <= len(option_ids) <= 6:
+            result.add(f"{decision['id']}: must contain between two and six options")
         if decision["recommended_option"] not in option_ids:
             result.add(f"{decision['id']}: recommended option does not exist")
         if (
-            decision["final_decision"] is not None
-            and decision["final_decision"] not in option_ids
+            decision["final_option_id"] is not None
+            and decision["final_option_id"] not in option_ids
         ):
-            result.add(f"{decision['id']}: final decision does not exist")
+            result.add(f"{decision['id']}: final option does not exist")
+        for field_name, known_ids, label in (
+            ("affected_issues", issue_ids, "issue"),
+            ("supporting_evidence", evidence_ids, "evidence"),
+        ):
+            references = decision[field_name]
+            for duplicate in sorted(_duplicates(references)):
+                result.add(f"{decision['id']}: duplicate {label} reference {duplicate}")
+            for reference in references:
+                if reference not in known_ids:
+                    result.add(
+                        f"{decision['id']}: broken {label} reference {reference}"
+                    )
+        for field_name in (
+            "trade_offs",
+            "consequences",
+            "follow_up_actions",
+        ):
+            for duplicate in sorted(_duplicates(decision[field_name])):
+                result.add(
+                    f"{decision['id']}: duplicate "
+                    f"{field_name.replace('_', ' ')} {duplicate}"
+                )
+        if decision["status"] == "resolved":
+            if not decision["final_decision"]:
+                result.add(f"{decision['id']}: resolved decision needs final decision")
+            if not decision["decision_reason"]:
+                result.add(f"{decision['id']}: resolved decision needs a reason")
+            if not decision["resolved_at"]:
+                result.add(f"{decision['id']}: resolved decision needs resolved_at")
+            if not decision["resolution_history"]:
+                result.add(
+                    f"{decision['id']}: resolved decision needs resolution history"
+                )
+        if decision["status"] in {"open", "ready", "blocked", "deferred"}:
+            if not decision["decision_owner"]:
+                result.add(f"{decision['id']}: pending decision needs a decision owner")
+            if any(
+                decision[field_name] is not None
+                for field_name in (
+                    "final_decision",
+                    "final_option_id",
+                    "decision_reason",
+                    "resolved_at",
+                )
+            ):
+                result.add(
+                    f"{decision['id']}: unresolved decision has active resolution fields"
+                )
+        for history in decision["resolution_history"]:
+            if (
+                history["final_option_id"] is not None
+                and history["final_option_id"] not in option_ids
+            ):
+                result.add(
+                    f"{decision['id']}: resolution history has invalid final option"
+                )
+        try:
+            created = datetime.fromisoformat(decision["created_at"])
+            updated = datetime.fromisoformat(decision["updated_at"])
+            if decision["resolved_at"] is not None:
+                datetime.fromisoformat(decision["resolved_at"])
+            if decision["decision_required_by"] is not None:
+                datetime.fromisoformat(decision["decision_required_by"])
+            for history in decision["resolution_history"]:
+                datetime.fromisoformat(history["resolved_at"])
+        except ValueError:
+            # JSON Schema's date/date-time format error is already more precise.
+            continue
+        if updated < created:
+            result.add(
+                f"{decision['id']}: updated_at cannot be earlier than created_at"
+            )
+
+    decision_supersession = {
+        item["id"]: item["supersedes"]
+        for item in decisions
+        if item["supersedes"] is not None
+    }
+    superseded_decisions = set(decision_supersession.values())
+    for duplicate in sorted(_duplicates(decision_supersession.values())):
+        result.add(f"Decision: {duplicate} has more than one replacement")
+    for decision in decisions:
+        target_id = decision["supersedes"]
+        if target_id is not None:
+            if target_id not in decision_ids:
+                result.add(f"{decision['id']}: missing superseded decision {target_id}")
+            if target_id == decision["id"]:
+                result.add(f"{decision['id']}: decision cannot supersede itself")
+        if (
+            decision["status"] == "superseded"
+            and decision["id"] not in superseded_decisions
+        ):
+            result.add(
+                f"{decision['id']}: superseded status has no replacement decision"
+            )
+        if (
+            decision["status"] in {"open", "ready", "blocked", "deferred"}
+            and decision["id"] in superseded_decisions
+        ):
+            result.add(f"{decision['id']}: superseded decision cannot remain pending")
+    for start in decision_supersession:
+        seen: set[str] = set()
+        current: str | None = start
+        while current is not None:
+            if current in seen:
+                result.add(f"Decision: circular supersession at {current}")
+                break
+            seen.add(current)
+            current = decision_supersession.get(current)
     source_optional = {
         "runtime",
         "human-playtest",
@@ -486,6 +607,16 @@ def _validate_relationships(
         ):
             result.add(
                 f"{item['id']}: broken source decision {item['source_decision_id']}"
+            )
+        source_decision = decision_by_id.get(item["source_decision_id"])
+        if source_decision is not None and source_decision["status"] in {
+            "resolved",
+            "rejected",
+            "superseded",
+        }:
+            result.add(
+                f"{item['id']}: closed decision {source_decision['id']} cannot "
+                "remain on the active critical path"
             )
         source_issue = issue_by_id.get(item["source_issue_id"])
         if source_issue is not None:
