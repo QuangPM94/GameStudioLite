@@ -11,7 +11,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import SchemaError
 
 from .models import ValidationResult
-from .state import STATE_FILES, load_json
+from .state import STATE_FILES, CanonicalState, load_json
 
 REQUIRED_ROLE_SECTIONS = (
     "Purpose",
@@ -67,6 +67,7 @@ REQUIRED_FILES = (
     "CHANGELOG.md",
     "CONTRIBUTING.md",
     "pyproject.toml",
+    "docs/state-mutation-safety.md",
     ".studio/config.json",
     ".studio/workflow-catalog.json",
     *(
@@ -137,9 +138,16 @@ REQUIRED_FILES = (
     "src/practical_game_studio/reporting.py",
     "src/practical_game_studio/state.py",
     "src/practical_game_studio/models.py",
+    "src/practical_game_studio/transaction.py",
+    "src/practical_game_studio/initialization.py",
     "tests/test_validation.py",
     "tests/test_reporting.py",
     "tests/test_catalog.py",
+    "tests/test_initialization.py",
+    "tests/test_transaction.py",
+    "tests/test_cli.py",
+    "tests/conftest.py",
+    "tests/__init__.py",
     "tests/fixtures/README.md",
     "examples/delivery-horror/README.md",
     "examples/delivery-horror/sample-game-brief.md",
@@ -294,6 +302,7 @@ def _validate_relationships(
     decision_ids = {item["id"] for item in decisions}
     evidence_ids = {item["id"] for item in evidence}
     cp_ids = {item["id"] for item in cp_items}
+    issue_by_id = {item["id"]: item for item in issues}
 
     for label, records in (
         ("issue", issues),
@@ -336,6 +345,18 @@ def _validate_relationships(
             result.add(
                 f"{item['id']}: broken source decision {item['source_decision_id']}"
             )
+        source_issue = issue_by_id.get(item["source_issue_id"])
+        if source_issue is not None:
+            if source_issue["status"] in {"resolved", "accepted", "deferred"}:
+                result.add(
+                    f"{item['id']}: closed issue {source_issue['id']} cannot remain "
+                    "on the active critical path"
+                )
+            if not source_issue["on_critical_path"]:
+                result.add(
+                    f"{item['id']}: source issue {source_issue['id']} is not marked "
+                    "on_critical_path"
+                )
         for dependency in item["dependencies"]:
             if dependency not in cp_ids:
                 result.add(
@@ -360,14 +381,108 @@ def _validate_relationships(
 
     project = state["project"]
     aliases = {workflow["alias"] for workflow in catalog["workflows"]}
+    catalog_phases = {phase["id"] for phase in catalog["phases"]}
     if project["current_phase"] not in PHASES:
         result.add(f"Project: invalid phase {project['current_phase']}")
+    if project["current_phase"] not in catalog_phases:
+        result.add("Project: current phase is not present in the workflow catalog")
     if project["recommended_next_playbook"] not in aliases:
         result.add("Project: recommended next playbook is not in workflow catalog")
     if state["critical_path"]["current_milestone"] != project["current_milestone"]:
         result.add("Critical path milestone does not match project milestone")
     if milestone["milestone"] != project["current_milestone"]:
         result.add("Milestone review does not match project milestone")
+    if milestone["verdict"] not in {"PROCEED", "ITERATE", "PIVOT", "PAUSE", "STOP"}:
+        result.add(f"Milestone: invalid verdict {milestone['verdict']}")
+
+    criteria = milestone["success_criteria"]
+    result_criteria = [item["criterion"] for item in milestone["criteria_results"]]
+    if len(result_criteria) != len(set(result_criteria)):
+        result.add("Milestone: duplicate criterion result")
+    if set(criteria) != set(result_criteria):
+        result.add("Milestone: success criteria and criterion results do not match")
+
+    referenced_issue_ids = {
+        item["source_issue_id"]
+        for item in cp_items
+        if item["source_issue_id"] is not None
+    }
+    for issue in issues:
+        if issue["on_critical_path"] and issue["id"] not in referenced_issue_ids:
+            result.add(
+                f"{issue['id']}: marked on_critical_path but no active item references it"
+            )
+
+
+def validate_state(root: Path, state: CanonicalState) -> ValidationResult:
+    """Validate proposed canonical state without reading current state or reports."""
+
+    root = root.resolve()
+    result = ValidationResult()
+    catalog_path = root / ".studio" / "workflow-catalog.json"
+    try:
+        catalog = load_json(catalog_path)
+    except (OSError, ValueError) as exc:
+        result.add(str(exc))
+        return result
+    if not isinstance(catalog, dict):
+        result.add(f"{catalog_path}: expected a JSON object")
+        return result
+
+    for state_name in STATE_FILES:
+        schema_path = root / ".studio" / "schemas" / SCHEMA_FILES[state_name]
+        try:
+            schema = load_json(schema_path)
+        except (OSError, ValueError) as exc:
+            result.add(str(exc))
+            continue
+        try:
+            Draft202012Validator.check_schema(schema)
+        except SchemaError as exc:
+            result.add(
+                f"{_relative(root, schema_path)}: invalid JSON Schema: {exc.message}"
+            )
+            continue
+        instance = state.get(state_name)
+        if instance is None:
+            result.add(f"Proposed state is missing '{state_name}'")
+            continue
+        validator = Draft202012Validator(schema, format_checker=FormatChecker())
+        for error in sorted(
+            validator.iter_errors(instance), key=lambda item: list(item.path)
+        ):
+            location = ".".join(str(part) for part in error.path) or "<root>"
+            state_path = root / ".studio" / "state" / STATE_FILES[state_name]
+            result.add(f"{_relative(root, state_path)}:{location}: {error.message}")
+
+    if not result.errors:
+        _validate_relationships(state, catalog, result)
+    return result
+
+
+def _validate_generated_reports(
+    root: Path, state: CanonicalState, result: ValidationResult
+) -> None:
+    from .reporting import render_report_contents
+
+    try:
+        expected = render_report_contents(state)
+    except Exception as exc:  # noqa: BLE001 - validation must report renderer faults
+        result.add(f"Generated reports: rendering failed: {exc}")
+        return
+    for filename, content in expected.items():
+        path = root / ".studio" / "reports" / filename
+        try:
+            actual = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            result.add(
+                f"{_relative(root, path)}: could not read generated report: {exc}"
+            )
+            continue
+        if actual != content:
+            result.add(
+                f"{_relative(root, path)}: generated report is stale; run 'studio report'"
+            )
 
 
 def validate_project(root: Path) -> ValidationResult:
@@ -397,4 +512,5 @@ def validate_project(root: Path) -> ValidationResult:
         state = {}
     if state and isinstance(catalog, dict):
         _validate_relationships(state, catalog, result)
+        _validate_generated_reports(root, state, result)
     return result

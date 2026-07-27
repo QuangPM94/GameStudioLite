@@ -246,6 +246,15 @@ REPORT_RENDERERS = {
 }
 
 
+def render_report_contents(state: dict[str, Any]) -> dict[str, str]:
+    """Render every report deterministically without touching the filesystem."""
+
+    return {
+        filename: renderer(state).rstrip() + "\n"
+        for filename, renderer in REPORT_RENDERERS.items()
+    }
+
+
 def generate_reports(root: Path) -> list[Path]:
     """Generate all human-facing reports and return their paths."""
 
@@ -253,9 +262,9 @@ def generate_reports(root: Path) -> list[Path]:
     report_dir = root / ".studio" / "reports"
     report_dir.mkdir(parents=True, exist_ok=True)
     generated: list[Path] = []
-    for filename, renderer in REPORT_RENDERERS.items():
+    for filename, content in render_report_contents(state).items():
         path = report_dir / filename
-        path.write_text(renderer(state).rstrip() + "\n", encoding="utf-8")
+        path.write_text(content, encoding="utf-8")
         generated.append(path)
     return generated
 

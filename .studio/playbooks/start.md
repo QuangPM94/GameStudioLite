@@ -6,11 +6,11 @@ Inspect the repository and route the user to the smallest appropriate entry work
 
 ## When to use
 
-Use for a new session, an unknown project, `/start`, or uncertain workflow intent.
+Use for a new session, an unknown project, `/start`, or uncertain workflow intent. If `project_name` is still `Untitled Game`, initialize identity first with `studio init`.
 
 ## Required inputs
 
-Repository access and `.studio/config.json`.
+Repository access, `.studio/config.json`, and initialized project identity.
 
 ## Optional inputs
 
@@ -26,12 +26,13 @@ Update the project profile, detected phase, build status, assumptions, and recom
 
 ## Execution procedure
 
-1. Determine whether the repository is empty or existing.
-2. Detect engine, engine version, platform, game artifacts, tests, build outputs, and run instructions.
-3. Classify the current stage as idea, prototype, vertical slice, or production project; label uncertain classification `INFERRED`.
-4. Check whether a build is accessible and distinguish its existence from verified launchability.
-5. Produce the project profile, detected phase, and recommended entry workflow.
-6. Update canonical state, run `studio report`, and present the Direction Summary.
+1. Read `.studio/state/project.json`. If it still contains the Phase A placeholder, collect the project name and run `studio init`; use `--dry-run` first when proposed detection needs review.
+2. Determine whether the game repository is empty or existing.
+3. Detect engine, engine version, platform, game artifacts, tests, build outputs, and run instructions. Treat CLI engine detection as a suggestion, not runtime proof.
+4. Classify the current stage as idea, prototype, vertical slice, or production project; label uncertain classification `INFERRED`.
+5. Check whether a build is accessible and distinguish its existence from verified launchability.
+6. Produce the project profile, detected phase, and recommended entry workflow.
+7. Apply state changes through the validated transaction layer, then run `studio validate` and present the Direction Summary.
 
 ## User decision points
 
@@ -43,7 +44,7 @@ Project profile, detected phase, recommended entry workflow, updated project sta
 
 ## Validation
 
-Run `studio validate`, `studio report`, and `studio status`.
+Run `studio validate` and `studio status`. Transactional mutations regenerate reports.
 
 ## Completion criteria
 

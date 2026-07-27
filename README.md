@@ -17,6 +17,7 @@ PGS requires Python 3.11 or later.
 
 ```bash
 python -m pip install -e ".[dev]"
+studio init --name "My Game"
 studio validate
 studio status
 studio report
@@ -25,7 +26,15 @@ ruff check src tests
 pytest
 ```
 
-Open the repository with Codex and ask for `/start`. Aliases such as `/clarify` and `/prototype-plan` are prompt conventions interpreted through `AGENTS.md`, not guaranteed native slash commands.
+`studio init` initializes only project identity and conservatively detects Unity, Godot, or Unreal indicators. Then open the repository with Codex and ask for `/start`. Aliases such as `/clarify` and `/prototype-plan` are prompt conventions interpreted through `AGENTS.md`, not guaranteed native slash commands.
+
+Preview initialization without writing:
+
+```bash
+studio init --name "Midnight Carrier" --engine Unity --platform Windows --dry-run
+```
+
+Run commands from the PGS root or a child directory. Use `--root PATH` to select a root explicitly. A valid root contains `AGENTS.md`, `.studio/`, and `pyproject.toml`.
 
 ## Core structure
 
@@ -35,7 +44,29 @@ Open the repository with Codex and ask for `/start`. Aliases such as `/clarify` 
 - `.studio/roles/` defines exactly five practical roles.
 - `.studio/state/*.json` is canonical machine-readable state.
 - `.studio/reports/*.md` is generated human-readable state.
-- `studio validate`, `studio status`, and `studio report` form the Phase A CLI.
+- `studio init` uses the B1 transaction layer to initialize project identity.
+- `studio validate`, `studio status`, and `studio report` inspect and render state.
+
+## Initialization behavior
+
+The only essential first-run value is the project name. Engine, engine version, platform, and genre may remain explicitly unknown (`null`). Review mode defaults to `guided`.
+
+```bash
+studio init \
+  --name "Midnight Carrier" \
+  --engine Unity \
+  --engine-version "6.1" \
+  --platform Windows \
+  --genre Horror
+```
+
+If the project is already initialized, `studio init` is a successful no-op and recommends `studio status`. To change identity later, use `--force` with only the fields to change. Non-interactive forced writes also require `--yes`; `--force` never clears issues, evidence, decisions, milestones, or the critical path.
+
+## Mutation safety
+
+State mutations load and copy all canonical state, validate schemas and relationships, render every report in memory, and hash-check canonical files before staging. Changed JSON and reports are written to flushed temporary files on the same filesystem and atomically replaced one file at a time. A replacement error triggers restoration of outputs already replaced, and temporary files are cleaned.
+
+This is not a database or a claim of full ACID behavior: a process crash, power loss, filesystem failure, or non-cooperating writer during the narrow multi-file replacement window can still leave a mixed revision. Concurrent canonical edits detected before replacement abort with the changed path and a reload-and-retry instruction. See `docs/state-mutation-safety.md`.
 
 ## Evidence
 
@@ -68,7 +99,8 @@ Codex instructions, roles, playbooks, catalog, schemas, initial state, templates
 
 ### Phase B — State mutation and issue management
 
-Add `studio init`, `studio issue add`, `studio issue update`, `studio decision add`, `studio decision resolve`, `studio evidence add`, and `studio next`.
+- **B1 complete:** validated transactions, atomic per-file replacement, rollback attempts, concurrent-modification detection, dry runs, and `studio init`.
+- **B2 pending:** `studio issue add`, `studio issue update`, `studio decision add`, `studio decision resolve`, `studio evidence add`, and `studio next`.
 
 ### Phase C — Critical-path engine
 
@@ -90,7 +122,7 @@ Add optional Unity, Godot, and Unreal adapters without coupling the core to one 
 
 Use the framework against a small delivery-horror prototype and revise from observed usage.
 
-Phase A intentionally excludes state mutation commands, a graph-based critical-path engine, engine/editor control, telemetry/video ingestion, multi-agent spawning, remote APIs, deployment, and full vertical-slice generation.
+PGS still excludes issue/decision/evidence mutation commands, a graph-based critical-path engine, engine/editor control, telemetry/video ingestion, multi-agent spawning, remote APIs, deployment, and full vertical-slice generation.
 
 ## License and attribution
 

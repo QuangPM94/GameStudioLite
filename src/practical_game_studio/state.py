@@ -1,7 +1,8 @@
-"""Canonical state loading and status projection."""
+"""Canonical state repository, root discovery, and status projection."""
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 from typing import Any
@@ -19,18 +20,53 @@ STATE_FILES = {
 
 SEVERITIES = ("blocker", "critical", "major", "minor", "later")
 OPEN_ISSUE_STATUSES = {"open", "in-progress", "blocked"}
+ROOT_MARKERS = ("AGENTS.md", ".studio", "pyproject.toml")
+
+StateObject = dict[str, Any]
+CanonicalState = dict[str, StateObject]
 
 
-def find_project_root(start: Path | None = None) -> Path:
-    """Find the nearest parent containing the PGS configuration."""
+class StateReadError(ValueError):
+    """A canonical state file could not be read safely."""
 
-    candidate = (start or Path.cwd()).resolve()
+
+def _is_project_root(path: Path) -> bool:
+    return (
+        (path / "AGENTS.md").is_file()
+        and (path / ".studio").is_dir()
+        and (path / "pyproject.toml").is_file()
+    )
+
+
+def find_project_root(
+    start: Path | None = None, *, explicit: Path | str | None = None
+) -> Path:
+    """Resolve an explicit root or find the nearest parent with all PGS markers."""
+
+    if explicit is not None:
+        candidate = Path(explicit).expanduser().resolve()
+        if not candidate.is_dir():
+            raise FileNotFoundError(
+                f"PGS root does not exist or is not a directory: {candidate}"
+            )
+        if not _is_project_root(candidate):
+            markers = ", ".join(ROOT_MARKERS)
+            raise FileNotFoundError(
+                f"Not a Practical Game Studio root: {candidate}. "
+                f"Expected all of: {markers}."
+            )
+        return candidate
+
+    candidate = (start or Path.cwd()).expanduser().resolve()
+    if not candidate.is_dir():
+        candidate = candidate.parent
     for directory in (candidate, *candidate.parents):
-        if (directory / ".studio" / "config.json").is_file():
+        if _is_project_root(directory):
             return directory
     raise FileNotFoundError(
         "No Practical Game Studio project found. "
-        "Run this command from a repository containing .studio/config.json."
+        "Run from a repository containing AGENTS.md, .studio/, and pyproject.toml, "
+        "or pass --root PATH."
     )
 
 
@@ -41,18 +77,60 @@ def load_json(path: Path) -> Any:
         with path.open("r", encoding="utf-8") as handle:
             return json.load(handle)
     except json.JSONDecodeError as exc:
-        raise ValueError(
+        raise StateReadError(
             f"{path}: invalid JSON at line {exc.lineno}, column {exc.colno}: {exc.msg}"
         ) from exc
+    except OSError as exc:
+        raise StateReadError(f"{path}: could not read state: {exc}") from exc
 
 
-def load_state(root: Path) -> dict[str, Any]:
+class StateRepository:
+    """Read canonical state without caching or exposing mutable shared objects."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root.resolve()
+        self.state_dir = self.root / ".studio" / "state"
+
+    def _load(self, name: str) -> StateObject:
+        path = self.state_dir / STATE_FILES[name]
+        value = load_json(path)
+        if not isinstance(value, dict):
+            raise StateReadError(f"{path}: expected a JSON object at the document root")
+        return copy.deepcopy(value)
+
+    def load_project(self) -> StateObject:
+        return self._load("project")
+
+    def load_issues(self) -> StateObject:
+        return self._load("issues")
+
+    def load_decisions(self) -> StateObject:
+        return self._load("decisions")
+
+    def load_critical_path(self) -> StateObject:
+        return self._load("critical_path")
+
+    def load_evidence(self) -> StateObject:
+        return self._load("evidence")
+
+    def load_milestone(self) -> StateObject:
+        return self._load("milestone")
+
+    def load_all(self) -> CanonicalState:
+        return {
+            "project": self.load_project(),
+            "issues": self.load_issues(),
+            "decisions": self.load_decisions(),
+            "critical_path": self.load_critical_path(),
+            "evidence": self.load_evidence(),
+            "milestone": self.load_milestone(),
+        }
+
+
+def load_state(root: Path) -> CanonicalState:
     """Load every canonical state object."""
 
-    state_dir = root / ".studio" / "state"
-    return {
-        name: load_json(state_dir / filename) for name, filename in STATE_FILES.items()
-    }
+    return StateRepository(root).load_all()
 
 
 def build_status_summary(state: dict[str, Any]) -> StatusSummary:
