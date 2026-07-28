@@ -6,6 +6,10 @@ from pathlib import Path
 import pytest
 
 from practical_game_studio import cli
+from practical_game_studio.dependencies import (
+    DependencyCreateRequest,
+    DependencyService,
+)
 from practical_game_studio.issues import IssueCreateRequest, IssueService
 
 
@@ -123,6 +127,87 @@ def test_json_calculate_and_explain(
     )
     explained = json.loads(capsys.readouterr().out)
     assert explained["data"]["item"]["id"] == item_id
+
+
+def test_path_explain_exposes_prerequisite_satisfaction(
+    framework_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    service = IssueService(framework_repo)
+    prerequisite = service.create_issue(
+        IssueCreateRequest(
+            title="Prepare fixture",
+            severity="major",
+            milestone_impact="The blocker depends on this fixture.",
+        )
+    ).details["issue"]["id"]
+    dependent = service.create_issue(
+        IssueCreateRequest(
+            title="Run blocker verification",
+            severity="blocker",
+            milestone_impact="The milestone is blocked.",
+        )
+    ).details["issue"]["id"]
+    DependencyService(framework_repo).create_dependency(
+        DependencyCreateRequest(
+            prerequisite,
+            dependent,
+            "The verification needs the fixture.",
+        )
+    )
+    assert (
+        cli.main(
+            [
+                "path",
+                "calculate",
+                "--root",
+                str(framework_repo),
+                "--yes",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    calculated = json.loads(capsys.readouterr().out)
+    dependent_id = next(
+        item["id"]
+        for item in calculated["data"]["items"]
+        if item["source_id"] == dependent
+    )
+
+    assert (
+        cli.main(
+            [
+                "path",
+                "explain",
+                dependent_id,
+                "--root",
+                str(framework_repo),
+            ]
+        )
+        == 0
+    )
+    assert "Prerequisite state: Active and unsatisfied" in capsys.readouterr().out
+
+    assert (
+        cli.main(
+            [
+                "path",
+                "explain",
+                dependent_id,
+                "--root",
+                str(framework_repo),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    dependency_state = json.loads(capsys.readouterr().out)["data"]["dependency_states"][
+        0
+    ]
+    assert dependency_state["dependency_id"] == "DEP-0001"
+    assert dependency_state["prerequisite_terminal"] is False
+    assert dependency_state["prerequisite_satisfied"] is False
+    assert dependency_state["prerequisite_valid"] is True
 
 
 def test_cli_dry_run_and_include_exclude(

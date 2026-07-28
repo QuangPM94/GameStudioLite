@@ -9,6 +9,9 @@ Clarify the game idea
 
 ### MC-001 — A project profile and falsifiable prototype hypothesis exist.
 
+- Criterion: MC-001
+- Verification policy: Document Review
+- Support: Unsupported
 - Support status: unsupported
 - Completion condition: A project profile and falsifiable prototype hypothesis exist.
 - Explicitly evaluated: No.

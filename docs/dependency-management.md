@@ -24,13 +24,48 @@ historical record when safe. Project-scoped edges apply across milestones.
 Current-milestone edges retain the milestone context in which they were
 authored.
 
-Satisfaction is derived rather than stored: a resolved/accepted issue, resolved
-decision, explicitly verified active criterion, or completed manual action can
-satisfy a prerequisite. Inactive edges do not affect path ordering.
+Satisfaction is derived by one typed resolver in `dependencies.py`; dependency
+commands, validation, and critical-path calculation all use that verdict.
+Terminal does **not** mean satisfied:
+
+| Endpoint | Status | Terminal | Satisfied |
+|---|---|---:|---:|
+| Issue | `open`, `acknowledged`, `in-progress`, `blocked` | No | No |
+| Issue | `resolved`, `accepted` | Yes | Yes |
+| Issue | `deferred`, `wont-fix` | Yes | No |
+| Decision | `open`, `ready`, `blocked` | No | No |
+| Decision | `resolved` | Yes | Yes |
+| Decision | `deferred`, `rejected`, `superseded` | Yes | No |
+| Criterion | active + verified + current evaluation | Yes | Yes |
+| Criterion | active and not verified | No | No |
+| Criterion | verified with stale evaluation, or retired | Yes | No |
+| Manual action | `completed` | Yes | Yes |
+| Manual action | active non-completed state | No | No |
+| Manual action | `removed` | Yes | No |
+
+A `wont-fix` issue means the issue will not be fixed, not that downstream work
+received its prerequisite. A rejected decision did not select an executable
+outcome. A superseded decision must be redirected to its replacement. A
+retired or stale criterion cannot prove the required condition. Inactive
+dependency edges do not affect path ordering.
+
+An active dependency with a terminal-unsatisfied prerequisite is an actionable
+relationship error and never unlocks its dependent. Repair it by updating the
+prerequisite, deactivating the edge with a reason, or reopening/reactivating
+the source where its lifecycle permits:
+
+```text
+studio dependency update DEP-0001 --prerequisite DEC-0002 --yes
+studio dependency deactivate DEP-0001 --reason "DEC-0001 was rejected." --yes
+```
+
+`studio dependency show` and JSON output expose the prerequisite status,
+terminal, satisfied, valid, state category, and canonical reason.
 
 The runtime validator rejects missing endpoints, duplicate active edges,
-self-dependencies, inconsistent legacy duplicates, and exact cycles across
-explicit and deterministic compatibility edges.
+self-dependencies, terminal-unsatisfied active prerequisites, inconsistent
+legacy duplicates, and exact cycles across explicit and deterministic
+compatibility edges.
 
 ## Commands
 

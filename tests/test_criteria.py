@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from practical_game_studio.criteria import (
+    VERIFICATION_POLICIES,
     CriterionCreateRequest,
     CriterionEvaluation,
     CriterionInputError,
@@ -32,11 +33,17 @@ def _service(root: Path) -> CriterionService:
     return CriterionService(root, clock=lambda: NOW)
 
 
-def _request(*, required: bool = True) -> CriterionCreateRequest:
+def _request(
+    *,
+    required: bool = True,
+    description: str = "A new player completes one delivery loop unaided.",
+    verification_policy: str = "observed-player-behavior",
+) -> CriterionCreateRequest:
     return CriterionCreateRequest(
-        description="A new player completes one delivery loop unaided.",
+        description=description,
         required=required,
         completion_condition="Two of three observed testers complete the loop.",
+        verification_policy=verification_policy,
         verification_method="Observed human playtest.",
     )
 
@@ -55,6 +62,7 @@ def _evidence(
                 claim="A tester completed the delivery loop.",
                 classification=classification,
                 source_type=source_type,
+                source="criterion-evidence.txt",
                 description="Recorded against the current prototype.",
             )
         )
@@ -71,6 +79,24 @@ def test_add_allocates_after_migrated_id_and_defaults_unsupported(
     assert criterion["support_status"] == "unsupported"
     assert criterion["lifecycle_status"] == "active"
     assert criterion["evaluation_history"] == []
+
+
+@pytest.mark.parametrize("policy", VERIFICATION_POLICIES)
+def test_every_verification_policy_is_stored(framework_repo: Path, policy: str) -> None:
+    criterion = (
+        _service(framework_repo)
+        .create_criterion(_request(verification_policy=policy))
+        .details["criterion"]
+    )
+
+    assert criterion["verification_policy"] == policy
+
+
+def test_unknown_verification_policy_fails(framework_repo: Path) -> None:
+    with pytest.raises(CriterionInputError, match="verification policy"):
+        _service(framework_repo).create_criterion(
+            _request(verification_policy="keyword-guess")
+        )
 
 
 def test_add_dry_run_preserves_state_and_id(framework_repo: Path) -> None:
@@ -121,11 +147,59 @@ def test_verified_player_behavior_requires_observed_evidence(
         classification="inferred",
         source_type="source-review",
     )
-    with pytest.raises(CriterionInputError, match="observed evidence"):
+    with pytest.raises(CriterionInputError, match="observed-player-behavior"):
         _service(framework_repo).evaluate_criterion(
             criterion_id,
             CriterionEvaluation("verified", "Source implies completion.", (inferred,)),
         )
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Người chơi có thể tự hoàn thành một vòng giao hàng mà không cần trợ giúp.",
+        "プレイヤーは開発者の助けなしで配送ループを完了できる。",
+    ],
+)
+@pytest.mark.parametrize("classification", ["user-reported", "inferred"])
+def test_multilingual_player_behavior_uses_policy_not_keywords(
+    framework_repo: Path, description: str, classification: str
+) -> None:
+    criterion_id = (
+        _service(framework_repo)
+        .create_criterion(_request(description=description))
+        .details["criterion"]["id"]
+    )
+    insufficient = _evidence(
+        framework_repo,
+        classification=classification,
+        source_type="human-playtest",
+    )
+    with pytest.raises(CriterionInputError, match="observed-player-behavior"):
+        _service(framework_repo).evaluate_criterion(
+            criterion_id,
+            CriterionEvaluation(
+                "verified",
+                "The criterion text language does not change the policy.",
+                (insufficient,),
+            ),
+        )
+
+    observed = _evidence(
+        framework_repo,
+        classification="observed",
+        source_type="human-playtest",
+    )
+    result = _service(framework_repo).evaluate_criterion(
+        criterion_id,
+        CriterionEvaluation(
+            "verified",
+            "Observed human playtest evidence satisfies the explicit policy.",
+            (observed,),
+        ),
+    )
+
+    assert result.details["criterion"]["support_status"] == "verified"
 
 
 def test_verified_non_runtime_criterion_accepts_active_inferred_evidence(
@@ -138,6 +212,7 @@ def test_verified_non_runtime_criterion_accepts_active_inferred_evidence(
                 description="Project intent is documented.",
                 required=True,
                 completion_condition="The game brief contains the approved intent.",
+                verification_policy="document-review",
                 verification_method="Document review.",
             )
         )
@@ -146,12 +221,87 @@ def test_verified_non_runtime_criterion_accepts_active_inferred_evidence(
     inferred = _evidence(
         framework_repo,
         classification="inferred",
+        source_type="spec-review",
+    )
+    with pytest.raises(CriterionInputError, match="must name"):
+        _service(framework_repo).evaluate_criterion(
+            criterion_id,
+            CriterionEvaluation("verified", "A document was reviewed.", (inferred,)),
+        )
+    result = _service(framework_repo).evaluate_criterion(
+        criterion_id,
+        CriterionEvaluation(
+            "verified",
+            f"{inferred} records that criterion-evidence.txt contains the intent.",
+            (inferred,),
+        ),
+    )
+    assert result.details["criterion"]["support_status"] == "verified"
+
+
+def test_automated_test_policy_accepts_test_output_and_rejects_user_note(
+    framework_repo: Path,
+) -> None:
+    criterion_id = (
+        _service(framework_repo)
+        .create_criterion(_request(verification_policy="automated-test"))
+        .details["criterion"]["id"]
+    )
+    user_note = _evidence(
+        framework_repo,
+        classification="observed",
+        source_type="user-note",
+    )
+    with pytest.raises(CriterionInputError, match="automated-test"):
+        _service(framework_repo).evaluate_criterion(
+            criterion_id,
+            CriterionEvaluation("verified", "A user note exists.", (user_note,)),
+        )
+
+    test_output = _evidence(
+        framework_repo,
+        classification="observed",
+        source_type="test-output",
+    )
+    result = _service(framework_repo).evaluate_criterion(
+        criterion_id,
+        CriterionEvaluation(
+            "verified", "The automated test output passed.", (test_output,)
+        ),
+    )
+    assert result.details["criterion"]["support_status"] == "verified"
+
+
+def test_source_review_policy_requires_source_review_not_user_report(
+    framework_repo: Path,
+) -> None:
+    criterion_id = (
+        _service(framework_repo)
+        .create_criterion(_request(verification_policy="source-review"))
+        .details["criterion"]["id"]
+    )
+    reported = _evidence(
+        framework_repo,
+        classification="user-reported",
+        source_type="source-review",
+    )
+    with pytest.raises(CriterionInputError, match="source-review"):
+        _service(framework_repo).evaluate_criterion(
+            criterion_id,
+            CriterionEvaluation(
+                "verified", "A user reported reviewing the source.", (reported,)
+            ),
+        )
+
+    inferred = _evidence(
+        framework_repo,
+        classification="inferred",
         source_type="source-review",
     )
     result = _service(framework_repo).evaluate_criterion(
         criterion_id,
         CriterionEvaluation(
-            "verified", "The approved brief contains the intent.", (inferred,)
+            "verified", "The source review supports the condition.", (inferred,)
         ),
     )
     assert result.details["criterion"]["support_status"] == "verified"
@@ -215,6 +365,62 @@ def test_update_does_not_auto_evaluate_and_marks_definition_stale(
     assert criterion["support_status"] == "unsupported"
     assert criterion["evaluation_history"] == []
     assert criterion["supporting_evidence"] == [evidence_id]
+
+
+def test_policy_change_stales_evaluation_and_critical_path(
+    framework_repo: Path,
+) -> None:
+    criterion_id = (
+        _service(framework_repo).create_criterion(_request()).details["criterion"]["id"]
+    )
+    evidence_id = _evidence(framework_repo)
+    _service(framework_repo).evaluate_criterion(
+        criterion_id,
+        CriterionEvaluation(
+            "verified",
+            "Observed testers met the completion condition.",
+            (evidence_id,),
+        ),
+    )
+    path_service = CriticalPathService(framework_repo, clock=lambda: NOW)
+    path_service.apply_path(PathCalculationRequest())
+
+    result = _service(framework_repo).update_criterion(
+        criterion_id,
+        CriterionPatch(values={"verification_policy": "mixed"}),
+    )
+
+    criterion = result.details["criterion"]
+    assert criterion["verification_policy"] == "mixed"
+    assert criterion["evaluation_freshness"]["status"] == "stale"
+    assert len(criterion["evaluation_history"]) == 1
+    assert result.details["recommended_next_command"] == "studio path calculate"
+    assert (
+        StateRepository(framework_repo).load_critical_path()["freshness"]["status"]
+        == "stale"
+    )
+    freshness = path_service.check_freshness()
+    assert any(
+        "Milestone criterion definitions changed" in reason
+        for reason in freshness.reasons
+    )
+
+
+def test_policy_noop_preserves_timestamps_and_reports(
+    framework_repo: Path,
+) -> None:
+    criterion_id = (
+        _service(framework_repo).create_criterion(_request()).details["criterion"]["id"]
+    )
+    before = managed_bytes(framework_repo)
+
+    result = _service(framework_repo).update_criterion(
+        criterion_id,
+        CriterionPatch(values={"verification_policy": "observed-player-behavior"}),
+    )
+
+    assert result.details["no_op"] is True
+    assert managed_bytes(framework_repo) == before
 
 
 def test_evidence_lifecycle_change_stales_explicit_evaluation(

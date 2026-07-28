@@ -42,6 +42,8 @@ def test_human_add_list_show_evaluate_retire(
                 "A clean checkout launches without errors.",
                 "--verification-method",
                 "Observed runtime launch test.",
+                "--verification-policy",
+                "observed-runtime",
                 "--yes",
             ]
         )
@@ -51,7 +53,9 @@ def test_human_add_list_show_evaluate_retire(
     assert cli.main(["criterion", "list", "--root", str(framework_repo)]) == 0
     assert "MC-002" in capsys.readouterr().out
     assert cli.main(["criterion", "show", "MC-002", "--root", str(framework_repo)]) == 0
-    assert "Completion condition:" in capsys.readouterr().out
+    show_output = capsys.readouterr().out
+    assert "Completion condition:" in show_output
+    assert "Verification policy: Observed Runtime" in show_output
 
     evidence_id = _evidence(framework_repo)
     assert (
@@ -105,6 +109,8 @@ def test_criterion_json_dry_run_and_missing_error(
         "--required",
         "--completion-condition",
         "One loop completes without developer assistance.",
+        "--verification-policy",
+        "observed-player-behavior",
         "--dry-run",
         "--json",
     ]
@@ -152,6 +158,8 @@ def test_criterion_noninteractive_requires_yes(
             "--optional",
             "--completion-condition",
             "A concrete condition.",
+            "--verification-policy",
+            "document-review",
         ]
     )
     assert exit_code == 2
@@ -175,6 +183,8 @@ def test_criterion_json_reads_update_and_evaluate(
                 "A clean checkout launches.",
                 "--verification-method",
                 "Observed runtime launch test.",
+                "--verification-policy",
+                "observed-runtime",
                 "--yes",
                 "--json",
             ]
@@ -192,6 +202,12 @@ def test_criterion_json_reads_update_and_evaluate(
         assert cli.main(arguments) == 0
         second = capsys.readouterr().out
         assert first == second
+        payload = json.loads(first)
+        if command[1] == "show":
+            assert (
+                payload["data"]["criterion"]["verification_policy"]
+                == "observed-runtime"
+            )
     assert (
         cli.main(
             [
@@ -202,13 +218,17 @@ def test_criterion_json_reads_update_and_evaluate(
                 str(framework_repo),
                 "--completion-condition",
                 "Two clean checkouts launch.",
+                "--verification-policy",
+                "mixed",
                 "--yes",
                 "--json",
             ]
         )
         == 0
     )
-    assert json.loads(capsys.readouterr().out)["operation"] == "criterion.update"
+    update_payload = json.loads(capsys.readouterr().out)
+    assert update_payload["operation"] == "criterion.update"
+    assert update_payload["data"]["criterion"]["verification_policy"] == "mixed"
 
     evidence_id = _evidence(framework_repo)
     assert (
@@ -234,3 +254,26 @@ def test_criterion_json_reads_update_and_evaluate(
     payload = json.loads(capsys.readouterr().out)
     assert payload["operation"] == "criterion.evaluate"
     assert payload["data"]["criterion"]["support_status"] == "verified"
+
+
+def test_criterion_add_requires_verification_policy(
+    framework_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert (
+        cli.main(
+            [
+                "criterion",
+                "add",
+                "--root",
+                str(framework_repo),
+                "--description",
+                "A criterion.",
+                "--required",
+                "--completion-condition",
+                "A concrete condition.",
+                "--yes",
+            ]
+        )
+        == 2
+    )
+    assert "--verification-policy" in capsys.readouterr().err

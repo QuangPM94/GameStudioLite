@@ -26,7 +26,11 @@ All commands accept `--root PATH` and `--json`. `calculate` also accepts `--mile
 - `milestone-criterion`: a required criterion contradicted by current evidence and requiring a concrete corrective action.
 - `manual-action`: explicitly authored path work with a title, reason, and completion condition. Manual work is preserved rather than silently deleted.
 
-Resolved, accepted, wont-fix, and deferred issues are inactive. Resolved, rejected, and superseded decisions are historical. Deferred decisions return only after their required-by date is reached. Optional unsupported criteria do not enter the path by default.
+Resolved, accepted, wont-fix, and deferred issues are inactive path candidates,
+but only resolved and accepted issues satisfy prerequisites. Resolved,
+rejected, superseded, and deferred decisions are not active candidates, but
+only resolved decisions satisfy prerequisites. Optional unsupported criteria
+do not enter the path by default unless an explicit dependency requires them.
 
 Verification candidates name the claim, satisfying evidence, and requiring source. The engine does not generate filler such as “test more” or “investigate.”
 
@@ -46,7 +50,15 @@ Phase C2 makes active records in `.studio/state/dependencies.json` authoritative
 
 Legacy issue dependency arrays and the deterministic issue/decision blocking rule remain compatibility-derived edges. Explicit and derived edges are merged without duplication; representing the same edge inconsistently is invalid. Criterion issue/decision links are semantic references and no longer imply order. Create a dependency when a relationship actually affects execution sequence. Verification-to-source edges remain deterministic generated rules. PGS never infers a reverse edge.
 
-The service calculates dependency closure and then uses stable topological ordering. Prerequisites appear before dependents even when the prerequisite has a lower priority tier. Shared prerequisites appear once. Completed dependencies leave the active path. Missing references fail calculation. Cycles fail with the exact source-key cycle and write nothing.
+The service calculates dependency closure and then uses stable topological
+ordering. Prerequisites appear before dependents even when the prerequisite has
+a lower priority tier. Shared prerequisites appear once. Canonically satisfied
+prerequisites leave the active path and unlock dependents. Active unsatisfied
+prerequisites enter the closure when eligible. Terminal-unsatisfied
+prerequisites never unlock dependents: calculation names the `DEP-` edge and
+source status, then recommends updating or deactivating the relationship.
+Missing references fail calculation and are never interpreted as completed.
+Cycles fail with the exact source-key cycle and write nothing.
 
 The normal maximum is seven and the minimum accepted configuration is three. Fewer than three legitimate candidates is valid and never padded. Independent lower-priority work is reduced when the maximum is reached. A single mandatory dependency closure, or explicit pinned work, may exceed the configured maximum; the state and output then carry an explicit warning rather than dropping prerequisites.
 
@@ -82,7 +94,7 @@ Calculation stores deterministic candidate, active dependency graph, criterion d
 - material evidence-support changes;
 - milestone or criterion changes;
 - active dependency additions, edits, deactivations, or reactivations;
-- criterion definition, required/optional, support, retirement, or completion/verification changes;
+- criterion definition, required/optional, verification-policy, support, retirement, or completion/verification changes;
 - retracted or superseded evidence used by an explicit criterion evaluation;
 - deleted, inactive, or superseded sources;
 - new hard blockers;
@@ -114,8 +126,22 @@ Critical-path state originally advanced from schema `1.0` to `2.0` in C1. Phase 
 - replace the single criterion fingerprint with dependency-graph, criterion-definition, criterion-evaluation, and criterion-evidence-lifecycle fingerprints;
 - remove the duplicated `milestone_success_criteria` copy and render criteria from milestone state.
 
-Milestone state also advances to `3.0`. Preserve existing `MC-` IDs and map `pass`, `partial`, `fail`, and `unknown` to `verified`, `partially-supported`, `contradicted`, and `unsupported`. Add milestone, lifecycle, description, completion/verification, current evidence, explicit evaluation, freshness, history, and timestamps. Remove the duplicated `success_criteria` string list. Do not manufacture evaluation history for legacy projections: migrate the definition/support honestly and leave unevaluated claims explicit. Run `studio validate` and `studio report`; the path remains stale until `studio path calculate`.
+Milestone state advanced to `3.0` in C2 and to `3.1` in C2.1.
+Version 3.1 adds the required explicit `verification_policy` definition field;
+the C1 criterion fingerprint includes it, so policy edits report “Milestone
+criterion definitions changed.” `MC-001` keeps its identity/history and uses
+`document-review`. Preserve existing `MC-` IDs and map `pass`, `partial`,
+`fail`, and `unknown` to `verified`, `partially-supported`, `contradicted`, and
+`unsupported`. Do not manufacture evaluation history for legacy projections.
+Run `studio validate` and `studio report`; the path remains stale until
+`studio path calculate`.
 
 ## Known limitations
 
-Phase C2 still does not estimate durations, calculate dates, support soft dependency types, use evidence as a dependency endpoint, infer arbitrary semantic dependencies, merge multiple issues into one action, automatically transition milestones/project phases, execute workflows, control an engine, ingest media/telemetry, implement game code, or orchestrate agents. Required-by proximity is date-based, not capacity-aware. Verification rules depend on explicit canonical wording and relationships.
+Phase C2.1 still does not estimate durations, calculate dates, support soft
+dependency types, use evidence as a dependency endpoint, infer arbitrary
+semantic dependencies, merge multiple issues into one action, automatically
+transition milestones/project phases, execute workflows, control an engine,
+ingest media/telemetry, implement game code, or orchestrate agents.
+Verification rules depend on explicit policies and canonical relationships,
+never language-specific keyword detection.

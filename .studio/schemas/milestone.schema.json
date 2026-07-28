@@ -15,7 +15,7 @@
     "next_milestone"
   ],
   "properties": {
-    "schema_version": {"const": "3.0"},
+    "schema_version": {"const": "3.1"},
     "milestone": {"type": "string", "minLength": 1},
     "criteria_results": {
       "type": "array",
@@ -114,6 +114,7 @@
         "support_status",
         "completion_condition",
         "verification_method",
+        "verification_policy",
         "related_issues",
         "related_decisions",
         "supporting_evidence",
@@ -144,6 +145,18 @@
         },
         "completion_condition": {"type": "string", "minLength": 1},
         "verification_method": {"type": ["string", "null"], "minLength": 1},
+        "verification_policy": {
+          "type": "string",
+          "enum": [
+            "observed-player-behavior",
+            "observed-runtime",
+            "automated-test",
+            "document-review",
+            "source-review",
+            "manual-approval",
+            "mixed"
+          ]
+        },
         "related_issues": {
           "type": "array",
           "items": {"type": "string", "pattern": "^ISS-[0-9]{3,}$"},

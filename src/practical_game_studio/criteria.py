@@ -24,22 +24,30 @@ SUPPORT_STATUSES = {
     "verified",
     "contradicted",
 }
-NON_RUNTIME_TERMS = {
-    "document review",
-    "documentation review",
-    "source review",
-    "spec review",
-    "static inspection",
-    "approval review",
+VERIFICATION_POLICIES = (
+    "observed-player-behavior",
+    "observed-runtime",
+    "automated-test",
+    "document-review",
+    "source-review",
+    "manual-approval",
+    "mixed",
+)
+PLAYER_BEHAVIOR_SOURCE_TYPES = {"human-playtest", "video", "runtime"}
+RUNTIME_SOURCE_TYPES = {
+    "runtime",
+    "video",
+    "telemetry",
+    "test-output",
+    "build-log",
+    "screenshot",
 }
-PLAYER_BEHAVIOR_TERMS = {
-    "player",
-    "tester",
-    "playtest",
-    "unaided",
-    "without assistance",
-    "understand",
-    "complete the loop",
+AUTOMATED_TEST_SOURCE_TYPES = {"test-output", "build-log"}
+DOCUMENT_REVIEW_SOURCE_TYPES = {
+    "spec-review",
+    "user-note",
+    "external-report",
+    "other",
 }
 
 
@@ -60,6 +68,7 @@ class CriterionCreateRequest:
     description: str
     required: bool
     completion_condition: str
+    verification_policy: str
     milestone: str | None = None
     verification_method: str | None = None
     related_issues: tuple[str, ...] = ()
@@ -135,6 +144,15 @@ def _text(value: str | None, *, field_name: str, required: bool = True) -> str |
     return normalized
 
 
+def _verification_policy(value: str | None) -> str:
+    normalized = (value or "").strip().casefold()
+    if normalized not in VERIFICATION_POLICIES:
+        raise CriterionInputError(
+            "verification policy must be one of: " + ", ".join(VERIFICATION_POLICIES)
+        )
+    return normalized
+
+
 def _canonical_id(value: str, prefix: str, width: int = 3) -> str:
     canonical = value.strip().upper()
     pattern = re.compile(rf"^{prefix}-\d{{{width},}}$")
@@ -188,6 +206,100 @@ def _mark_path_stale(critical_path: StateObject, reason: str) -> None:
         "status": "stale",
         "reasons": list(dict.fromkeys(reasons)),
     }
+
+
+def validate_verification_policy(
+    criterion: Mapping[str, Any],
+    support: str,
+    reason: str,
+    evidence: Iterable[Mapping[str, Any]],
+    decisions: Iterable[str],
+) -> None:
+    """Validate a verified evaluation against its explicit policy."""
+
+    if support != "verified":
+        return
+    active = [item for item in evidence if item["status"] == "active"]
+    decision_ids = list(decisions)
+    policy = criterion["verification_policy"]
+    if policy in {"document-review", "manual-approval", "mixed"} and not reason.strip():
+        raise CriterionInputError(
+            f"{policy} verification requires an explicit evaluation reason"
+        )
+    observed_player_evidence = [
+        item
+        for item in active
+        if item["classification"] == "observed"
+        and item["source_type"] in PLAYER_BEHAVIOR_SOURCE_TYPES
+    ]
+    observed_runtime_evidence = [
+        item
+        for item in active
+        if item["classification"] == "observed"
+        and item["source_type"] in RUNTIME_SOURCE_TYPES
+    ]
+    observed_test_evidence = [
+        item
+        for item in active
+        if item["classification"] == "observed"
+        and item["source_type"] in AUTOMATED_TEST_SOURCE_TYPES
+    ]
+    if policy == "observed-player-behavior" and not observed_player_evidence:
+        raise CriterionInputError(
+            "observed-player-behavior verification requires active observed "
+            "human-playtest, video, or runtime evidence"
+        )
+    if policy == "observed-runtime" and not observed_runtime_evidence:
+        raise CriterionInputError(
+            "observed-runtime verification requires active observed runtime, "
+            "video, telemetry, test-output, build-log, or screenshot evidence"
+        )
+    if policy == "automated-test" and not observed_test_evidence:
+        raise CriterionInputError(
+            "automated-test verification requires active observed test-output "
+            "or build-log evidence"
+        )
+    if policy == "document-review":
+        document_evidence = [
+            item
+            for item in active
+            if item["source_type"] in DOCUMENT_REVIEW_SOURCE_TYPES
+        ]
+        if not document_evidence:
+            raise CriterionInputError(
+                "document-review verification requires active spec-review, "
+                "user-note, external-report, or other document evidence"
+            )
+        reason_text = reason.casefold()
+        artifact_names = {
+            str(value).strip().casefold()
+            for item in document_evidence
+            for value in (item["id"], item["title"], item.get("source"))
+            if value
+        }
+        if not any(name in reason_text for name in artifact_names):
+            raise CriterionInputError(
+                "document-review evaluation reason must name the supporting "
+                "evidence ID, document, or artifact"
+            )
+    if policy == "source-review" and not any(
+        item["source_type"] == "source-review"
+        and item["classification"] in {"observed", "inferred"}
+        for item in active
+    ):
+        raise CriterionInputError(
+            "source-review verification requires active observed or inferred "
+            "source-review evidence"
+        )
+    if policy == "manual-approval" and not active and not decision_ids:
+        raise CriterionInputError(
+            "manual-approval verification requires active supporting evidence "
+            "or a decision reference"
+        )
+    if policy == "mixed" and not active:
+        raise CriterionInputError(
+            "mixed verification requires active evidence and an explicit reason"
+        )
 
 
 class CriterionService:
@@ -356,6 +468,8 @@ class CriterionService:
                         field_name="verification method",
                         required=False,
                     )
+                elif field_name == "verification_policy":
+                    criterion[field_name] = _verification_policy(value)
                 elif field_name == "milestone":
                     new_milestone = _text(value, field_name="milestone")
                     if new_milestone != criterion["milestone"]:
@@ -422,6 +536,7 @@ class CriterionService:
                     "required",
                     "completion_condition",
                     "verification_method",
+                    "verification_policy",
                 }
                 material = bool(definition_fields & set(changed))
                 if criterion["evaluation_history"] and (material or removed_evidence):
@@ -505,6 +620,7 @@ class CriterionService:
                 support,
                 reason,
                 selected_evidence,
+                decision_ids,
                 limitations,
             )
             snapshot = [
@@ -705,6 +821,7 @@ class CriterionService:
             "lifecycle_status": "active",
             "support_status": "unsupported",
             "completion_condition": completion,
+            "verification_policy": _verification_policy(request.verification_policy),
             "verification_method": _text(
                 request.verification_method,
                 field_name="verification method",
@@ -807,9 +924,9 @@ class CriterionService:
         support: str,
         reason: str,
         evidence: list[Mapping[str, Any]],
+        decisions: list[str],
         limitations: list[str],
     ) -> None:
-        del reason
         active = [item for item in evidence if item["status"] == "active"]
         if len(active) != len(evidence):
             inactive = sorted(
@@ -819,9 +936,15 @@ class CriterionService:
                 "inactive evidence cannot support a current evaluation: "
                 + ", ".join(inactive)
             )
+        decision_backed_manual_approval = (
+            support == "verified"
+            and criterion["verification_policy"] == "manual-approval"
+            and decisions
+        )
         if (
             support in {"verified", "partially-supported", "contradicted"}
             and not active
+            and not decision_backed_manual_approval
         ):
             raise CriterionInputError(f"{support} evaluation requires active evidence")
         if support == "partially-supported" and not limitations:
@@ -833,29 +956,7 @@ class CriterionService:
             pass
         if support != "verified":
             return
-        text = " ".join(
-            (
-                criterion["description"],
-                criterion["completion_condition"],
-                criterion["verification_method"] or "",
-            )
-        ).casefold()
-        player_behavior = any(term in text for term in PLAYER_BEHAVIOR_TERMS)
-        non_runtime = any(
-            term in (criterion["verification_method"] or "").casefold()
-            for term in NON_RUNTIME_TERMS
-        )
-        observed = any(item["classification"] == "observed" for item in active)
-        if player_behavior and not observed:
-            raise CriterionInputError(
-                "player-behavior criteria require active observed evidence; "
-                "inferred or user-reported evidence alone is insufficient"
-            )
-        if not player_behavior and not non_runtime and not observed:
-            raise CriterionInputError(
-                "verified evaluation requires active observed evidence unless "
-                "the verification method explicitly documents a non-runtime review"
-            )
+        validate_verification_policy(criterion, support, reason, active, decisions)
 
     @staticmethod
     def _archive_satisfied_path_items(

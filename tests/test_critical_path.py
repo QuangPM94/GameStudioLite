@@ -242,16 +242,13 @@ def test_near_required_by_decision_is_selected_deterministically(
     assert candidate.priority_tier == 5
 
 
-def test_deferred_decision_returns_when_required_criterion_depends_on_it(
+def test_deferred_decision_dependency_is_terminal_unsatisfied(
     framework_repo: Path,
 ) -> None:
     _empty_path(framework_repo)
     decision_id = _decision(
         framework_repo,
         urgency="medium",
-    )
-    DecisionService(framework_repo).update_decision(
-        decision_id, DecisionPatch(values={"status": "deferred"})
     )
     milestone = StateRepository(framework_repo).load_milestone()
     criterion = milestone["criteria_results"][0]
@@ -267,15 +264,15 @@ def test_deferred_decision_returns_when_required_criterion_depends_on_it(
             reason="The criterion evaluation requires this decision.",
         )
     )
+    decisions = StateRepository(framework_repo).load_decisions()
+    decisions["decisions"][0]["status"] = "deferred"
+    _write_json(framework_repo / ".studio/state/decisions.json", decisions)
 
-    candidate = next(
-        item
-        for item in _service(framework_repo).collect_candidates()
-        if item.source_key == f"decision:{decision_id}"
-    )
-
-    assert candidate.default_selected
-    assert candidate.priority_tier == 3
+    with pytest.raises(
+        CriticalPathInputError,
+        match=r"(?s)MC-001 requires DEC-0001.*deferred.*DEP-0001",
+    ):
+        _service(framework_repo).calculate_path(PathCalculationRequest())
 
 
 def test_required_unsupported_criterion_generates_concrete_verification(
@@ -417,6 +414,122 @@ def test_dependency_chain_is_topological_even_when_prerequisite_is_minor(
     keys = [item.source_key for item in result.active_items]
 
     assert keys == [f"issue:{prerequisite}", f"issue:{blocker}"]
+
+
+@pytest.mark.parametrize("status", ["deferred", "wont-fix"])
+def test_terminal_unsatisfied_issue_never_unlocks_dependent(
+    framework_repo: Path, status: str
+) -> None:
+    _empty_path(framework_repo)
+    prerequisite = _issue(framework_repo, "Prerequisite", "major")
+    dependent = _issue(framework_repo, "Dependent", "blocker")
+    DependencyService(framework_repo).create_dependency(
+        DependencyCreateRequest(prerequisite, dependent, "Must finish first.")
+    )
+    issues = StateRepository(framework_repo).load_issues()
+    issues["issues"][0]["status"] = status
+    if status == "wont-fix":
+        issues["issues"][0]["resolution"] = "Explicitly not fixed."
+    _write_json(framework_repo / ".studio/state/issues.json", issues)
+
+    with pytest.raises(
+        CriticalPathInputError,
+        match=rf"(?s){dependent} requires {prerequisite}.*{status}.*DEP-0001",
+    ):
+        _service(framework_repo).calculate_path(PathCalculationRequest())
+
+
+@pytest.mark.parametrize("status", ["rejected", "superseded"])
+def test_terminal_unsatisfied_decision_never_unlocks_dependent(
+    framework_repo: Path, status: str
+) -> None:
+    _empty_path(framework_repo)
+    dependent = _issue(framework_repo, "Dependent", "blocker")
+    prerequisite = _decision(framework_repo)
+    DependencyService(framework_repo).create_dependency(
+        DependencyCreateRequest(prerequisite, dependent, "Decision is required.")
+    )
+    decisions = StateRepository(framework_repo).load_decisions()
+    decisions["decisions"][0]["status"] = status
+    _write_json(framework_repo / ".studio/state/decisions.json", decisions)
+
+    with pytest.raises(
+        CriticalPathInputError,
+        match=rf"(?s){dependent} requires {prerequisite}.*{status}.*DEP-0001",
+    ):
+        _service(framework_repo).calculate_path(PathCalculationRequest())
+
+
+@pytest.mark.parametrize(
+    ("lifecycle", "support", "freshness", "source_status"),
+    [
+        ("retired", "unsupported", "current", "retired"),
+        ("active", "verified", "stale", "verified"),
+    ],
+)
+def test_terminal_unsatisfied_criterion_never_unlocks_dependent(
+    framework_repo: Path,
+    lifecycle: str,
+    support: str,
+    freshness: str,
+    source_status: str,
+) -> None:
+    _empty_path(framework_repo, criterion_result="unknown")
+    dependent = _issue(framework_repo, "Dependent", "blocker")
+    DependencyService(framework_repo).create_dependency(
+        DependencyCreateRequest("MC-001", dependent, "Criterion is required.")
+    )
+    milestone = StateRepository(framework_repo).load_milestone()
+    criterion = milestone["criteria_results"][0]
+    criterion["lifecycle_status"] = lifecycle
+    criterion["support_status"] = support
+    criterion["evaluation_freshness"] = {
+        "status": freshness,
+        "reasons": [] if freshness == "current" else ["Policy changed."],
+    }
+    if lifecycle == "retired":
+        criterion["retired_at"] = criterion["updated_at"]
+        criterion["retirement_reason"] = "No longer applicable."
+    _write_json(framework_repo / ".studio/state/milestone.json", milestone)
+
+    with pytest.raises(
+        CriticalPathInputError,
+        match=rf"(?s){dependent} requires MC-001.*{source_status}.*DEP-0001",
+    ):
+        _service(framework_repo).calculate_path(PathCalculationRequest())
+
+
+def test_satisfied_prerequisite_is_removed_and_cp_ids_are_preserved(
+    framework_repo: Path,
+) -> None:
+    _empty_path(framework_repo)
+    prerequisite = _issue(framework_repo, "Prerequisite", "major")
+    dependent = _issue(framework_repo, "Dependent", "blocker")
+    DependencyService(framework_repo).create_dependency(
+        DependencyCreateRequest(prerequisite, dependent, "Must finish first.")
+    )
+    service = _service(framework_repo)
+    first = service.apply_path(PathCalculationRequest())
+    first_ids = {item["source_key"]: item["id"] for item in first.details["items"]}
+    IssueService(framework_repo).update_issue(
+        prerequisite,
+        IssuePatch(
+            values={"status": "resolved", "resolution": "Prerequisite complete."}
+        ),
+    )
+
+    second = service.apply_path(PathCalculationRequest())
+    second_ids = {item["source_key"]: item["id"] for item in second.details["items"]}
+
+    assert f"issue:{prerequisite}" not in second_ids
+    assert second_ids[f"issue:{dependent}"] == first_ids[f"issue:{dependent}"]
+    dependent_item = next(
+        item for item in second.details["items"] if item["source_id"] == dependent
+    )
+    assert dependent_item["dependencies"] == []
+    explanation = service.explain_item(dependent_item["id"]).to_dict()
+    assert explanation["dependency_states"][0]["prerequisite_satisfied"] is True
+    assert explanation["dependency_states"][0]["prerequisite_state"] == "satisfied"
 
 
 def test_shared_prerequisite_appears_once(framework_repo: Path) -> None:

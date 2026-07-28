@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -9,12 +10,18 @@ from practical_game_studio.critical_path import (
     CriticalPathService,
     PathCalculationRequest,
 )
+from practical_game_studio.decisions import (
+    DecisionCreateRequest,
+    DecisionOption,
+    DecisionService,
+)
 from practical_game_studio.dependencies import (
     DependencyCreateRequest,
     DependencyCycleError,
     DependencyInputError,
     DependencyPatch,
     DependencyService,
+    resolve_endpoint_satisfaction,
 )
 from practical_game_studio.issues import IssueCreateRequest, IssueService
 from practical_game_studio.state import StateRepository
@@ -42,6 +49,178 @@ def _issue(root: Path, title: str, severity: str = "blocker") -> str:
 
 def _service(root: Path) -> DependencyService:
     return DependencyService(root, clock=lambda: NOW)
+
+
+def _write_json(path: Path, value: object) -> None:
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _decision(root: Path) -> str:
+    return (
+        DecisionService(root)
+        .create_decision(
+            DecisionCreateRequest(
+                question="Choose a dependency option",
+                context="The dependent work needs an explicit choice.",
+                urgency="blocking",
+                decision_owner="user",
+                options=(
+                    DecisionOption(
+                        id="OPT-A",
+                        label="First",
+                        description="Choose the first option.",
+                        benefits=("Clear",),
+                        risks=("Limited",),
+                    ),
+                    DecisionOption(
+                        id="OPT-B",
+                        label="Second",
+                        description="Choose the second option.",
+                        benefits=("Flexible",),
+                        risks=("Complex",),
+                    ),
+                ),
+                recommended_option="OPT-A",
+                recommendation_reason="The first option is smaller.",
+                status="ready",
+            )
+        )
+        .details["decision"]["id"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "terminal", "satisfied"),
+    [
+        ("open", False, False),
+        ("acknowledged", False, False),
+        ("in-progress", False, False),
+        ("blocked", False, False),
+        ("resolved", True, True),
+        ("accepted", True, True),
+        ("deferred", True, False),
+        ("wont-fix", True, False),
+    ],
+)
+def test_issue_satisfaction_table(
+    framework_repo: Path, status: str, terminal: bool, satisfied: bool
+) -> None:
+    issue_id = _issue(framework_repo, "Issue satisfaction")
+    issues = StateRepository(framework_repo).load_issues()
+    issues["issues"][0]["status"] = status
+    _write_json(framework_repo / ".studio/state/issues.json", issues)
+
+    result = resolve_endpoint_satisfaction(
+        StateRepository(framework_repo).load_all(), issue_id
+    )
+
+    assert (result.terminal, result.satisfied, result.valid) == (
+        terminal,
+        satisfied,
+        True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "terminal", "satisfied"),
+    [
+        ("open", False, False),
+        ("ready", False, False),
+        ("blocked", False, False),
+        ("deferred", True, False),
+        ("resolved", True, True),
+        ("rejected", True, False),
+        ("superseded", True, False),
+    ],
+)
+def test_decision_satisfaction_table(
+    framework_repo: Path, status: str, terminal: bool, satisfied: bool
+) -> None:
+    decision_id = _decision(framework_repo)
+    decisions = StateRepository(framework_repo).load_decisions()
+    decisions["decisions"][0]["status"] = status
+    _write_json(framework_repo / ".studio/state/decisions.json", decisions)
+
+    result = resolve_endpoint_satisfaction(
+        StateRepository(framework_repo).load_all(), decision_id
+    )
+
+    assert (result.terminal, result.satisfied, result.valid) == (
+        terminal,
+        satisfied,
+        True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("lifecycle", "support", "freshness", "terminal", "satisfied"),
+    [
+        ("active", "verified", "current", True, True),
+        ("active", "verified", "stale", True, False),
+        ("active", "partially-supported", "current", False, False),
+        ("active", "unsupported", "current", False, False),
+        ("active", "contradicted", "current", False, False),
+        ("retired", "verified", "current", True, False),
+    ],
+)
+def test_criterion_satisfaction_table(
+    framework_repo: Path,
+    lifecycle: str,
+    support: str,
+    freshness: str,
+    terminal: bool,
+    satisfied: bool,
+) -> None:
+    milestone = StateRepository(framework_repo).load_milestone()
+    criterion = milestone["criteria_results"][0]
+    criterion["lifecycle_status"] = lifecycle
+    criterion["support_status"] = support
+    criterion["evaluation_freshness"] = {
+        "status": freshness,
+        "reasons": [] if freshness == "current" else ["Definition changed."],
+    }
+    _write_json(framework_repo / ".studio/state/milestone.json", milestone)
+
+    result = resolve_endpoint_satisfaction(
+        StateRepository(framework_repo).load_all(), criterion["id"]
+    )
+
+    assert (result.terminal, result.satisfied, result.valid) == (
+        terminal,
+        satisfied,
+        True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "terminal", "satisfied"),
+    [
+        ("ready", False, False),
+        ("blocked", False, False),
+        ("in-progress", False, False),
+        ("completed", True, True),
+        ("removed", True, False),
+    ],
+)
+def test_manual_action_satisfaction_table(
+    framework_repo: Path, status: str, terminal: bool, satisfied: bool
+) -> None:
+    path = StateRepository(framework_repo).load_critical_path()
+    path["items"][0]["status"] = status
+    _write_json(framework_repo / ".studio/state/critical-path.json", path)
+
+    result = resolve_endpoint_satisfaction(
+        StateRepository(framework_repo).load_all(), "MANUAL:guided-intake"
+    )
+
+    assert (result.terminal, result.satisfied, result.valid) == (
+        terminal,
+        satisfied,
+        True,
+    )
 
 
 def test_create_allocates_deterministic_id_and_defaults(framework_repo: Path) -> None:

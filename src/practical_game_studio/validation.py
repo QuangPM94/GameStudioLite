@@ -321,6 +321,14 @@ def _duplicates(values: Iterable[str]) -> set[str]:
 def _validate_relationships(
     state: dict[str, Any], catalog: dict[str, Any], result: ValidationResult
 ) -> None:
+    # Local import avoids the transaction -> validation import cycle while keeping
+    # dependency satisfaction authoritative in dependencies.py.
+    from .criteria import (
+        CriterionInputError,
+        validate_verification_policy,
+    )
+    from .dependencies import resolve_endpoint_satisfaction
+
     issues = state["issues"]["issues"]
     decisions = state["decisions"]["decisions"]
     dependencies = state["dependencies"]["dependencies"]
@@ -584,17 +592,26 @@ def _validate_relationships(
                     f"{prerequisite} ({active_edges[edge]} and {dependency['id']})"
                 )
             active_edges[edge] = dependency["id"]
-            for endpoint in (prerequisite, dependent):
-                if endpoint.startswith("MC-"):
-                    criterion = criterion_by_id.get(endpoint)
-                    if (
-                        criterion is not None
-                        and criterion["lifecycle_status"] == "retired"
-                    ):
-                        result.add(
-                            f"{dependency['id']}: active dependency endpoint "
-                            f"{endpoint} is retired"
-                        )
+            if prerequisite in known_endpoints:
+                satisfaction = resolve_endpoint_satisfaction(state, prerequisite)
+                if (
+                    satisfaction.valid
+                    and satisfaction.terminal
+                    and not satisfaction.satisfied
+                ):
+                    result.add(
+                        f"Active dependency {dependency['id']} references "
+                        f"{satisfaction.status} prerequisite {prerequisite}. "
+                        f"{satisfaction.reason} Update the prerequisite or "
+                        f"deactivate {dependency['id']}."
+                    )
+            if dependent.startswith("MC-"):
+                criterion = criterion_by_id.get(dependent)
+                if criterion is not None and criterion["lifecycle_status"] == "retired":
+                    result.add(
+                        f"{dependency['id']}: active dependency dependent "
+                        f"{dependent} is retired"
+                    )
             if dependency["deactivated_at"] is not None:
                 result.add(
                     f"{dependency['id']}: active dependency has deactivation time"
@@ -1129,6 +1146,12 @@ def _validate_relationships(
         support = criterion["support_status"]
         freshness_status = criterion["evaluation_freshness"]["status"]
         if freshness_status == "current" and criterion["lifecycle_status"] == "active":
+            manual_approval_with_decision = (
+                support == "verified"
+                and criterion["verification_policy"] == "manual-approval"
+                and bool(criterion["evaluation_history"])
+                and bool(criterion["evaluation_history"][-1]["decision_references"])
+            )
             if criterion["evaluation_freshness"]["reasons"]:
                 result.add(
                     f"{criterion_id}: current evaluation freshness cannot have reasons"
@@ -1141,6 +1164,7 @@ def _validate_relationships(
                     "contradicted",
                 }
                 and not active_evidence
+                and not manual_approval_with_decision
             ):
                 result.add(
                     f"{criterion_id}: {support} criterion requires active evidence"
@@ -1152,49 +1176,22 @@ def _validate_relationships(
                 result.add(
                     f"{criterion_id}: partially supported criterion needs a limitation"
                 )
-            if support == "verified" and active_evidence:
-                text = " ".join(
-                    (
-                        criterion["description"],
-                        criterion["completion_condition"],
-                        criterion["verification_method"] or "",
-                    )
-                ).casefold()
-                player_behavior = any(
-                    token in text
-                    for token in (
-                        "player",
-                        "tester",
-                        "playtest",
-                        "unaided",
-                        "without assistance",
-                        "complete the loop",
-                    )
+            if support == "verified":
+                decision_references = (
+                    criterion["evaluation_history"][-1]["decision_references"]
+                    if criterion["evaluation_history"]
+                    else []
                 )
-                non_runtime = any(
-                    token in (criterion["verification_method"] or "").casefold()
-                    for token in (
-                        "document review",
-                        "documentation review",
-                        "source review",
-                        "spec review",
-                        "static inspection",
-                        "approval review",
+                try:
+                    validate_verification_policy(
+                        criterion,
+                        support,
+                        criterion["evaluation_reason"] or "",
+                        active_evidence,
+                        decision_references,
                     )
-                )
-                observed = any(
-                    item["classification"] == "observed" for item in active_evidence
-                )
-                if player_behavior and not observed:
-                    result.add(
-                        f"{criterion_id}: player-behavior verification requires "
-                        "observed evidence"
-                    )
-                elif not player_behavior and not non_runtime and not observed:
-                    result.add(
-                        f"{criterion_id}: verification requires observed evidence "
-                        "or a documented non-runtime method"
-                    )
+                except CriterionInputError as exc:
+                    result.add(f"{criterion_id}: {exc}")
         elif (
             freshness_status == "stale"
             and not criterion["evaluation_freshness"]["reasons"]

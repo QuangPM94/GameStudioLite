@@ -21,6 +21,8 @@ from .decisions import recommendation_support
 from .dependencies import (
     combined_dependency_edges,
     endpoint_source_key,
+    resolve_endpoint_satisfaction,
+    source_key_endpoint,
 )
 from .models import MutationResult
 from .reporting import render_report_contents
@@ -35,9 +37,6 @@ SOURCE_KEY_PATTERN = re.compile(
 )
 ACTIVE_ITEM_STATUSES = {"pending", "ready", "blocked", "in-progress"}
 HISTORICAL_ITEM_STATUSES = {"completed", "removed"}
-INACTIVE_ISSUE_STATUSES = {"resolved", "accepted", "wont-fix", "deferred"}
-HISTORICAL_DECISION_STATUSES = {"resolved", "rejected", "superseded"}
-PENDING_DECISION_STATUSES = {"open", "ready", "blocked"}
 
 Clock = Callable[[], datetime]
 
@@ -154,6 +153,7 @@ class PathExplanation:
     source: StateObject | None
     downstream_items: tuple[str, ...]
     lower_priority_alternatives: tuple[str, ...]
+    dependency_states: tuple[Mapping[str, Any], ...]
     manual_context: str | None
 
     def to_dict(self) -> dict[str, Any]:
@@ -162,6 +162,7 @@ class PathExplanation:
             "source": copy.deepcopy(self.source),
             "downstream_items": list(self.downstream_items),
             "lower_priority_alternatives": list(self.lower_priority_alternatives),
+            "dependency_states": [dict(value) for value in self.dependency_states],
             "manual_context": self.manual_context,
         }
 
@@ -287,13 +288,7 @@ class CriticalPathService:
             and (item["scope"] == "project" or item["milestone"] == current_milestone)
         }
         pending_decisions = [
-            item
-            for item in decisions
-            if self._decision_is_active(
-                item,
-                current_milestone,
-                milestone_dependency=(item["id"] in explicit_prerequisites),
-            )
+            item for item in decisions if self._decision_is_active(item, state)
         ]
         decision_by_issue: dict[str, list[StateObject]] = {}
         for decision in pending_decisions:
@@ -303,7 +298,7 @@ class CriticalPathService:
         candidates: list[PathCandidate] = []
         issue_by_id = {issue["id"]: issue for issue in state["issues"]["issues"]}
         for issue in state["issues"]["issues"]:
-            if issue["status"] in INACTIVE_ISSUE_STATUSES:
+            if resolve_endpoint_satisfaction(state, issue["id"]).terminal:
                 continue
             source_key = f"issue:{issue['id']}"
             linked_decisions = sorted(
@@ -315,7 +310,7 @@ class CriticalPathService:
                     f"decision:{item['id']}" for item in linked_decisions
                 )
             default_selected, tier = self._issue_priority(
-                issue, issue_by_id, pending_decisions
+                state, issue, issue_by_id, pending_decisions
             )
             if source_key in pinned:
                 default_selected = True
@@ -508,9 +503,16 @@ class CriticalPathService:
                 continue
             required = bool(criterion.get("required", True))
             support = _criterion_support(criterion)
-            if not required and support in {"unsupported", "partially-supported"}:
+            dependency_prerequisite = criterion_id in explicit_prerequisites
+            if (
+                not required
+                and not dependency_prerequisite
+                and support in {"unsupported", "partially-supported", "contradicted"}
+            ):
                 continue
-            if support in {"unsupported", "partially-supported"} and required:
+            if support in {"unsupported", "partially-supported"} and (
+                required or dependency_prerequisite
+            ):
                 source_key = f"verification:{criterion_id}:observed-support"
                 candidates.append(
                     PathCandidate(
@@ -542,14 +544,14 @@ class CriticalPathService:
                         or (
                             f"Evidence satisfying: {criterion['completion_condition']}",
                         ),
-                        default_selected=True,
+                        default_selected=required,
                         pinned=source_key in pinned,
                         source_status=criterion["support_status"],
                         evidence_state=support,
                         sort_hint=(f"{index:06d}", criterion_id),
                     )
                 )
-            elif support == "contradicted" and required:
+            elif support == "contradicted" and (required or dependency_prerequisite):
                 source_key = f"milestone:{criterion_id}"
                 candidates.append(
                     PathCandidate(
@@ -575,7 +577,7 @@ class CriticalPathService:
                         ),
                         owner="producer",
                         evidence_required=tuple(criterion["supporting_evidence"]),
-                        default_selected=True,
+                        default_selected=required,
                         pinned=source_key in pinned,
                         source_status=criterion["support_status"],
                         evidence_state=support,
@@ -934,6 +936,9 @@ class CriticalPathService:
             source=source,
             downstream_items=downstream,
             lower_priority_alternatives=alternatives,
+            dependency_states=self._dependency_states_for_item(
+                state, item, critical_path["current_milestone"]
+            ),
             manual_context=manual_context,
         )
 
@@ -1144,6 +1149,7 @@ class CriticalPathService:
 
     def _issue_priority(
         self,
+        state: CanonicalState,
         issue: Mapping[str, Any],
         issue_by_id: Mapping[str, Mapping[str, Any]],
         pending_decisions: Iterable[Mapping[str, Any]],
@@ -1154,7 +1160,7 @@ class CriticalPathService:
             return True, 2
         blocks_critical = any(
             issue_by_id.get(item, {}).get("severity") in {"blocker", "critical"}
-            and issue_by_id[item]["status"] not in INACTIVE_ISSUE_STATUSES
+            and not resolve_endpoint_satisfaction(state, item).terminal
             for item in issue["issues_blocked"]
         )
         required_by_decision = any(
@@ -1196,23 +1202,10 @@ class CriticalPathService:
         )
         return explicit and issue["severity"] in {"blocker", "critical"}
 
-    def _decision_is_active(
-        self,
-        decision: Mapping[str, Any],
-        milestone: str,
-        *,
-        milestone_dependency: bool = False,
-    ) -> bool:
-        if decision["status"] in PENDING_DECISION_STATUSES:
-            return True
-        if decision["status"] != "deferred":
-            return False
-        if milestone_dependency:
-            return True
-        required_by = decision["decision_required_by"]
-        if not required_by:
-            return False
-        return date.fromisoformat(required_by) <= self.clock().date()
+    @staticmethod
+    def _decision_is_active(decision: Mapping[str, Any], state: CanonicalState) -> bool:
+        satisfaction = resolve_endpoint_satisfaction(state, decision["id"])
+        return satisfaction.valid and not satisfaction.terminal
 
     @staticmethod
     def _decision_needs_verification(
@@ -1431,12 +1424,51 @@ class CriticalPathService:
             for dependency in candidate.dependency_keys:
                 dependency_candidate = by_key.get(dependency)
                 if dependency_candidate is None:
-                    # A completed/inactive source satisfies the dependency.
-                    if self._source_is_completed(dependency, state):
+                    endpoint = source_key_endpoint(dependency)
+                    if endpoint is None:
+                        raise CriticalPathInputError(
+                            f"{candidate.source_key} references missing dependency "
+                            f"{dependency}"
+                        )
+                    satisfaction = resolve_endpoint_satisfaction(state, endpoint)
+                    if not satisfaction.valid:
+                        raise CriticalPathInputError(
+                            f"{candidate.source_key} requires {endpoint}, but "
+                            f"{satisfaction.reason}"
+                        )
+                    if satisfaction.satisfied:
                         continue
+                    if satisfaction.terminal:
+                        origin = next(
+                            (
+                                value
+                                for value in candidate.dependency_origins
+                                if value[0] == dependency
+                            ),
+                            None,
+                        )
+                        dependency_id = origin[2] if origin else None
+                        dependent = (
+                            source_key_endpoint(candidate.source_key)
+                            or candidate.source_id
+                            or candidate.source_key
+                        )
+                        repair = (
+                            "\n\nUpdate or deactivate the dependency:"
+                            f"\nstudio dependency update {dependency_id} "
+                            "--prerequisite ..."
+                            f"\nstudio dependency deactivate {dependency_id} "
+                            '--reason "..."'
+                            if dependency_id
+                            else "\n\nUpdate or remove the derived relationship."
+                        )
+                        raise CriticalPathInputError(
+                            f"{dependent} requires {endpoint}, but "
+                            f"{satisfaction.reason}{repair}"
+                        )
                     raise CriticalPathInputError(
-                        f"{candidate.source_key} references missing dependency "
-                        f"{dependency}"
+                        f"{candidate.source_key} requires active prerequisite "
+                        f"{endpoint}, but no eligible path candidate exists"
                     )
                 if dependency in excluded:
                     raise CriticalPathInputError(
@@ -1473,33 +1505,6 @@ class CriticalPathService:
                 "filler work was added."
             )
         return tuple(selected.values()), warnings
-
-    @staticmethod
-    def _source_is_completed(source_key: str, state: CanonicalState) -> bool:
-        if source_key.startswith("issue:"):
-            source_id = source_key.split(":", 1)[1]
-            return any(
-                item["id"] == source_id and item["status"] in INACTIVE_ISSUE_STATUSES
-                for item in state["issues"]["issues"]
-            )
-        if source_key.startswith("decision:"):
-            source_id = source_key.split(":", 1)[1]
-            return any(
-                item["id"] == source_id
-                and item["status"] in HISTORICAL_DECISION_STATUSES
-                for item in state["decisions"]["decisions"]
-            )
-        if source_key.startswith("milestone:"):
-            source_id = source_key.split(":", 1)[1]
-            return any(
-                item["id"] == source_id
-                and (
-                    item["lifecycle_status"] == "retired"
-                    or item["support_status"] == "verified"
-                )
-                for item in state["milestone"]["criteria_results"]
-            )
-        return False
 
     @staticmethod
     def _find_cycle(dependencies: Mapping[str, list[str]]) -> list[str] | None:
@@ -1540,41 +1545,14 @@ class CriticalPathService:
     @staticmethod
     def _historical_status(item: Mapping[str, Any], state: CanonicalState) -> str:
         source_key = item["source_key"]
-        if source_key.startswith("issue:"):
-            source_id = source_key.split(":", 1)[1]
-            record = next(
-                (
-                    value
-                    for value in state["issues"]["issues"]
-                    if value["id"] == source_id
-                ),
-                None,
-            )
-            if record and record["status"] in {"resolved", "accepted"}:
-                return "completed"
-        if source_key.startswith("decision:"):
-            source_id = source_key.split(":", 1)[1]
-            record = next(
-                (
-                    value
-                    for value in state["decisions"]["decisions"]
-                    if value["id"] == source_id
-                ),
-                None,
-            )
-            if record and record["status"] == "resolved":
-                return "completed"
-        if source_key.startswith(("milestone:", "verification:MC-")):
-            source_id = item.get("source_id")
-            record = next(
-                (
-                    value
-                    for value in state["milestone"]["criteria_results"]
-                    if value["id"] == source_id
-                ),
-                None,
-            )
-            if record and record["support_status"] == "verified":
+        endpoint = source_key_endpoint(source_key)
+        if endpoint is None and item.get("source_id"):
+            source_id = str(item["source_id"])
+            if source_id.startswith(("ISS-", "DEC-", "MC-")):
+                endpoint = source_id
+        if endpoint is not None:
+            satisfaction = resolve_endpoint_satisfaction(state, endpoint)
+            if satisfaction.valid and satisfaction.satisfied:
                 return "completed"
         return "removed"
 
@@ -1608,6 +1586,7 @@ class CriticalPathService:
                 "lifecycle_status": item["lifecycle_status"],
                 "completion_condition": item["completion_condition"],
                 "verification_method": item["verification_method"],
+                "verification_policy": item["verification_policy"],
                 "related_issues": item["related_issues"],
                 "related_decisions": item["related_decisions"],
             }
@@ -1782,6 +1761,62 @@ class CriticalPathService:
             if source_key not in by_key:
                 warnings.append(f"Excluded source {source_key} is missing or inactive.")
         return warnings
+
+    @staticmethod
+    def _dependency_states_for_item(
+        state: CanonicalState,
+        item: Mapping[str, Any],
+        milestone: str,
+    ) -> tuple[Mapping[str, Any], ...]:
+        dependent = source_key_endpoint(item["source_key"])
+        if dependent is None:
+            source_id = str(item.get("source_id") or "")
+            if source_id.startswith(("ISS-", "DEC-", "MC-")):
+                dependent = source_id
+        if dependent is None:
+            return ()
+        explicit_by_id = {
+            value["id"]: value for value in state["dependencies"]["dependencies"]
+        }
+        values: list[Mapping[str, Any]] = []
+        for (
+            prerequisite,
+            edge_dependent,
+            derived_reason,
+            dependency_id,
+        ) in combined_dependency_edges(state, milestone):
+            if edge_dependent != dependent:
+                continue
+            satisfaction = resolve_endpoint_satisfaction(state, prerequisite)
+            reason = (
+                explicit_by_id[dependency_id]["reason"]
+                if dependency_id is not None
+                else derived_reason
+            )
+            values.append(
+                {
+                    "prerequisite": prerequisite,
+                    "dependent": dependent,
+                    "origin": "explicit" if dependency_id else "derived",
+                    "dependency_id": dependency_id,
+                    "reason": reason,
+                    "prerequisite_status": satisfaction.status,
+                    "prerequisite_terminal": satisfaction.terminal,
+                    "prerequisite_satisfied": satisfaction.satisfied,
+                    "prerequisite_valid": satisfaction.valid,
+                    "prerequisite_state": satisfaction.state,
+                    "prerequisite_satisfaction_reason": satisfaction.reason,
+                }
+            )
+        return tuple(
+            sorted(
+                values,
+                key=lambda value: (
+                    str(value["prerequisite"]),
+                    str(value["dependency_id"] or ""),
+                ),
+            )
+        )
 
     def _source_record(
         self, state: CanonicalState, item: Mapping[str, Any]

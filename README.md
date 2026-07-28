@@ -168,18 +168,34 @@ studio dependency list
 studio dependency show DEP-0001
 ```
 
-Criteria have a lifecycle separate from explicit evidence support:
+Terminal is not equivalent to satisfied. Resolved/accepted issues, resolved
+decisions, active verified criteria with current evaluations, and completed
+manual actions satisfy prerequisites. Deferred/wont-fix issues,
+deferred/rejected/superseded decisions, retired or stale-verified criteria, and
+removed manual actions do not; active edges to them are actionable
+relationship errors.
+
+Criteria have a lifecycle separate from explicit evidence support and require
+an explicit language-independent verification policy:
 
 ```bash
 studio criterion add --description "One delivery loop is playable." \
   --required --completion-condition "Two of three observed testers finish unaided." \
-  --verification-method "Observed human playtest." --dry-run
+  --verification-method "Observed human playtest." \
+  --verification-policy observed-player-behavior --dry-run
 studio criterion evaluate MC-002 --support partially-supported \
   --evidence EVD-0004 --reason "One observed tester finished unaided." \
   --limitation "Two additional observations are required." --yes
 ```
 
-Evidence never silently verifies a criterion. Dependency and criterion writes mark path freshness precisely and recommend a check or recalculation; they do not change the project phase or milestone. See `docs/dependency-management.md` and `docs/milestone-criteria-management.md`.
+Evidence never silently verifies a criterion. Policy values are
+`observed-player-behavior`, `observed-runtime`, `automated-test`,
+`document-review`, `source-review`, `manual-approval`, and `mixed`. Vietnamese,
+Japanese, and other criterion text is handled identically because correctness
+does not search English keywords. Dependency and criterion writes mark path
+freshness precisely and recommend a check or recalculation; they do not change
+the project phase or milestone. See `docs/dependency-management.md` and
+`docs/milestone-criteria-management.md`.
 
 ## Evidence
 
@@ -222,6 +238,7 @@ Codex instructions, roles, playbooks, catalog, schemas, initial state, templates
 
 - **C1 complete:** dependency-aware candidate selection, deterministic ordering, three-to-seven guidance, stable path IDs/history, manual controls, freshness checks, reports, and `studio path calculate|show|explain|check`.
 - **C2 complete:** explicit dependency registry, cycle-safe authoring, transactional criterion lifecycle/evaluation/history, evidence-lifecycle freshness, and C1 ordering/report integration.
+- **C2.1 complete:** canonical terminal/satisfaction semantics, actionable terminal-unsatisfied edges, explicit verification policies, multilingual criterion verification, and milestone schema 3.1 migration.
 - **Later Phase C work:** bounded manual workflow readiness and milestone review guidance built on explicit structure.
 
 ### Phase D — Guided workflow execution

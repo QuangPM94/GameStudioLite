@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from jsonschema import Draft202012Validator
 
 from practical_game_studio.state import StateRepository
@@ -594,6 +595,105 @@ def test_inactive_dependency_requires_deactivation_metadata(
     )
     assert any(
         "inactive dependency needs a deactivation reason" in error
+        for error in result.errors
+    )
+
+
+@pytest.mark.parametrize("status", ["deferred", "wont-fix"])
+def test_active_dependency_rejects_terminal_unsatisfied_issue(
+    framework_repo: Path, status: str
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    _two_off_path_issues(state)
+    state["issues"]["issues"][0]["status"] = status
+    if status == "wont-fix":
+        state["issues"]["issues"][0]["resolution"] = "Not fixed."
+    state["dependencies"]["dependencies"] = [
+        _dependency("DEP-0001", "ISS-001", "ISS-002")
+    ]
+
+    result = validate_state(framework_repo, state)
+
+    assert any(
+        f"Active dependency DEP-0001 references {status} prerequisite ISS-001" in error
+        for error in result.errors
+    )
+
+
+@pytest.mark.parametrize("status", ["deferred", "rejected", "superseded"])
+def test_active_dependency_rejects_terminal_unsatisfied_decision(
+    framework_repo: Path, status: str
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    _two_off_path_issues(state)
+    state["decisions"]["decisions"] = [_valid_decision(status=status)]
+    state["dependencies"]["dependencies"] = [
+        _dependency("DEP-0001", "DEC-0001", "ISS-002")
+    ]
+
+    result = validate_state(framework_repo, state)
+
+    assert any(
+        f"Active dependency DEP-0001 references {status} prerequisite DEC-0001" in error
+        for error in result.errors
+    )
+
+
+@pytest.mark.parametrize(
+    ("lifecycle", "support", "freshness", "status"),
+    [
+        ("retired", "unsupported", "current", "retired"),
+        ("active", "verified", "stale", "verified"),
+    ],
+)
+def test_active_dependency_rejects_terminal_unsatisfied_criterion(
+    framework_repo: Path,
+    lifecycle: str,
+    support: str,
+    freshness: str,
+    status: str,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    _two_off_path_issues(state)
+    criterion = state["milestone"]["criteria_results"][0]
+    criterion["lifecycle_status"] = lifecycle
+    criterion["support_status"] = support
+    criterion["evaluation_freshness"] = {
+        "status": freshness,
+        "reasons": [] if freshness == "current" else ["Policy changed."],
+    }
+    if lifecycle == "retired":
+        criterion["retired_at"] = criterion["updated_at"]
+        criterion["retirement_reason"] = "No longer required."
+    state["dependencies"]["dependencies"] = [
+        _dependency("DEP-0001", "MC-001", "ISS-002")
+    ]
+
+    result = validate_state(framework_repo, state)
+
+    assert any(
+        f"Active dependency DEP-0001 references {status} prerequisite MC-001" in error
+        for error in result.errors
+    )
+
+
+def test_active_dependency_rejects_removed_manual_action(
+    framework_repo: Path,
+) -> None:
+    state = StateRepository(framework_repo).load_all()
+    _two_off_path_issues(state)
+    manual = state["critical_path"]["items"].pop()
+    manual["status"] = "removed"
+    state["critical_path"]["history"].append(manual)
+    state["dependencies"]["dependencies"] = [
+        _dependency("DEP-0001", "MANUAL:guided-intake", "ISS-002")
+    ]
+
+    result = validate_state(framework_repo, state)
+
+    assert any(
+        "Active dependency DEP-0001 references removed prerequisite "
+        "MANUAL:guided-intake" in error
         for error in result.errors
     )
 

@@ -6,6 +6,8 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- C2.1 canonical typed dependency-satisfaction verdicts shared by dependency display, validation, and critical-path closure, including actionable terminal-unsatisfied diagnostics.
+- Explicit criterion verification policies with multilingual player-behavior tests and policy-specific evidence source/classification rules.
 - Phase C2 typed dependency and milestone-criterion services with stable historical IDs, explicit lifecycle, deterministic graph validation, explicit evidence evaluation, and append-only evaluation history.
 - `studio dependency add|list|show|update|deactivate` and `studio criterion add|list|show|update|evaluate|retire`, including transactional dry runs, confirmations, and stable JSON envelopes.
 - Dedicated dependency state/schema plus dependency- and criterion-management guides, C1 dependency origins, four-part structural freshness fingerprints, and criterion-centered reports/status.
@@ -32,6 +34,9 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Changed
 
+- Milestone state/schema advances from `3.0` to `3.1`; `MC-001` preserves identity/history and migrates to `document-review`.
+- Critical-path criterion fingerprints include verification policy, and rejected/superseded/deferred/retired/stale prerequisites no longer silently unlock dependents.
+- Criterion verification no longer uses English keyword detection.
 - Critical-path and milestone state advance to schema `3.0`; the duplicated success-criterion copies are removed and C1 criterion records migrate in place to explicit support/lifecycle/history fields.
 - Phase C2 is complete. Automatic milestone progression, phase transitions, and workflow execution remain out of scope.
 - Phase C1 introduced critical-path and milestone schema `2.0`; its migration remains documented in `docs/critical-path-engine.md`.

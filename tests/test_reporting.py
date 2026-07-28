@@ -206,6 +206,9 @@ def test_milestone_result_labels_are_evidence_support_labels(
 ) -> None:
     reports = render_report_contents(StateRepository(framework_repo).load_all())
     assert "- Support status: unsupported" in reports["milestone-review.md"]
+    assert "- Criterion: MC-001" in reports["milestone-review.md"]
+    assert "- Verification policy: Document Review" in reports["milestone-review.md"]
+    assert "- Support: Unsupported" in reports["milestone-review.md"]
 
 
 def test_status_includes_evidence_counts_and_unsupported_critical_issues(

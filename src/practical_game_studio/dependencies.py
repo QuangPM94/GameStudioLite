@@ -23,6 +23,25 @@ ENDPOINT_PATTERN = re.compile(
 )
 SCOPES = {"current-milestone", "project"}
 STATUSES = {"active", "inactive"}
+ISSUE_SATISFACTION = {
+    "open": (False, False),
+    "acknowledged": (False, False),
+    "in-progress": (False, False),
+    "blocked": (False, False),
+    "resolved": (True, True),
+    "accepted": (True, True),
+    "deferred": (True, False),
+    "wont-fix": (True, False),
+}
+DECISION_SATISFACTION = {
+    "open": (False, False),
+    "ready": (False, False),
+    "blocked": (False, False),
+    "deferred": (True, False),
+    "resolved": (True, True),
+    "rejected": (True, False),
+    "superseded": (True, False),
+}
 
 
 class DependencyError(ValueError):
@@ -42,6 +61,29 @@ class DependencyCycleError(DependencyInputError):
 
 
 @dataclass(frozen=True, slots=True)
+class EndpointSatisfaction:
+    """Canonical dependency-prerequisite satisfaction verdict."""
+
+    endpoint: str
+    endpoint_type: str
+    status: str
+    terminal: bool
+    satisfied: bool
+    valid: bool
+    reason: str
+
+    @property
+    def state(self) -> str:
+        if not self.valid:
+            return "invalid-or-missing"
+        if self.satisfied:
+            return "satisfied"
+        if self.terminal:
+            return "terminal-unsatisfied"
+        return "active-unsatisfied"
+
+
+@dataclass(frozen=True, slots=True)
 class DependencyEndpoint:
     """A canonical actionable endpoint."""
 
@@ -50,6 +92,9 @@ class DependencyEndpoint:
     title: str
     state: str
     satisfied: bool
+    terminal: bool
+    valid: bool
+    reason: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +141,12 @@ class DependencyRecord:
     updated_at: str
     deactivated_at: str | None
     deactivation_reason: str | None
+    prerequisite_status: str = ""
+    prerequisite_terminal: bool = False
     prerequisite_satisfied: bool = False
+    prerequisite_valid: bool = True
+    prerequisite_satisfaction_reason: str = ""
+    prerequisite_state: str = "active-unsatisfied"
     upstream: tuple[str, ...] = field(default_factory=tuple)
     downstream: tuple[str, ...] = field(default_factory=tuple)
     on_critical_path: bool = False
@@ -180,7 +230,11 @@ def find_dependency(records: Iterable[StateObject], dependency_id: str) -> State
     )
 
 
-def resolve_endpoint(state: CanonicalState, endpoint: str) -> DependencyEndpoint:
+def resolve_endpoint_satisfaction(
+    state: CanonicalState, endpoint: str
+) -> EndpointSatisfaction:
+    """Resolve one endpoint using the only dependency-satisfaction rules."""
+
     canonical = canonical_endpoint(endpoint)
     if canonical.startswith("ISS-"):
         record = next(
@@ -188,15 +242,33 @@ def resolve_endpoint(state: CanonicalState, endpoint: str) -> DependencyEndpoint
             None,
         )
         if record is None:
-            raise DependencyInputError(
-                f"dependency endpoint {canonical} does not exist"
+            return EndpointSatisfaction(
+                canonical,
+                "issue",
+                "missing",
+                False,
+                False,
+                False,
+                f"{canonical} does not exist.",
             )
-        return DependencyEndpoint(
+        status = record["status"]
+        terminal, satisfied = ISSUE_SATISFACTION[status]
+        return EndpointSatisfaction(
             canonical,
             "issue",
-            record["title"],
-            record["status"],
-            record["status"] in {"resolved", "accepted", "wont-fix"},
+            status,
+            terminal,
+            satisfied,
+            True,
+            (
+                f"{canonical} is {status} and satisfies the dependency."
+                if satisfied
+                else (
+                    f"{canonical} is {status} and does not satisfy the dependency."
+                    if terminal
+                    else f"{canonical} is {status} and does not yet satisfy the dependency."
+                )
+            ),
         )
     if canonical.startswith("DEC-"):
         record = next(
@@ -208,15 +280,33 @@ def resolve_endpoint(state: CanonicalState, endpoint: str) -> DependencyEndpoint
             None,
         )
         if record is None:
-            raise DependencyInputError(
-                f"dependency endpoint {canonical} does not exist"
+            return EndpointSatisfaction(
+                canonical,
+                "decision",
+                "missing",
+                False,
+                False,
+                False,
+                f"{canonical} does not exist.",
             )
-        return DependencyEndpoint(
+        status = record["status"]
+        terminal, satisfied = DECISION_SATISFACTION[status]
+        return EndpointSatisfaction(
             canonical,
             "decision",
-            record["question"],
-            record["status"],
-            record["status"] == "resolved",
+            status,
+            terminal,
+            satisfied,
+            True,
+            (
+                f"{canonical} is {status} and satisfies the dependency."
+                if satisfied
+                else (
+                    f"{canonical} is {status} and does not satisfy the dependency."
+                    if terminal
+                    else f"{canonical} is {status} and does not yet satisfy the dependency."
+                )
+            ),
         )
     if canonical.startswith("MC-"):
         record = next(
@@ -228,17 +318,47 @@ def resolve_endpoint(state: CanonicalState, endpoint: str) -> DependencyEndpoint
             None,
         )
         if record is None:
-            raise DependencyInputError(
-                f"dependency endpoint {canonical} does not exist"
+            return EndpointSatisfaction(
+                canonical,
+                "milestone-criterion",
+                "missing",
+                False,
+                False,
+                False,
+                f"{canonical} does not exist.",
             )
-        return DependencyEndpoint(
+        lifecycle = record["lifecycle_status"]
+        support = record["support_status"]
+        freshness = record["evaluation_freshness"]["status"]
+        satisfied = (
+            lifecycle == "active" and support == "verified" and freshness == "current"
+        )
+        terminal = lifecycle == "retired" or support == "verified"
+        status = "retired" if lifecycle == "retired" else support
+        if satisfied:
+            reason = (
+                f"{canonical} is active, verified, and current and satisfies "
+                "the dependency."
+            )
+        elif lifecycle == "retired":
+            reason = f"{canonical} is retired and does not satisfy the dependency."
+        elif support == "verified" and freshness != "current":
+            reason = (
+                f"{canonical} is verified, but its evaluation is {freshness} and "
+                "does not satisfy the dependency."
+            )
+        else:
+            reason = (
+                f"{canonical} is {support} and does not yet satisfy the dependency."
+            )
+        return EndpointSatisfaction(
             canonical,
             "milestone-criterion",
-            record["description"],
-            record["lifecycle_status"],
-            record["lifecycle_status"] == "active"
-            and record["support_status"] == "verified"
-            and record["evaluation_freshness"]["status"] == "current",
+            status,
+            terminal,
+            satisfied,
+            True,
+            reason,
         )
     source_key = endpoint_source_key(canonical)
     records = [
@@ -254,13 +374,86 @@ def resolve_endpoint(state: CanonicalState, endpoint: str) -> DependencyEndpoint
         None,
     )
     if record is None:
-        raise DependencyInputError(f"dependency endpoint {canonical} does not exist")
-    return DependencyEndpoint(
+        return EndpointSatisfaction(
+            canonical,
+            "manual-action",
+            "missing",
+            False,
+            False,
+            False,
+            f"{canonical} does not exist.",
+        )
+    status = record["status"]
+    satisfied = status == "completed"
+    terminal = status in {"completed", "removed"}
+    return EndpointSatisfaction(
         canonical,
         "manual-action",
-        record["title"],
-        record["status"],
-        record["status"] == "completed",
+        status,
+        terminal,
+        satisfied,
+        True,
+        (
+            f"{canonical} is completed and satisfies the dependency."
+            if satisfied
+            else (
+                f"{canonical} is removed and does not satisfy the dependency."
+                if terminal
+                else f"{canonical} is {status} and does not yet satisfy the dependency."
+            )
+        ),
+    )
+
+
+def resolve_endpoint(state: CanonicalState, endpoint: str) -> DependencyEndpoint:
+    """Resolve endpoint metadata while delegating satisfaction semantics."""
+
+    satisfaction = resolve_endpoint_satisfaction(state, endpoint)
+    if not satisfaction.valid:
+        raise DependencyInputError(
+            f"dependency endpoint {satisfaction.endpoint} does not exist"
+        )
+    if satisfaction.endpoint_type == "issue":
+        record = next(
+            item
+            for item in state["issues"]["issues"]
+            if item["id"] == satisfaction.endpoint
+        )
+        title = record["title"]
+    elif satisfaction.endpoint_type == "decision":
+        record = next(
+            item
+            for item in state["decisions"]["decisions"]
+            if item["id"] == satisfaction.endpoint
+        )
+        title = record["question"]
+    elif satisfaction.endpoint_type == "milestone-criterion":
+        record = next(
+            item
+            for item in state["milestone"]["criteria_results"]
+            if item["id"] == satisfaction.endpoint
+        )
+        title = record["description"]
+    else:
+        source_key = endpoint_source_key(satisfaction.endpoint)
+        record = next(
+            item
+            for item in [
+                *state["critical_path"].get("items", []),
+                *state["critical_path"].get("history", []),
+            ]
+            if item.get("source_key") == source_key and item.get("manual")
+        )
+        title = record["title"]
+    return DependencyEndpoint(
+        satisfaction.endpoint,
+        satisfaction.endpoint_type,
+        title,
+        satisfaction.status,
+        satisfaction.satisfied,
+        satisfaction.terminal,
+        satisfaction.valid,
+        satisfaction.reason,
     )
 
 
@@ -751,12 +944,10 @@ class DependencyService:
         if prerequisite.id == dependent.id:
             raise DependencyInputError("a dependency cannot depend on itself")
         if record["status"] == "active":
-            if (
-                prerequisite.type == "milestone-criterion"
-                and prerequisite.state == "retired"
-            ):
+            if prerequisite.terminal and not prerequisite.satisfied:
                 raise DependencyInputError(
-                    f"cannot activate dependency: {prerequisite.id} is retired"
+                    f"cannot activate dependency: {prerequisite.reason} "
+                    "Update the prerequisite or keep the dependency inactive."
                 )
             if dependent.type == "milestone-criterion" and dependent.state == "retired":
                 raise DependencyInputError(
@@ -777,13 +968,18 @@ class DependencyService:
     def _with_derived_state(
         self, state: CanonicalState, record: StateObject
     ) -> StateObject:
-        prerequisite = resolve_endpoint(state, record["prerequisite"])
+        prerequisite = resolve_endpoint_satisfaction(state, record["prerequisite"])
         active = [
             item
             for item in state["dependencies"]["dependencies"]
             if item["status"] == "active"
         ]
+        record["prerequisite_status"] = prerequisite.status
+        record["prerequisite_terminal"] = prerequisite.terminal
         record["prerequisite_satisfied"] = prerequisite.satisfied
+        record["prerequisite_valid"] = prerequisite.valid
+        record["prerequisite_satisfaction_reason"] = prerequisite.reason
+        record["prerequisite_state"] = prerequisite.state
         record["upstream"] = sorted(
             item["prerequisite"]
             for item in active

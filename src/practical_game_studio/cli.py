@@ -465,6 +465,18 @@ def _parser() -> argparse.ArgumentParser:
     criterion_add.set_defaults(required=None)
     criterion_add.add_argument("--completion-condition")
     criterion_add.add_argument("--verification-method")
+    criterion_add.add_argument(
+        "--verification-policy",
+        choices=(
+            "observed-player-behavior",
+            "observed-runtime",
+            "automated-test",
+            "document-review",
+            "source-review",
+            "manual-approval",
+            "mixed",
+        ),
+    )
     criterion_add.add_argument("--issue", action="append", default=[])
     criterion_add.add_argument("--decision", action="append", default=[])
     criterion_add.add_argument("--evidence", action="append", default=[])
@@ -516,6 +528,18 @@ def _parser() -> argparse.ArgumentParser:
     criterion_update.set_defaults(required=None)
     criterion_update.add_argument("--completion-condition")
     criterion_update.add_argument("--verification-method")
+    criterion_update.add_argument(
+        "--verification-policy",
+        choices=(
+            "observed-player-behavior",
+            "observed-runtime",
+            "automated-test",
+            "document-review",
+            "source-review",
+            "manual-approval",
+            "mixed",
+        ),
+    )
     criterion_update.add_argument("--add-issue", action="append", default=[])
     criterion_update.add_argument("--remove-issue", action="append", default=[])
     criterion_update.add_argument("--add-decision", action="append", default=[])
@@ -1976,6 +2000,12 @@ def _run_dependency_list(args: argparse.Namespace, root: Path) -> int:
 
 
 def _format_dependency_detail(record: dict[str, Any]) -> str:
+    prerequisite_state = {
+        "active-unsatisfied": "Active and unsatisfied",
+        "satisfied": "Satisfied",
+        "terminal-unsatisfied": "Terminal but unsatisfied",
+        "invalid-or-missing": "Invalid or missing",
+    }[record["prerequisite_state"]]
     lines = [
         f"ID: {record['id']}",
         f"Status: {record['status'].title()}",
@@ -1983,8 +2013,13 @@ def _format_dependency_detail(record: dict[str, Any]) -> str:
         f"Dependent: {record['dependent']}",
         f"Relationship: {record['dependent']} requires {record['prerequisite']}",
         f"Scope: {record['scope'].replace('-', ' ').title()}",
+        f"Prerequisite state: {prerequisite_state}",
+        f"Prerequisite source status: {record['prerequisite_status']}",
         f"Prerequisite satisfied: {'Yes' if record['prerequisite_satisfied'] else 'No'}",
         f"Critical-path presence: {'Yes' if record['on_critical_path'] else 'No'}",
+        "",
+        "Satisfaction reason:",
+        record["prerequisite_satisfaction_reason"],
         "",
         "Reason:",
         record["reason"],
@@ -2099,6 +2134,7 @@ def _criterion_create_request(args: argparse.Namespace) -> CriterionCreateReques
         (
             (args.description, "--description"),
             (args.completion_condition, "--completion-condition"),
+            (args.verification_policy, "--verification-policy"),
         ),
         CriterionInputError,
     )
@@ -2108,6 +2144,7 @@ def _criterion_create_request(args: argparse.Namespace) -> CriterionCreateReques
         description=args.description,
         required=args.required,
         completion_condition=args.completion_condition,
+        verification_policy=args.verification_policy,
         milestone=args.milestone,
         verification_method=args.verification_method,
         related_issues=tuple(args.issue),
@@ -2137,7 +2174,9 @@ def _run_criterion_add(args: argparse.Namespace, root: Path) -> int:
     print(
         f"\nID: {criterion['id']}\nRequired: "
         f"{'Yes' if criterion['required'] else 'No'}\nSupport: "
-        f"{criterion['support_status'].replace('-', ' ').title()}\n\n"
+        f"{criterion['support_status'].replace('-', ' ').title()}\n"
+        f"Verification policy: "
+        f"{criterion['verification_policy'].replace('-', ' ').title()}\n\n"
         f"Criterion:\n{criterion['description']}\n\nCompletion condition:\n"
         f"{criterion['completion_condition']}"
     )
@@ -2184,6 +2223,10 @@ def _format_criterion_detail(criterion: dict[str, Any]) -> str:
         f"Required: {'Yes' if criterion['required'] else 'No'}",
         f"Lifecycle: {criterion['lifecycle_status'].title()}",
         f"Support: {criterion['support_status'].replace('-', ' ').title()}",
+        (
+            "Verification policy: "
+            f"{criterion['verification_policy'].replace('-', ' ').title()}"
+        ),
         f"Evaluation freshness: {criterion['evaluation_freshness']['status'].title()}",
         f"Critical-path presence: {'Yes' if criterion['on_critical_path'] else 'No'}",
         "",
@@ -2256,6 +2299,7 @@ def _criterion_patch(args: argparse.Namespace) -> CriterionPatch:
         ("description", "description"),
         ("completion_condition", "completion_condition"),
         ("verification_method", "verification_method"),
+        ("verification_policy", "verification_policy"),
     ):
         value = getattr(args, argument)
         if value is not None:
@@ -2563,6 +2607,24 @@ def _run_path_explain(args: argparse.Namespace, root: Path) -> int:
     print(f"\nPriority tier:\n{item['priority_tier']}")
     print("\nDependencies:")
     print("\n".join(f"- {value}" for value in item["dependencies"]) or "- None")
+    print("\nPrerequisite states:")
+    if data["dependency_states"]:
+        labels = {
+            "active-unsatisfied": "Active and unsatisfied",
+            "satisfied": "Satisfied",
+            "terminal-unsatisfied": "Terminal but unsatisfied",
+            "invalid-or-missing": "Invalid or missing",
+        }
+        for dependency in data["dependency_states"]:
+            dependency_label = dependency["dependency_id"] or "Derived relationship"
+            print(
+                f"- {dependency_label}: {dependency['prerequisite']}\n"
+                f"  Prerequisite state: "
+                f"{labels[dependency['prerequisite_state']]}\n"
+                f"  {dependency['prerequisite_satisfaction_reason']}"
+            )
+    else:
+        print("- None")
     print("\nDependency origin:")
     if item["dependency_origins"]:
         for origin in item["dependency_origins"]:

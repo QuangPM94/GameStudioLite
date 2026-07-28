@@ -151,6 +151,7 @@ def _path_freshness(state: dict[str, Any]) -> tuple[str, list[str]]:
             "lifecycle_status": item["lifecycle_status"],
             "completion_condition": item["completion_condition"],
             "verification_method": item["verification_method"],
+            "verification_policy": item["verification_policy"],
             "related_issues": item["related_issues"],
             "related_decisions": item["related_decisions"],
         }
@@ -846,6 +847,11 @@ def render_milestone_review(state: dict[str, Any]) -> str:
         )
         section = (
             f"### {criterion['id']} — {criterion['description']}\n\n"
+            f"- Criterion: {criterion['id']}\n"
+            f"- Verification policy: "
+            f"{criterion['verification_policy'].replace('-', ' ').title()}\n"
+            f"- Support: "
+            f"{criterion['support_status'].replace('-', ' ').title()}\n"
             f"- Support status: {criterion['support_status']}\n"
             f"- Completion condition: {criterion['completion_condition']}\n"
             f"- Explicitly evaluated: {evaluated}\n"

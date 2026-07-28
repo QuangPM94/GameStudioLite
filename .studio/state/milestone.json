@@ -25,13 +25,14 @@
       "support_status": "unsupported",
       "supporting_evidence": [],
       "updated_at": "2025-01-01T00:00:00Z",
-      "verification_method": "Review the initialized project profile and prototype hypothesis."
+      "verification_method": "Review the initialized project profile and prototype hypothesis.",
+      "verification_policy": "document-review"
     }
   ],
   "milestone": "Clarify the game idea",
   "next_milestone": "Define the smallest useful prototype",
   "recommendation": "Run guided intake before selecting or building a prototype.",
-  "schema_version": "3.0",
+  "schema_version": "3.1",
   "supporting_evidence": [],
   "verdict": "PAUSE"
 }
