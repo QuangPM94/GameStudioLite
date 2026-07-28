@@ -8,18 +8,31 @@ version = "0.1.0"
 description = "A practical, Codex-native game prototype workflow framework"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{name = "Practical Game Studio contributors"}]
 dependencies = ["jsonschema>=4.21,<5"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<10", "ruff>=0.12,<1"]
+dev = ["build>=1.2,<2", "pytest>=8,<10", "ruff>=0.12,<1"]
 
 [project.scripts]
 studio = "practical_game_studio.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+practical_game_studio = [
+  "scaffold/AGENTS.md",
+  "scaffold/.studio/*.json",
+  "scaffold/.studio/playbooks/*.md",
+  "scaffold/.studio/reports/*.md",
+  "scaffold/.studio/roles/*.md",
+  "scaffold/.studio/schemas/*.json",
+  "scaffold/.studio/state/*.json",
+  "scaffold/.studio/templates/*.md",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

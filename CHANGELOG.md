@@ -12,6 +12,8 @@ All notable changes follow Keep a Changelog conventions.
 - Bootstrap manifest/schema, package-safe scaffold resource loading,
   multi-project root discovery without `pyproject.toml`, and
   `studio framework validate`.
+- Explicit wheel package-data for the complete hidden scaffold plus isolated
+  build/install/bootstrap acceptance outside the source checkout.
 - Behavioral coverage for Unity-, Godot-, and Unreal-like attachment,
   idempotency, rollback, concurrency, and independent project state/IDs.
 - Cross-platform GitHub Actions validation for Ubuntu/Python 3.11 and 3.12 plus Windows/Python 3.11, including copied-repository CLI smoke coverage.

@@ -109,6 +109,9 @@ any target write; `--force --yes` refreshes only replaceable managed files.
 Running bootstrap twice on an unchanged project is a byte-identical successful
 no-op. See `docs/project-bootstrap.md`.
 
+Editable and wheel installation, package-resource verification, and the
+installed-tool/game-project boundary are documented in `docs/distribution.md`.
+
 ## Initialization behavior
 
 The only essential first-run value is the project name. Engine, engine version, platform, and genre may remain explicitly unknown (`null`). Review mode defaults to `guided`.
