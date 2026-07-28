@@ -1,23 +1,23 @@
 # GameStudioLite
 
-GameStudioLite is a lightweight project-control framework for AI-assisted game development. It helps a solo developer or small team keep the current goal, evidence, blockers, decisions, and next action visible while working with a repository-aware AI agent.
+GameStudioLite is a lightweight, project-local control framework for AI-assisted game development. It keeps goals, blockers, evidence, decisions, milestone criteria, and the next action visible while a repository-aware AI agent helps plan, build, review, and iterate on a game.
 
-GameStudioLite is **not tied to Codex**. Any AI agent can use it when the agent can:
+GameStudioLite is **not tied to Codex**. Any compatible AI agent can use it when the agent can:
 
 - Open the game repository
 - Read the project-local `AGENTS.md`
 - Read files under `.studio/`
-- Run the installed `studio` CLI
+- Run the installed `studio` CLI, or ask the user to run it
 - Follow explicit workflow instructions
-- Respect the user's final decision authority
+- Preserve the user's final decision authority
 
 GameStudioLite currently manages:
 
-- Project state
+- Project identity and state
 - Issues
 - Evidence
 - Decisions
-- Dependencies
+- Explicit dependencies
 - Milestone criteria
 - Dependency-aware critical paths
 - Generated reports
@@ -35,29 +35,29 @@ It does not currently:
 
 ## Table of contents
 
-[Overview](#1-overview) · [Capabilities](#2-current-capabilities) ·
-[Requirements](#3-requirements) · [Installation](#4-install-gamestudiolite) ·
-[Existing game](#5-quick-start-attach-to-an-existing-game) ·
-[Empty directory](#6-quick-start-empty-project-directory) ·
-[Bootstrap and init](#7-bootstrap-and-init-separately) ·
-[AI agent setup](#8-use-gamestudiolite-with-an-ai-agent) ·
-[Agent workflows](#9-ai-agent-workflow-aliases) ·
-[Daily workflow](#10-daily-workflow) ·
-[CLI commands](#11-core-cli-command-reference) ·
-[Examples](#12-important-usage-examples) ·
-[Dry run and JSON](#13-dry-run-and-json-modes) ·
-[Multiple projects](#14-multiple-project-usage) ·
-[Updates](#15-updating-the-framework) ·
-[Validation](#16-validation-commands) ·
-[Troubleshooting](#17-troubleshooting) ·
-[Development](#18-repository-development) ·
-[Roadmap](#19-project-status-and-roadmap)
+- [1. Overview](#1-overview)
+- [2. Requirements](#2-requirements)
+- [3. Install GameStudioLite](#3-install-gamestudiolite)
+- [4. Attach GameStudioLite to a game](#4-attach-gamestudiolite-to-a-game)
+- [5. Use GameStudioLite with an AI agent](#5-use-gamestudiolite-with-an-ai-agent)
+- [6. Resume in a new AI-agent session](#6-resume-in-a-new-ai-agent-session)
+- [7. AI-agent workflow aliases](#7-ai-agent-workflow-aliases)
+- [8. Daily workflow](#8-daily-workflow)
+- [9. Core CLI command reference](#9-core-cli-command-reference)
+- [10. Important usage examples](#10-important-usage-examples)
+- [11. Dry-run and JSON modes](#11-dry-run-and-json-modes)
+- [12. Multiple projects](#12-multiple-projects)
+- [13. Updating GameStudioLite](#13-updating-gamestudiolite)
+- [14. Validation](#14-validation)
+- [15. Troubleshooting](#15-troubleshooting)
+- [16. Framework development](#16-framework-development)
+- [17. Project status and roadmap](#17-project-status-and-roadmap)
 
 ## 1. Overview
 
-GameStudioLite gives an AI agent a stable, project-local control layer instead of relying on loose chat history.
+GameStudioLite gives an AI agent a stable control layer instead of relying on loose chat history.
 
-The installed `studio` CLI provides the runtime and state-management commands. Each game repository owns a lightweight scaffold:
+The installed `studio` CLI provides runtime and state-management commands. Each game repository owns a lightweight scaffold:
 
 ```text
 Game project/
@@ -84,23 +84,22 @@ Installed GameStudioLite CLI
         └── Game C/.studio/
 ```
 
-Every project has independent state, reports, and ID sequences. Game A and Game B can both contain `ISS-0001`; neither record affects the other.
+Every project has independent state, reports, and ID sequences. Game A and Game B may both contain `ISS-0001`; neither record affects the other.
 
-The intended first-run flow is:
+The first-run flow is:
 
 ```text
 Install GameStudioLite once
 → Open or create a game project
 → Bootstrap GameStudioLite into that project
-→ Initialize project identity
 → Validate project state
 → Calculate the first critical path
 → Open the game repository in an AI agent
 → Ask the agent to read AGENTS.md
-→ Run the /start workflow
+→ Execute /start
 ```
 
-## 2. Current capabilities
+Current capabilities:
 
 | Capability | Status |
 | --- | --- |
@@ -118,15 +117,16 @@ Install GameStudioLite once
 | Engine editor integration | Not available |
 | Autonomous game implementation | Not available |
 
-## 3. Requirements
+## 2. Requirements
 
-- Python 3.11 or newer. CI currently verifies Python 3.11 and 3.12.
-- Git, for installation and project version control.
-- PowerShell for the Windows examples. Bash equivalents are included where useful.
-- A game directory, empty or containing an existing engine project.
-- An AI agent that can read repository files and, ideally, run terminal commands.
+- Python 3.11 or newer
+- Git
+- A game directory, empty or containing an existing engine project
+- An AI agent that can read repository files and, ideally, run terminal commands
 
-The AI agent does not need a native slash-command system. Inputs such as `/clarify` are workflow aliases. When an agent does not recognize them natively, use a normal-language request such as:
+PowerShell is used for Windows examples. Bash may use the equivalent commands.
+
+The AI agent does not need a native slash-command system. Inputs such as `/clarify` are workflow aliases. When the agent does not recognize them natively, use normal language:
 
 ```text
 Read AGENTS.md and execute the /clarify workflow.
@@ -134,9 +134,9 @@ Read AGENTS.md and execute the /clarify workflow.
 
 Unity, Godot, and Unreal are not GameStudioLite requirements. Install an engine only when the game uses it.
 
-## 4. Install GameStudioLite
+## 3. Install GameStudioLite
 
-### Development/editable installation
+### Editable installation
 
 Windows PowerShell:
 
@@ -169,7 +169,7 @@ Set-Location F:\Tools\GameStudioLite
 python -m build
 ```
 
-Select the generated wheel rather than assuming its filename:
+Install the newest generated wheel:
 
 ```powershell
 $wheel = Get-ChildItem .\dist\*.whl |
@@ -179,13 +179,13 @@ $wheel = Get-ChildItem .\dist\*.whl |
 python -m pip install $wheel.FullName
 ```
 
-The wheel includes the runtime and packaged scaffold. A game project does not need the framework source checkout after installation.
+The wheel contains the runtime and packaged scaffold. A game project does not need the framework source checkout after installation.
 
 See [Distribution](docs/distribution.md).
 
-## 5. Quick start: attach to an existing game
+## 4. Attach GameStudioLite to a game
 
-This example attaches GameStudioLite to an existing Unity project.
+### Existing game project
 
 Preview the operation:
 
@@ -208,7 +208,7 @@ studio bootstrap `
   --platform Windows
 ```
 
-Validate the project and calculate its first path:
+Validate and calculate the initial path:
 
 ```powershell
 studio validate
@@ -217,7 +217,7 @@ studio path calculate --yes
 studio path show
 ```
 
-Bootstrap creates only the GameStudioLite control layer. It does not replace unrelated project or engine content such as:
+Bootstrap creates only the GameStudioLite control layer. It does not replace unrelated engine or project content such as:
 
 ```text
 Assets/
@@ -236,9 +236,7 @@ Git metadata is preserved, and bootstrap never creates a nested Git repository.
 
 See [Project bootstrap](docs/project-bootstrap.md).
 
-## 6. Quick start: empty project directory
-
-Create an empty directory and attach GameStudioLite:
+### Empty directory
 
 ```powershell
 New-Item -ItemType Directory F:\Games\NewGame
@@ -251,13 +249,9 @@ studio bootstrap `
 
 This creates and initializes the GameStudioLite scaffold. It does not create an engine project, executable, scene, or asset.
 
-The engine project may be added later in the same directory.
+### Bootstrap and identity separately
 
-## 7. Bootstrap and init separately
-
-### One-step bootstrap and identity
-
-Use one step when project identity is already known:
+Use one step when project identity is known:
 
 ```powershell
 studio bootstrap `
@@ -266,10 +260,6 @@ studio bootstrap `
   --platform Mobile `
   --genre "Strategy"
 ```
-
-This stages the scaffold, initializes identity, validates the result, and renders reports as one operation.
-
-### Two-step bootstrap, then identity
 
 Use two steps when identity will be supplied later:
 
@@ -282,11 +272,9 @@ studio init `
   --platform Mobile
 ```
 
-The first command installs only the scaffold. `studio init` transactionally sets identity and renders reports.
-
 Repeating `studio init` is a no-op unless explicitly supplied fields are changed with `--force`.
 
-## 8. Use GameStudioLite with an AI agent
+## 5. Use GameStudioLite with an AI agent
 
 Open the **game repository**, not the GameStudioLite framework repository, as the agent's active workspace.
 
@@ -298,7 +286,7 @@ Do not use as the active game project:
 F:\Tools\GameStudioLite
 ```
 
-The game repository contains the relevant:
+The game repository contains:
 
 - `AGENTS.md`
 - `.studio/workflow-catalog.json`
@@ -334,9 +322,9 @@ A compatible AI agent should:
 7. Never label a claim `observed` unless the observation is directly accessible.
 8. Avoid work explicitly listed under “Do not work on yet.”
 9. Validate and regenerate reports after meaningful state changes.
-10. Finish with the current direction, evidence, unknowns, critical path, and recommended next workflow.
+10. Finish with current direction, evidence, unknowns, critical path, and the recommended next workflow.
 
-A useful generic prompt is:
+Generic first-session prompt:
 
 ```text
 Read AGENTS.md and the requested workflow playbook.
@@ -346,26 +334,95 @@ Do not invent evidence or silently make final user decisions.
 Execute the /start workflow and report the recommended next workflow.
 ```
 
-## 9. AI-agent workflow aliases
+## 6. Resume in a new AI-agent session
+
+Opening a new chat or agent session does **not** mean restarting the project.
+
+The project state already lives under `.studio/state/`. The agent should inspect that state and continue from the current phase, milestone, decisions, criteria, issues, evidence, dependencies, and critical path.
+
+Use this prompt whenever a new AI-agent session begins:
+
+```text
+Read AGENTS.md and resume this project from its current state.
+
+Run or inspect:
+- studio status
+- studio path check
+- studio path show
+
+Do not run studio bootstrap or studio init.
+Do not reset project state, phase, milestone, issues, evidence, decisions, dependencies, criteria, or reports.
+The /start workflow means inspect and route the current project, not restart it from the beginning.
+
+Identify the current ready critical-path item.
+Then execute or recommend the exact next workflow without expanding scope.
+Use the supported studio CLI for all state mutations.
+```
+
+An agent with terminal access should run:
+
+```powershell
+studio status
+studio path check
+studio path show
+```
+
+When the path is stale:
+
+```powershell
+studio path calculate --dry-run
+studio path calculate --yes
+studio path show
+```
+
+An agent without terminal access should ask the user to run those commands and provide their output.
+
+### Do not run these during a normal resume
+
+```powershell
+studio bootstrap
+studio init
+```
+
+Use them only when:
+
+- GameStudioLite has not yet been attached to the project
+- Project identity must be explicitly corrected or updated
+- A managed scaffold refresh has been reviewed and intentionally approved
+
+### What `/start` means in an existing project
+
+In an existing project, `/start` should:
+
+1. Inspect the repository and current state.
+2. Check the current phase and milestone.
+3. Check critical-path freshness.
+4. Identify blockers and pending decisions.
+5. Select or recommend the correct next workflow.
+6. Continue from the current state without clearing history.
+
+It should not repeat intake automatically when the project has already progressed beyond intake.
+
+## 7. AI-agent workflow aliases
 
 These workflows are available to any compatible AI agent. They are not PowerShell commands.
 
 | Workflow | Use it when | What the AI agent should do |
 | --- | --- | --- |
-| `/start` | Opening a new or existing project for the first time | Inspect repository, engine indicators, project state, build status, current phase, milestone, blockers, and recommend the correct entry workflow. Do not begin implementation merely because the repository exists. |
-| `/clarify` | The game idea, player experience, or core loop is still ambiguous | Define the intended player experience, core loop, target player, constraints, assumptions, unknowns, and a falsifiable prototype hypothesis. Record blocking decisions instead of guessing. |
-| `/prototype-plan` | The idea is clear enough to define the first playable experiment | Select the smallest testable scope, explicit exclusions, implementation order, success criteria, required evidence, and risks. Avoid production architecture unless it is required by the experiment. |
+| `/start` | Opening a new session or inspecting a project | Inspect repository, engine indicators, current state, build status, phase, milestone, blockers, and critical path; then route to the correct next workflow. It must not reset an existing project. |
+| `/clarify` | The game idea, player experience, or core loop is ambiguous | Define intended player experience, core loop, target player, constraints, assumptions, unknowns, and a falsifiable prototype hypothesis. Record blocking decisions instead of guessing. |
+| `/prototype-plan` | The idea is clear enough to define the first playable experiment | Select the smallest testable scope, explicit exclusions, implementation order, success criteria, evidence requirements, and risks. Avoid production architecture unless required by the experiment. |
 | `/build-prototype` | The prototype plan has no unresolved critical design ambiguity | Implement the smallest approved playable experiment, keep changes bounded, run available checks, and record concrete blockers or evidence. Do not add unrelated features. |
-| `/review-build` | Code or a build exists and needs technical readiness review | Check compilation, launch path, core interaction, obvious runtime blockers, and testability. Record issues and determine whether the build is ready for playtest. |
-| `/playtest-review` | A human or accessible test session has produced observations | Separate observed behavior, user-reported feedback, inference, and unknowns. Record evidence with limitations and evaluate the player experience against criteria. |
-| `/issue-map` | Findings need to become a prioritized, actionable problem set | Create or update issues, severity, impact, owner, recommended action, links, and decision requirements. Avoid turning every note into critical-path work. |
+| `/review-build` | Code or a build needs technical readiness review | Check compilation, launch path, core interaction, obvious runtime blockers, and testability. Record issues and determine whether the build is ready for playtest. |
+| `/playtest-review` | A human or accessible test session produced observations | Separate observed behavior, user-reported feedback, inference, and unknowns. Record evidence with limitations and evaluate the experience against criteria. |
+| `/issue-map` | Findings must become a prioritized problem set | Create or update issues, severity, impact, owner, recommended action, links, and decision requirements. Avoid placing every note on the critical path. |
 | `/critical-path` | The project has many possible tasks and needs a short gating path | Identify the few items that actually block the milestone, account for dependencies and unsupported criteria, calculate the path, and state what should not be worked on yet. |
-| `/next-step` | The user needs one concrete action now | Select one ready, high-value action from the current state and path. Explain why it is next, what completion means, and which workflow should perform it. |
+| `/next-step` | The user needs one concrete action now | Select one ready, high-value action from current state and critical path. Explain why it is next, what completion means, and which workflow should perform it. |
 | `/iterate` | One bounded issue or hypothesis should be improved and rechecked | Make one focused change, verify it, record evidence, update affected issues or criteria, and recalculate the path when state changes make it stale. |
-| `/milestone-review` | The current milestone may be complete or needs a formal readiness check | Review required criteria, evidence quality, unresolved blockers, accepted risks, and give a supported readiness recommendation. Do not silently advance the milestone. |
-| `/vertical-slice` | Prototype evidence is sufficient for a strategic product decision | Recommend `PROCEED`, `ITERATE`, `PIVOT`, `PAUSE`, or `STOP`, with evidence, trade-offs, risks, and a specific next milestone or action. |
+| `/milestone-review` | The current milestone may be complete | Review required criteria, evidence quality, unresolved blockers, and accepted risks. Give a supported readiness recommendation without silently advancing the milestone. |
+| `/vertical-slice` | Prototype evidence supports a strategic product decision | Recommend `PROCEED`, `ITERATE`, `PIVOT`, `PAUSE`, or `STOP`, with evidence, trade-offs, risks, and a specific next milestone or action. |
 
-The catalog currently maps the workflows into this broad sequence:
+Broad workflow sequence:
 
 ```text
 /start
@@ -382,9 +439,9 @@ The catalog currently maps the workflows into this broad sequence:
 → /vertical-slice
 ```
 
-This is not a mandatory linear pipeline. The current state may legitimately send the agent back to `/clarify`, `/prototype-plan`, `/review-build`, or `/critical-path`.
+This is not a mandatory linear pipeline. Current state may legitimately send the agent back to `/clarify`, `/prototype-plan`, `/review-build`, or `/critical-path`.
 
-### Example agent requests
+Example requests:
 
 ```text
 Read AGENTS.md and execute /clarify.
@@ -404,9 +461,9 @@ Choose exactly one ready action from the current critical path.
 Do not broaden the scope.
 ```
 
-## 10. Daily workflow
+## 8. Daily workflow
 
-Read the current direction:
+Read current direction:
 
 ```powershell
 studio status
@@ -414,7 +471,7 @@ studio path check
 studio path show
 ```
 
-If the path is stale:
+When the path is stale:
 
 ```powershell
 studio path calculate --dry-run
@@ -429,118 +486,123 @@ Inspect studio status and the current critical path.
 Execute the recommended workflow without expanding scope.
 ```
 
-The operational loop is:
+A normal loop is:
 
 ```text
 Inspect current state
-→ Run the recommended AI-agent workflow
-→ Work on one ready path item
+→ Work on the recommended path item
 → Record issues, evidence, and decisions
-→ Evaluate affected criteria
+→ Evaluate criteria
 → Check path freshness
 → Recalculate the path
 → Review the milestone
 ```
 
-Reports under `.studio/reports/` are generated views of canonical JSON. Do not edit reports manually.
+Reports under `.studio/reports/` are generated views of canonical JSON. Do not edit them manually.
 
-## 11. Core CLI command reference
+## 9. Core CLI command reference
 
-These commands run in PowerShell or another terminal. Use command-specific help before a write:
+Use command-specific help before a write:
 
 ```powershell
 studio --help
-studio <command> --help
+studio issue add --help
+studio criterion evaluate --help
+studio path calculate --help
 ```
 
 ### Project
 
-| Command | Purpose |
-| --- | --- |
-| `studio bootstrap` | Attach the lightweight scaffold to an empty or existing game repository. |
-| `studio init --name "Game Name"` | Initialize or explicitly update project identity. |
-| `studio validate` | Validate a bootstrapped game project, schemas, state relationships, and report freshness. |
-| `studio status` | Show current phase, milestone, issues, evidence, decisions, criteria, path freshness, and recommended workflow. |
-| `studio report` | Regenerate Markdown reports from canonical JSON state. |
-| `studio framework validate` | Validate the GameStudioLite framework source repository. Do not use it for a normal game project. |
+```powershell
+studio bootstrap
+studio init --name "Game Name"
+studio validate
+studio status
+studio report
+studio framework validate
+```
+
+- `bootstrap`: attach the GameStudioLite scaffold to a game directory
+- `init`: initialize or explicitly update project identity
+- `validate`: validate a bootstrapped game project
+- `status`: show current direction and recommended action
+- `report`: regenerate Markdown reports from canonical JSON
+- `framework validate`: validate the GameStudioLite source repository; not for normal game projects
 
 ### Issues
 
-| Command | Purpose |
-| --- | --- |
-| `studio issue add` | Create a structured issue. |
-| `studio issue list` | List or filter issues. |
-| `studio issue show ISS-0001` | Show one issue. |
-| `studio issue update ISS-0001` | Update status, impact, ownership, links, or resolution. |
+```powershell
+studio issue add --help
+studio issue list
+studio issue show ISS-0001
+studio issue update ISS-0001 --status acknowledged
+```
+
+Issues represent bugs, blockers, risks, or actionable problems.
 
 ### Evidence
 
-| Command | Purpose |
-| --- | --- |
-| `studio evidence add` | Record observed, user-reported, inferred, or unknown evidence. |
-| `studio evidence list` | List or filter evidence. |
-| `studio evidence show EVD-0001` | Show one evidence record. |
-| `studio evidence update EVD-0001` | Update confidence, limitations, links, lifecycle, or supersession. |
+```powershell
+studio evidence add --help
+studio evidence list
+studio evidence show EVD-0001
+studio evidence update EVD-0001 --confidence high --yes
+```
+
+Evidence records observed, user-reported, inferred, or unknown support for a claim.
 
 ### Decisions
 
-| Command | Purpose |
-| --- | --- |
-| `studio decision add` | Create a decision with options, trade-offs, and an agent recommendation. |
-| `studio decision list` | List or filter decisions. |
-| `studio decision show DEC-0001` | Show one decision. |
-| `studio decision update DEC-0001` | Update decision metadata, links, options, or recommendation. |
-| `studio decision resolve DEC-0001` | Record the user's selected option or custom decision. |
+```powershell
+studio decision add --help
+studio decision list
+studio decision show DEC-0001
+studio decision update DEC-0001 --urgency blocking --yes
+studio decision resolve DEC-0001 --option OPT-B --reason "The owner selected this option." --yes
+```
 
-An AI agent's recommended option is guidance. It is not the user's final choice until the decision is explicitly resolved.
+An AI recommendation is guidance. `decision resolve` records the owner's actual choice.
 
 ### Dependencies
 
-| Command | Purpose |
-| --- | --- |
-| `studio dependency add` | Create or reactivate an explicit prerequisite relationship. |
-| `studio dependency list` | List or filter dependencies. |
-| `studio dependency show DEP-0001` | Show one dependency. |
-| `studio dependency update DEP-0001` | Update endpoints, reason, scope, or status. |
-| `studio dependency deactivate DEP-0001` | Disable a dependency without deleting its history. |
+```powershell
+studio dependency add --help
+studio dependency list
+studio dependency show DEP-0001
+studio dependency update DEP-0001 --reason "Updated execution-order rationale." --yes
+studio dependency deactivate DEP-0001 --reason "The dependency no longer applies." --yes
+```
+
+Dependencies describe explicit prerequisite relationships.
 
 ### Milestone criteria
 
-| Command | Purpose |
-| --- | --- |
-| `studio criterion add` | Add a required or optional milestone criterion. |
-| `studio criterion list` | List or filter criteria. |
-| `studio criterion show MC-001` | Show one criterion. |
-| `studio criterion update MC-001` | Update definition, verification policy, and relationships. |
-| `studio criterion evaluate MC-001` | Record explicit support, evidence, reasoning, and limitations. |
-| `studio criterion retire MC-001` | Retire a criterion without deleting history. |
-
-Verification policies currently include:
-
-```text
-observed-player-behavior
-observed-runtime
-automated-test
-document-review
-source-review
-manual-approval
-mixed
+```powershell
+studio criterion add --help
+studio criterion list
+studio criterion show MC-001
+studio criterion update MC-001 --verification-method "Review the approved project brief." --yes
+studio criterion evaluate --help
+studio criterion retire MC-001 --reason "The milestone requirement changed." --yes
 ```
 
-Evidence never silently verifies a criterion. The criterion must be explicitly evaluated.
+Criteria define what must be demonstrated before a milestone is considered ready.
 
 ### Critical path
 
-| Command | Purpose |
-| --- | --- |
-| `studio path calculate` | Calculate the dependency-aware milestone path. |
-| `studio path show` | Show current ready, blocked, and excluded path items. |
-| `studio path explain CP-0001` | Explain why one item gates the milestone. |
-| `studio path check` | Check whether the saved path is stale. |
+```powershell
+studio path calculate --dry-run
+studio path calculate --yes
+studio path show
+studio path explain CP-0001
+studio path check
+```
 
-## 12. Important usage examples
+The critical path is a short list of milestone-gating work, not a complete backlog.
 
-IDs below assume a new sample project. Use the actual ID printed by each add command.
+## 10. Important usage examples
+
+IDs below assume a new project. Use the actual ID printed by each command.
 
 ### Add an issue
 
@@ -548,7 +610,7 @@ IDs below assume a new sample project. Use the actual ID printed by each add com
 studio issue add `
   --title "Prototype fails to launch" `
   --severity blocker `
-  --description "The current build exits before the main scene loads." `
+  --description "The current Windows build exits before the main scene loads." `
   --milestone-impact "External prototype testing cannot begin." `
   --recommended-action "Reproduce the failure and capture the build log." `
   --yes
@@ -560,11 +622,11 @@ This records the issue. It does not fix or launch the build.
 
 ```powershell
 studio evidence add `
-  --title "First tester completed the core loop" `
-  --claim "One tester completed the core loop without assistance." `
+  --title "First tester completed one gameplay loop" `
+  --claim "One tester completed the gameplay loop without assistance." `
   --classification observed `
   --source-type human-playtest `
-  --description "The developer directly observed the tester in the current build." `
+  --description "The developer directly observed the test session." `
   --confidence medium `
   --limitation "Only one tester has been observed." `
   --yes
@@ -574,29 +636,25 @@ Use `observed` only for directly accessible events. Unobserved human statements 
 
 ### Add and resolve a decision
 
-Create two options and an agent recommendation:
-
 ```powershell
 studio decision add `
-  --question "Should the prototype use one lane or three lanes?" `
-  --context "Lane count affects pathfinding complexity and tactical counterplay." `
-  --option "OPT-A|One lane|Simpler and faster to test." `
-  --option "OPT-B|Three lanes|More strategic options but higher complexity." `
+  --question "Should the first prototype use one lane or three lanes?" `
+  --context "Lane count affects pathfinding, balance, and prototype scope." `
+  --option "OPT-A|One lane|Smallest implementation and easiest core-loop test." `
+  --option "OPT-B|Three lanes|More tactical choice but greater implementation risk." `
   --recommended-option OPT-A `
-  --recommendation-reason "One lane isolates the core interaction first." `
-  --trade-off "The first prototype will not test lane switching." `
+  --recommendation-reason "One lane is sufficient to test the first interaction." `
   --status ready `
   --yes
 ```
 
-The user records the final decision separately:
+Record the owner's final choice separately:
 
 ```powershell
 studio decision resolve DEC-0001 `
   --option OPT-A `
   --reason "The owner selected one lane for the first prototype." `
-  --consequence "Build and test the one-lane interaction before adding more lanes." `
-  --follow-up "Revisit lane count after the first playtest." `
+  --consequence "Implement only one lane in the initial experiment." `
   --yes
 ```
 
@@ -612,15 +670,13 @@ studio dependency add `
   --yes
 ```
 
-Terminal does not always mean satisfied. For example, resolved decisions satisfy dependency edges, while rejected, deferred, or superseded decisions do not.
-
-### Add a milestone criterion
+### Add a criterion
 
 ```powershell
 studio criterion add `
-  --description "A new player can complete the core interaction without assistance." `
+  --description "A new player can complete one gameplay loop without assistance." `
   --required `
-  --completion-condition "Two of three observed testers complete it unaided." `
+  --completion-condition "Two of three observed testers complete the loop unaided." `
   --verification-method "Observed human playtest using the current build." `
   --verification-policy observed-player-behavior `
   --yes
@@ -628,23 +684,25 @@ studio criterion add `
 
 ### Evaluate a criterion
 
-Assuming the criterion is `MC-002` and evidence is `EVD-0001`:
-
 ```powershell
 studio criterion evaluate MC-002 `
   --support partially-supported `
   --evidence EVD-0001 `
-  --reason "One observed tester completed the interaction unaided." `
+  --reason "One observed tester completed the loop unaided." `
   --limitation "Two additional observed testers are required." `
   --yes
 ```
 
-## 13. Dry-run and JSON modes
+Evidence never silently verifies a criterion. Record an explicit evaluation.
 
-Dry run validates proposals without writing target files, state, or reports:
+## 11. Dry-run and JSON modes
+
+Dry run validates proposals without writing files, state, or reports:
 
 ```powershell
 studio bootstrap --dry-run
+studio init --dry-run
+studio issue add --dry-run
 studio path calculate --dry-run
 ```
 
@@ -661,17 +719,9 @@ studio path show --json
 studio path check --json
 ```
 
-JSON output is intended for scripts, CI, and integrations. Supported write commands also expose JSON envelopes; inspect their help.
+`studio status`, `studio report`, and `studio init` currently provide human-readable output only.
 
-`studio status` currently provides human-readable output only:
-
-```powershell
-studio status
-```
-
-`studio report` and `studio init` are also human-readable only.
-
-## 14. Multiple-project usage
+## 12. Multiple projects
 
 One installed CLI serves multiple projects:
 
@@ -690,48 +740,44 @@ studio bootstrap --name "Game B"
 - Each project stores generated reports under `.studio/reports/`.
 - Game A cannot mutate Game B unless Game B is explicitly selected with `--root`.
 
-Commit state and reports according to each project's version-control policy.
-
-## 15. Updating the framework
+## 13. Updating GameStudioLite
 
 For an editable installation:
 
 ```powershell
 Set-Location F:\Tools\GameStudioLite
-git pull
+git pull origin main
 python -m pip install -e ".[dev]"
 ```
 
-Updating the installed CLI does not automatically upgrade existing project scaffolds. Upgrade and migration commands are not implemented.
+Updating the CLI does not automatically upgrade existing project scaffolds. Upgrade and migration commands are not implemented.
 
-Before refreshing managed files in an important game project:
+Before refreshing managed files in an important project:
 
 1. Commit or back up project state.
 2. Run `studio bootstrap --dry-run`.
 3. Review every conflict and proposed update.
-4. Use `studio bootstrap --force --yes` only when the managed-file replacement is understood.
+4. Use `studio bootstrap --force --yes` only when the replacement is understood.
 
 Do not run force blindly. There is currently no `studio upgrade` command.
 
-## 16. Validation commands
+## 14. Validation
 
-### In a game project
+Inside a normal game project:
 
 ```powershell
 studio validate
 ```
 
-This validates scaffold, schemas, relationships, and report freshness. It does not require framework source, tests, documentation, package metadata, or CI files.
-
-### In the GameStudioLite framework source repository
+Inside the GameStudioLite framework source repository:
 
 ```powershell
 studio framework validate
 ```
 
-This additionally validates development files, packaged resources, and scaffold synchronization. It is not intended for normal game repositories.
+Framework validation also checks development files, packaged resources, and scaffold synchronization. It is not intended for normal game repositories.
 
-## 17. Troubleshooting
+## 15. Troubleshooting
 
 ### `No Practical Game Studio project found`
 
@@ -745,7 +791,7 @@ studio bootstrap
 
 ### Bootstrap reports a managed-file conflict
 
-Inspect the proposal first:
+Inspect conflicts first:
 
 ```powershell
 studio bootstrap --dry-run
@@ -759,36 +805,13 @@ studio bootstrap --force --yes
 
 Force does not overwrite protected state or reports.
 
-### The AI agent does not recognize `/start`
-
-Use normal language:
-
-```text
-Read AGENTS.md and execute the /start workflow.
-```
-
-The alias is a workflow request, not necessarily a native command in the AI client.
-
-### The AI agent does not update `.studio/state`
-
-Tell it explicitly:
-
-```text
-Use the supported studio CLI for canonical state mutations.
-Do not manually edit .studio/state JSON unless performing documented recovery.
-```
-
 ### The wrong project is detected
-
-Select the root explicitly:
 
 ```powershell
 studio status --root F:\Games\CorrectGame
 ```
 
 ### The critical path is stale
-
-Inspect, preview, and confirm:
 
 ```powershell
 studio path check
@@ -798,17 +821,26 @@ studio path calculate --yes
 
 ### The engine was not detected
 
-Explicitly update metadata:
-
 ```powershell
 studio init --force --engine Unity --yes
 ```
 
-This changes project metadata only. It does not install or control Unity.
+This changes metadata only. It does not install or control Unity.
+
+### A new AI-agent session starts from the beginning
+
+Give the agent the resume prompt from [Resume in a new AI-agent session](#6-resume-in-a-new-ai-agent-session).
+
+Explicitly state:
+
+```text
+The /start workflow means inspect and route the existing project.
+Do not reset state or repeat completed intake work.
+```
 
 ### Validation fails after manual JSON edits
 
-Prefer supported commands. After restoring a known-good revision, run:
+Prefer supported commands instead of editing canonical JSON manually. Restore a known-good revision when necessary, then run:
 
 ```powershell
 studio validate
@@ -817,7 +849,7 @@ studio report
 
 See [State mutation safety](docs/state-mutation-safety.md).
 
-## 18. Repository development
+## 16. Framework development
 
 Prepare a contributor checkout:
 
@@ -832,8 +864,6 @@ python -m pytest
 python -m compileall -q src tests
 python -m build
 studio framework validate
-studio validate
-studio report
 ```
 
 Continuous integration covers:
@@ -850,7 +880,7 @@ Continuous integration covers:
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) before submitting framework changes.
 
-## 19. Project status and roadmap
+## 17. Project status and roadmap
 
 ### Available now
 
@@ -859,7 +889,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before submitting framework changes.
 - AI-agent workflow playbooks
 - Issues, evidence, decisions, and dependencies
 - Milestone criteria with explicit verification policies
-- Dependency-aware critical paths
+- Dependency-aware critical path
 - Generated reports
 - Wheel distribution
 - Cross-platform CI
@@ -874,14 +904,18 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before submitting framework changes.
 - Media and telemetry ingestion
 - Autonomous implementation
 
-No dates are promised. This README does not implement C3 or later work.
+No dates are promised.
 
 ## Further documentation
 
-[Bootstrap](docs/project-bootstrap.md) · [Distribution](docs/distribution.md) ·
-[Issues](docs/issue-management.md) · [Evidence](docs/evidence-management.md) ·
-[Decisions](docs/decision-management.md) · [Dependencies](docs/dependency-management.md) ·
-[Criteria](docs/milestone-criteria-management.md) · [Critical path](docs/critical-path-engine.md) ·
+[Bootstrap](docs/project-bootstrap.md) ·
+[Distribution](docs/distribution.md) ·
+[Issues](docs/issue-management.md) ·
+[Evidence](docs/evidence-management.md) ·
+[Decisions](docs/decision-management.md) ·
+[Dependencies](docs/dependency-management.md) ·
+[Criteria](docs/milestone-criteria-management.md) ·
+[Critical path](docs/critical-path-engine.md) ·
 [Mutation safety](docs/state-mutation-safety.md)
 
 ## License and attribution
