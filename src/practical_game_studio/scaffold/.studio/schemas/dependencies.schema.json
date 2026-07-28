@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://practical-game-studio.dev/schemas/dependencies.schema.json",
+  "title": "PGS Explicit Dependency Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dependencies"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "dependencies": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/dependency"}
+    }
+  },
+  "$defs": {
+    "endpoint": {
+      "type": "string",
+      "pattern": "^(?:ISS-[0-9]{3,}|DEC-[0-9]{3,}|MC-[0-9]{3,}|MANUAL:[a-z0-9][a-z0-9-]*)$"
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "prerequisite",
+        "dependent",
+        "relationship",
+        "reason",
+        "scope",
+        "milestone",
+        "status",
+        "created_at",
+        "updated_at",
+        "deactivated_at",
+        "deactivation_reason"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^DEP-[0-9]{4,}$"},
+        "prerequisite": {"$ref": "#/$defs/endpoint"},
+        "dependent": {"$ref": "#/$defs/endpoint"},
+        "relationship": {"const": "requires"},
+        "reason": {"type": "string", "minLength": 1},
+        "scope": {"enum": ["current-milestone", "project"]},
+        "milestone": {"type": ["string", "null"], "minLength": 1},
+        "status": {"enum": ["active", "inactive"]},
+        "created_at": {"type": "string", "format": "date-time"},
+        "updated_at": {"type": "string", "format": "date-time"},
+        "deactivated_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "deactivation_reason": {"type": ["string", "null"], "minLength": 1}
+      }
+    }
+  }
+}

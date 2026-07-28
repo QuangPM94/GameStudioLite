@@ -1,0 +1,38 @@
+{
+  "blocking_issues": [],
+  "criteria_results": [
+    {
+      "completion_condition": "A project profile and falsifiable prototype hypothesis exist.",
+      "created_at": "2025-01-01T00:00:00Z",
+      "description": "A project profile and falsifiable prototype hypothesis exist.",
+      "evaluated_at": null,
+      "evaluation_freshness": {
+        "reasons": [],
+        "status": "current"
+      },
+      "evaluation_history": [],
+      "evaluation_limitations": [],
+      "evaluation_reason": null,
+      "id": "MC-001",
+      "lifecycle_status": "active",
+      "milestone": "Clarify the game idea",
+      "milestone_history": [],
+      "related_decisions": [],
+      "related_issues": [],
+      "required": true,
+      "retired_at": null,
+      "retirement_reason": null,
+      "support_status": "unsupported",
+      "supporting_evidence": [],
+      "updated_at": "2025-01-01T00:00:00Z",
+      "verification_method": "Review the initialized project profile and prototype hypothesis.",
+      "verification_policy": "document-review"
+    }
+  ],
+  "milestone": "Clarify the game idea",
+  "next_milestone": "Define the smallest useful prototype",
+  "recommendation": "Run guided intake before selecting or building a prototype.",
+  "schema_version": "3.1",
+  "supporting_evidence": [],
+  "verdict": "PAUSE"
+}

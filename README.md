@@ -16,7 +16,9 @@ PGS is an independent open-source project. It is not affiliated with Donchitos/C
 PGS requires Python 3.11 or later.
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install -e F:/Tools/GameStudioLite
+cd F:/Games/MyGame
+studio bootstrap
 studio init --name "My Game"
 studio issue add --title "Prototype does not launch" --severity blocker \
   --milestone-impact "The prototype cannot be evaluated." --yes
@@ -39,35 +41,42 @@ studio criterion list
 studio validate
 studio status
 studio report
-ruff format --check src tests
-ruff check src tests
-pytest
 ```
 
-GitHub Actions runs the same validation on every push and pull request across
-Ubuntu/Python 3.11, Ubuntu/Python 3.12, and Windows/Python 3.11. The Windows
-job also runs read-only criterion, dependency, and path CLI smoke commands in a
-temporary copied repository, so checked-in canonical state is not used as a
-smoke-test sandbox.
+The CLI is installed once; each game repository receives only `AGENTS.md` and
+its lightweight `.studio/` scaffold. Runtime Python source, framework tests,
+development documentation, CI, and `pyproject.toml` remain in the
+GameStudioLite installation.
 
-`studio init` initializes only project identity and conservatively detects Unity, Godot, or Unreal indicators. Then open the repository with Codex and ask for `/start`. Aliases such as `/clarify` and `/prototype-plan` are prompt conventions interpreted through `AGENTS.md`, not guaranteed native slash commands.
+`studio bootstrap` safely attaches the scaffold to an empty directory or an
+existing Unity-, Godot-, or Unreal-like project. `studio init` then initializes
+only project identity and conservatively detects engine indicators. Open the
+game repository with Codex and ask for `/start`. Aliases such as `/clarify` and
+`/prototype-plan` are prompt conventions interpreted through `AGENTS.md`, not
+guaranteed native slash commands.
 
-Preview initialization without writing:
+Preview bootstrap and initialization without writing:
 
 ```bash
-studio init --name "Midnight Carrier" --engine Unity --platform Windows --dry-run
+studio bootstrap --name "Midnight Carrier" --engine Unity \
+  --platform Windows --dry-run
 ```
 
-Run commands from the PGS root or a child directory. Use `--root PATH` to select a root explicitly. A valid root contains `AGENTS.md`, `.studio/`, and `pyproject.toml`.
+Run commands from the PGS root or a child directory. Use `--root PATH` to select
+a root explicitly. Project discovery uses a valid `.studio/config.json`,
+`.studio/framework.json`, and `.studio/state/`; game repositories do not need
+`pyproject.toml`.
 
 ## Core structure
 
 - `AGENTS.md` is the Codex control layer.
+- `.studio/framework.json` identifies the installed scaffold and managed paths.
 - `.studio/workflow-catalog.json` describes phases and workflow references.
 - `.studio/playbooks/` contains executable workflow guidance.
 - `.studio/roles/` defines exactly five practical roles.
 - `.studio/state/*.json` is canonical machine-readable state.
 - `.studio/reports/*.md` is generated human-readable state.
+- `studio bootstrap` attaches or safely refreshes the lightweight scaffold.
 - `studio init` uses the B1 transaction layer to initialize project identity.
 - `studio issue add|list|show|update` provides transactional B2 issue management.
 - `studio evidence add|list|show|update` provides transactional B3 evidence management.
@@ -75,7 +84,30 @@ Run commands from the PGS root or a child directory. Use `--root PATH` to select
 - `studio path calculate|show|explain|check` provides the C1 milestone priority path.
 - `studio dependency add|list|show|update|deactivate` provides transactional C2 dependency authoring.
 - `studio criterion add|list|show|update|evaluate|retire` provides transactional C2 milestone-criterion management.
-- `studio validate`, `studio status`, and `studio report` inspect and render state.
+- `studio validate`, `studio status`, and `studio report` inspect and render one
+  game project's state.
+- `studio framework validate` validates the GameStudioLite development
+  repository, packaged resources, and scaffold synchronization.
+
+## Project bootstrap
+
+Bootstrap computes all creates, preserves, updates, and conflicts before
+writing. It validates a staged project tree, then installs only managed PGS
+files. Existing engine files, assets, Git metadata, `.gitignore`, README files,
+and other unrelated content are never overwritten.
+
+```bash
+studio bootstrap
+studio bootstrap --name "Midnight Carrier" --engine Unity --platform Windows
+studio bootstrap --dry-run
+```
+
+`AGENTS.md`, configuration, catalog, roles, playbooks, schemas, and templates
+are framework-managed. Existing `.studio/state/` and `.studio/reports/` files
+are protected project data. A conflicting managed file stops bootstrap before
+any target write; `--force --yes` refreshes only replaceable managed files.
+Running bootstrap twice on an unchanged project is a byte-identical successful
+no-op. See `docs/project-bootstrap.md`.
 
 ## Initialization behavior
 
@@ -245,6 +277,9 @@ Codex instructions, roles, playbooks, catalog, schemas, initial state, templates
 - **C1 complete:** dependency-aware candidate selection, deterministic ordering, three-to-seven guidance, stable path IDs/history, manual controls, freshness checks, reports, and `studio path calculate|show|explain|check`.
 - **C2 complete:** explicit dependency registry, cycle-safe authoring, transactional criterion lifecycle/evaluation/history, evidence-lifecycle freshness, and C1 ordering/report integration.
 - **C2.1 complete:** canonical terminal/satisfaction semantics, actionable terminal-unsatisfied edges, explicit verification policies, multilingual criterion verification, and milestone schema 3.1 migration.
+- **C2.2 complete:** install-once project bootstrap, lightweight packaged
+  scaffold, multi-project root discovery, project/framework validation split,
+  managed-file safety, and isolated project state.
 - **Later Phase C work:** bounded manual workflow readiness and milestone review guidance built on explicit structure.
 
 ### Phase D — Guided workflow execution

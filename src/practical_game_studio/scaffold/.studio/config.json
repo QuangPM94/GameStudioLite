@@ -1,0 +1,23 @@
+{
+  "framework": "Practical Game Studio",
+  "abbreviation": "PGS",
+  "version": "0.1.0",
+  "default_review_mode": "guided",
+  "review_modes": ["fast", "guided", "strict"],
+  "canonical_state_directory": ".studio/state",
+  "report_directory": ".studio/reports",
+  "workflow_catalog": ".studio/workflow-catalog.json",
+  "direction_summary_fields": [
+    "Current phase",
+    "Current milestone",
+    "What was completed",
+    "What was learned",
+    "Evidence available",
+    "Important unknowns",
+    "Open user decisions",
+    "Critical path",
+    "Recommended next step",
+    "Do not work on yet",
+    "Exact next workflow alias"
+  ]
+}

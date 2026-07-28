@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://practical-game-studio.dev/schemas/issues.schema.json",
+  "title": "PGS Issues",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "issues"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "description", "severity", "category", "status", "phase_discovered", "evidence_type", "evidence_references", "player_impact", "milestone_impact", "recommended_action", "alternative_actions", "effort", "dependencies", "issues_blocked", "on_critical_path", "user_decision_required", "owner", "resolution", "created_at", "updated_at"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^ISS-[0-9]{3,}$"},
+          "title": {"type": "string", "minLength": 1},
+          "description": {"type": "string", "minLength": 1},
+          "severity": {"enum": ["blocker", "critical", "major", "minor", "later"]},
+          "category": {"enum": ["build", "mechanic", "clarity", "engagement", "pacing", "feedback", "friction", "emotion", "stability", "scope", "technical", "evidence", "other"]},
+          "status": {"enum": ["open", "acknowledged", "in-progress", "blocked", "resolved", "accepted", "wont-fix", "deferred"]},
+          "phase_discovered": {"enum": ["intake", "clarify", "prototype-plan", "prototype-build", "evaluate", "iterate", "vertical-slice-decision", "vertical-slice", "production"]},
+          "evidence_type": {"enum": ["OBSERVED", "USER_REPORTED", "INFERRED", "UNKNOWN"]},
+          "evidence_references": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "player_impact": {"type": "string"},
+          "milestone_impact": {"type": "string"},
+          "recommended_action": {"type": "string", "minLength": 1},
+          "alternative_actions": {"type": "array", "items": {"type": "string"}},
+          "effort": {"enum": ["tiny", "small", "medium", "large", "unknown"]},
+          "dependencies": {"type": "array", "items": {"type": "string", "pattern": "^ISS-[0-9]{3,}$"}, "uniqueItems": true},
+          "issues_blocked": {"type": "array", "items": {"type": "string", "pattern": "^ISS-[0-9]{3,}$"}, "uniqueItems": true},
+          "on_critical_path": {"type": "boolean"},
+          "user_decision_required": {"type": "boolean"},
+          "owner": {"enum": ["producer", "game-designer", "technical-lead", "developer", "player-advocate", "user", "unassigned"]},
+          "resolution": {"type": ["string", "null"]},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    }
+  }
+}

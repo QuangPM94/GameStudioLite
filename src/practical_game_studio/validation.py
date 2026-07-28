@@ -12,7 +12,13 @@ from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import SchemaError
 
 from .models import ValidationResult
-from .state import STATE_FILES, CanonicalState, load_json
+from .scaffold import framework_scaffold_differences, load_scaffold_files
+from .state import (
+    STATE_FILES,
+    CanonicalState,
+    is_framework_source_root,
+    load_json,
+)
 
 REQUIRED_ROLE_SECTIONS = (
     "Purpose",
@@ -61,16 +67,10 @@ SCHEMA_FILES = {
     "evidence": "evidence.schema.json",
     "milestone": "milestone.schema.json",
 }
-REQUIRED_FILES = (
+PROJECT_REQUIRED_FILES = (
     "AGENTS.md",
-    "README.md",
-    "LICENSE",
-    "THIRD_PARTY_NOTICES.md",
-    "CHANGELOG.md",
-    "CONTRIBUTING.md",
-    "pyproject.toml",
-    "docs/state-mutation-safety.md",
     ".studio/config.json",
+    ".studio/framework.json",
     ".studio/workflow-catalog.json",
     *(
         f".studio/roles/{name}.md"
@@ -109,6 +109,7 @@ REQUIRED_FILES = (
             "critical-path",
             "evidence",
             "milestone",
+            "framework",
         )
     ),
     *(f".studio/state/{filename}" for filename in STATE_FILES.values()),
@@ -135,7 +136,25 @@ REQUIRED_FILES = (
             "milestone-review",
         )
     ),
+)
+FRAMEWORK_REQUIRED_FILES = (
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "pyproject.toml",
+    ".github/workflows/ci.yml",
+    "docs/state-mutation-safety.md",
+    "docs/decision-management.md",
+    "docs/dependency-management.md",
+    "docs/milestone-criteria-management.md",
+    "docs/critical-path-engine.md",
+    "docs/issue-management.md",
+    "docs/evidence-management.md",
+    "docs/project-bootstrap.md",
     "src/practical_game_studio/__init__.py",
+    "src/practical_game_studio/bootstrap.py",
     "src/practical_game_studio/cli.py",
     "src/practical_game_studio/decisions.py",
     "src/practical_game_studio/dependencies.py",
@@ -145,10 +164,14 @@ REQUIRED_FILES = (
     "src/practical_game_studio/reporting.py",
     "src/practical_game_studio/state.py",
     "src/practical_game_studio/models.py",
-    "docs/decision-management.md",
-    "docs/dependency-management.md",
-    "docs/milestone-criteria-management.md",
-    "docs/critical-path-engine.md",
+    "src/practical_game_studio/scaffold.py",
+    "src/practical_game_studio/transaction.py",
+    "src/practical_game_studio/initialization.py",
+    "src/practical_game_studio/issues.py",
+    "src/practical_game_studio/evidence.py",
+    "tests/conftest.py",
+    "tests/__init__.py",
+    "tests/fixtures/README.md",
     "tests/test_decisions.py",
     "tests/test_dependencies.py",
     "tests/test_criteria.py",
@@ -157,10 +180,6 @@ REQUIRED_FILES = (
     "tests/test_criterion_cli.py",
     "tests/test_critical_path.py",
     "tests/test_critical_path_cli.py",
-    "src/practical_game_studio/transaction.py",
-    "src/practical_game_studio/initialization.py",
-    "src/practical_game_studio/issues.py",
-    "src/practical_game_studio/evidence.py",
     "tests/test_validation.py",
     "tests/test_reporting.py",
     "tests/test_catalog.py",
@@ -171,11 +190,8 @@ REQUIRED_FILES = (
     "tests/test_issue_cli.py",
     "tests/test_evidence.py",
     "tests/test_evidence_cli.py",
-    "tests/conftest.py",
-    "tests/__init__.py",
-    "tests/fixtures/README.md",
-    "docs/issue-management.md",
-    "docs/evidence-management.md",
+    "tests/test_bootstrap.py",
+    "tests/test_bootstrap_cli.py",
     "examples/delivery-horror/README.md",
     "examples/delivery-horror/sample-game-brief.md",
     "examples/delivery-horror/sample-evaluation.md",
@@ -260,6 +276,30 @@ def _validate_schemas(
             location = ".".join(str(part) for part in error.path) or "<root>"
             result.add(f"{_relative(root, state_path)}:{location}: {error.message}")
     return schemas
+
+
+def _validate_framework_manifest(
+    root: Path, loaded: dict[Path, Any], result: ValidationResult
+) -> None:
+    schema_path = root / ".studio" / "schemas" / "framework.schema.json"
+    manifest_path = root / ".studio" / "framework.json"
+    schema = loaded.get(schema_path)
+    manifest = loaded.get(manifest_path)
+    if schema is None or manifest is None:
+        return
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as exc:
+        result.add(
+            f"{_relative(root, schema_path)}: invalid JSON Schema: {exc.message}"
+        )
+        return
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    for error in sorted(
+        validator.iter_errors(manifest), key=lambda item: list(item.path)
+    ):
+        location = ".".join(str(part) for part in error.path) or "<root>"
+        result.add(f"{_relative(root, manifest_path)}:{location}: {error.message}")
 
 
 def _validate_catalog(
@@ -1375,17 +1415,18 @@ def _validate_generated_reports(
 
 
 def validate_project(root: Path) -> ValidationResult:
-    """Validate the complete Phase A framework."""
+    """Validate one lightweight bootstrapped PGS game project."""
 
     root = root.resolve()
     result = ValidationResult()
-    for relative in REQUIRED_FILES:
+    for relative in PROJECT_REQUIRED_FILES:
         if not (root / relative).is_file():
             result.add(f"Missing required file: {relative}")
 
     loaded = _load_json_files(root, result)
     _validate_documents(root, result)
     _validate_schemas(root, loaded, result)
+    _validate_framework_manifest(root, loaded, result)
 
     catalog_path = root / ".studio" / "workflow-catalog.json"
     catalog = loaded.get(catalog_path)
@@ -1402,4 +1443,37 @@ def validate_project(root: Path) -> ValidationResult:
     if state and isinstance(catalog, dict):
         _validate_relationships(state, catalog, result)
         _validate_generated_reports(root, state, result)
+    return result
+
+
+def validate_framework(root: Path) -> ValidationResult:
+    """Validate the GameStudioLite source repository and packaged scaffold."""
+
+    root = root.resolve()
+    result = ValidationResult()
+    if not is_framework_source_root(root):
+        result.add(
+            "This is a bootstrapped PGS game project, not a GameStudioLite "
+            "framework source repository."
+        )
+        return result
+
+    project_result = validate_project(root)
+    result.errors.extend(project_result.errors)
+    for relative in FRAMEWORK_REQUIRED_FILES:
+        if not (root / relative).is_file():
+            result.add(f"Missing framework development file: {relative}")
+
+    try:
+        packaged = load_scaffold_files()
+    except RuntimeError as exc:
+        result.add(f"Packaged scaffold resources are unavailable: {exc}")
+        return result
+    for difference in framework_scaffold_differences(root, packaged):
+        result.add(
+            "Packaged scaffold differs from framework scaffold: "
+            f"{difference['path']} "
+            f"(packaged sha256={difference['packaged_sha256']}, "
+            f"framework sha256={difference['framework_sha256']})"
+        )
     return result

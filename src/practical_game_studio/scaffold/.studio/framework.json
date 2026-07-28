@@ -1,0 +1,16 @@
+{
+  "bootstrapped_at": null,
+  "framework": "Practical Game Studio",
+  "installed_from_version": "0.1.0",
+  "managed_paths": [
+    "AGENTS.md",
+    ".studio/config.json",
+    ".studio/framework.json",
+    ".studio/workflow-catalog.json",
+    ".studio/roles",
+    ".studio/playbooks",
+    ".studio/schemas",
+    ".studio/templates"
+  ],
+  "scaffold_version": "1.0"
+}

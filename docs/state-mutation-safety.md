@@ -2,6 +2,31 @@
 
 Phase B1 introduced the shared mutation path. Phases B2 through B4 and Phases C1/C2 route issue, evidence, decision, dependency, criterion, and critical-path writes through that path, including coordinated updates across canonical state and generated reports.
 
+Project bootstrap precedes normal state mutation. It uses a separate
+multi-file safe-write protocol because the target may not contain any PGS state
+yet.
+
+## Bootstrap stages
+
+1. Load packaged scaffold resources in deterministic path order.
+2. Classify every managed file as create, preserve, update, or conflict.
+3. Stop before target writes when a managed-file conflict exists.
+4. Build the proposed lightweight project in a temporary sibling tree.
+5. Preserve existing protected state/reports in that tree and apply optional
+   identity initialization transactionally.
+6. Validate the complete staged project and generated report freshness.
+7. Recheck target hashes to detect concurrent changes.
+8. Write changed files through flushed sibling temporary files and
+   `os.replace`.
+9. On replacement failure, remove new managed files, restore replaced managed
+   files from captured bytes, clean temporary paths, and leave unrelated files
+   untouched.
+
+Bootstrap rollback is best-effort local filesystem recovery, not database ACID.
+A process crash, storage failure, or rollback failure can still require version
+control or backup recovery. Ordinary `--force` never replaces existing
+`.studio/state/` or `.studio/reports/` files.
+
 ## Commit stages
 
 1. Discover and load every canonical JSON document.
@@ -28,6 +53,11 @@ Concurrent protection is optimistic: hashes detect canonical files changed from 
 ## Dry runs
 
 Dry runs perform input normalization, loading, copying, validation, relationship checks, report rendering, deterministic comparison, and change reporting. They do not create target-path outputs or replace canonical state and reports.
+
+`studio bootstrap --dry-run` additionally builds and validates the proposed
+project in an isolated temporary sibling tree. Optional identity values run
+through initialization and report rendering there; the target directory remains
+byte-identical.
 
 For issue creation, a dry run proposes an ID from the current historical maximum but does not consume it. A subsequent real add against the same canonical revision receives the same ID. Issue updates that normalize to the existing value are successful no-ops: they do not change `updated_at` or rewrite reports.
 

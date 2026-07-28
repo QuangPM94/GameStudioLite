@@ -6,6 +6,14 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Phase C2.2 lightweight `studio bootstrap` for empty or existing game
+  repositories, including staged validation, managed-file conflict detection,
+  protected state/reports, deterministic dry runs, rollback, and JSON output.
+- Bootstrap manifest/schema, package-safe scaffold resource loading,
+  multi-project root discovery without `pyproject.toml`, and
+  `studio framework validate`.
+- Behavioral coverage for Unity-, Godot-, and Unreal-like attachment,
+  idempotency, rollback, concurrency, and independent project state/IDs.
 - Cross-platform GitHub Actions validation for Ubuntu/Python 3.11 and 3.12 plus Windows/Python 3.11, including copied-repository CLI smoke coverage.
 - C2.1 canonical typed dependency-satisfaction verdicts shared by dependency display, validation, and critical-path closure, including actionable terminal-unsatisfied diagnostics.
 - Explicit criterion verification policies with multilingual player-behavior tests and policy-specific evidence source/classification rules.
@@ -35,6 +43,11 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Changed
 
+- `studio validate` now validates a lightweight game project; framework source,
+  tests, docs, package metadata, and scaffold synchronization are checked by
+  `studio framework validate`.
+- Project roots use valid config, bootstrap manifest, and state markers instead
+  of requiring `pyproject.toml`.
 - Milestone state/schema advances from `3.0` to `3.1`; `MC-001` preserves identity/history and migrates to `document-review`.
 - Critical-path criterion fingerprints include verification policy, and rejected/superseded/deferred/retired/stale prerequisites no longer silently unlock dependents.
 - Criterion verification no longer uses English keyword detection.

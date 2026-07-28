@@ -9,6 +9,12 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from .bootstrap import (
+    BootstrapConflictError,
+    BootstrapError,
+    BootstrapRequest,
+    BootstrapService,
+)
 from .criteria import (
     CriterionCreateRequest,
     CriterionEvaluation,
@@ -65,7 +71,7 @@ from .models import MutationResult
 from .reporting import format_status, generate_reports
 from .state import StateReadError, StateRepository, find_project_root, load_state
 from .transaction import TransactionError
-from .validation import validate_project
+from .validation import validate_framework, validate_project
 
 
 def _add_root_argument(parser: argparse.ArgumentParser) -> None:
@@ -82,10 +88,58 @@ def _parser() -> argparse.ArgumentParser:
         description="Practical Game Studio foundation tooling",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+    bootstrap_parser = subparsers.add_parser(
+        "bootstrap", help="attach Practical Game Studio to a game repository"
+    )
+    bootstrap_parser.add_argument(
+        "--root",
+        type=Path,
+        help="target game root (defaults to the current working directory)",
+    )
+    bootstrap_parser.add_argument("--name", help="project name")
+    bootstrap_parser.add_argument("--engine", help="game engine")
+    bootstrap_parser.add_argument("--engine-version", help="game engine version")
+    bootstrap_parser.add_argument("--platform", help="target platform")
+    bootstrap_parser.add_argument("--genre", help="game genre")
+    bootstrap_parser.add_argument(
+        "--review-mode",
+        choices=("fast", "guided", "strict"),
+        help="review intensity (defaults to guided during initialization)",
+    )
+    bootstrap_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="replace conflicting framework-managed files only",
+    )
+    bootstrap_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="validate the proposed scaffold without writing target files",
+    )
+    bootstrap_parser.add_argument(
+        "--json", action="store_true", help="emit one JSON result envelope"
+    )
+    bootstrap_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="acknowledge non-interactive managed-file replacement",
+    )
     validate_parser = subparsers.add_parser(
-        "validate", help="validate framework, schemas, state, and references"
+        "validate", help="validate a bootstrapped game project"
     )
     _add_root_argument(validate_parser)
+    validate_parser.add_argument("--json", action="store_true")
+    framework_parser = subparsers.add_parser(
+        "framework", help="GameStudioLite framework development commands"
+    )
+    framework_subparsers = framework_parser.add_subparsers(
+        dest="framework_command", required=True
+    )
+    framework_validate = framework_subparsers.add_parser(
+        "validate", help="validate the GameStudioLite framework source repository"
+    )
+    _add_root_argument(framework_validate)
+    framework_validate.add_argument("--json", action="store_true")
     status_parser = subparsers.add_parser(
         "status", help="show current milestone direction"
     )
@@ -722,6 +776,98 @@ def _run_init(args: argparse.Namespace, root: Path) -> int:
     )
     result = initialize_project(root, request)
     print(_format_init_result(result))
+    return 0
+
+
+def _format_bootstrap_result(result: MutationResult) -> str:
+    details = result.details
+    changed = details["created_count"] + details["updated_count"]
+    lines: list[str] = []
+    if result.dry_run:
+        lines.extend(
+            [
+                "Dry run — no files were written.",
+                "",
+                "Proposed Practical Game Studio scaffold.",
+            ]
+        )
+    elif changed == 0:
+        lines.append("Practical Game Studio project scaffold is already present.")
+    else:
+        lines.append("Practical Game Studio project scaffold created.")
+    lines.extend(
+        [
+            "",
+            "Root:",
+            details["root"],
+            "",
+            (
+                f"Files to create: {details['created_count']}"
+                if result.dry_run
+                else f"Files created: {details['created_count']}"
+            ),
+            (
+                f"Files to update: {details['updated_count']}"
+                if result.dry_run
+                else f"Files updated: {details['updated_count']}"
+            ),
+            (
+                f"Files to preserve: {details['preserved_count']}"
+                if result.dry_run
+                else f"Files preserved: {details['preserved_count']}"
+            ),
+            f"Conflicts: {details['conflict_count']}",
+            "",
+            "Project state:",
+            "Initialized" if details["initialized"] else "Not initialized",
+        ]
+    )
+    if result.warnings:
+        lines.extend(["", "Warnings:"])
+        lines.extend(f"- {warning}" for warning in result.warnings)
+    lines.extend(
+        [
+            "",
+            "Recommended next command:",
+            details["recommended_next_command"],
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _run_bootstrap(args: argparse.Namespace, root: Path) -> int:
+    def run(acknowledged: bool) -> MutationResult:
+        return BootstrapService(root).bootstrap(
+            BootstrapRequest(
+                name=args.name,
+                engine=args.engine,
+                engine_version=args.engine_version,
+                platform=args.platform,
+                genre=args.genre,
+                review_mode=args.review_mode,
+                force=args.force,
+                dry_run=args.dry_run,
+                acknowledged=acknowledged,
+            )
+        )
+
+    try:
+        result = run(args.yes)
+    except BootstrapError as exc:
+        if exc.stage != "confirmation" or args.json or not sys.stdin.isatty():
+            raise
+        answer = input(
+            "Replace conflicting framework-managed files while preserving "
+            "project state and reports? [y/N]: "
+        ).strip()
+        if answer.casefold() not in {"y", "yes"}:
+            print("studio bootstrap: forced refresh cancelled.", file=sys.stderr)
+            return 2
+        result = run(True)
+    if args.json:
+        _print_json(_mutation_envelope(result))
+    else:
+        print(_format_bootstrap_result(result))
     return 0
 
 
@@ -2701,6 +2847,10 @@ def _run_path(args: argparse.Namespace, root: Path) -> int:
 
 
 def _operation(args: argparse.Namespace) -> str:
+    if getattr(args, "command", None) == "bootstrap":
+        return "project.bootstrap"
+    if getattr(args, "command", None) == "framework":
+        return f"framework.{getattr(args, 'framework_command', 'unknown')}"
     if getattr(args, "command", None) == "issue":
         return f"issue.{getattr(args, 'issue_command', 'unknown')}"
     if getattr(args, "command", None) == "evidence":
@@ -2721,7 +2871,41 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     args = _parser().parse_args(argv)
     try:
+        if args.command == "bootstrap":
+            bootstrap_root = (
+                args.root.expanduser().resolve()
+                if args.root is not None
+                else Path.cwd().resolve()
+            )
+            return _run_bootstrap(args, bootstrap_root)
         root = find_project_root(explicit=args.root)
+        if args.command == "framework":
+            result = validate_framework(root)
+            if getattr(args, "json", False):
+                _print_json(
+                    _json_envelope(
+                        success=result.ok,
+                        operation="framework.validate",
+                        data={"root": str(root), "error_count": len(result.errors)},
+                        validation={
+                            "framework": "passed" if result.ok else "failed",
+                            "errors": result.errors,
+                        },
+                    )
+                )
+            elif not result.ok:
+                print(
+                    f"Framework validation failed with {len(result.errors)} error(s):",
+                    file=sys.stderr,
+                )
+                for error in result.errors:
+                    print(f"- {error}", file=sys.stderr)
+            else:
+                print(
+                    "Framework validation passed: project scaffold, source "
+                    "repository, and packaged resources are valid."
+                )
+            return 0 if result.ok else 1
         if args.command == "path":
             return _run_path(args, root)
         if args.command == "criterion":
@@ -2738,6 +2922,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_init(args, root)
         if args.command == "validate":
             result = validate_project(root)
+            if getattr(args, "json", False):
+                _print_json(
+                    _json_envelope(
+                        success=result.ok,
+                        operation="project.validate",
+                        data={"root": str(root), "error_count": len(result.errors)},
+                        validation={
+                            "project": "passed" if result.ok else "failed",
+                            "errors": result.errors,
+                        },
+                    )
+                )
+                return 0 if result.ok else 1
             if not result.ok:
                 print(
                     f"Validation failed with {len(result.errors)} error(s):",
@@ -2747,7 +2944,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     print(f"- {error}", file=sys.stderr)
                 return 1
             print(
-                "Validation passed: framework, schemas, state, and references are valid."
+                "Validation passed: project scaffold, schemas, state, reports, "
+                "and references are valid."
             )
             return 0
         if args.command == "status":
@@ -2759,6 +2957,50 @@ def main(argv: Sequence[str] | None = None) -> int:
             for path in generated:
                 print(f"- {path.relative_to(root).as_posix()}")
             return 0
+    except BootstrapConflictError as exc:
+        if getattr(args, "json", False):
+            _print_json(
+                _json_envelope(
+                    success=False,
+                    operation="project.bootstrap",
+                    dry_run=getattr(args, "dry_run", False),
+                    data={
+                        "root": str(
+                            args.root.expanduser().resolve()
+                            if args.root is not None
+                            else Path.cwd().resolve()
+                        ),
+                        "conflict_count": len(exc.conflicts),
+                        "conflicts": list(exc.conflicts),
+                    },
+                    error={
+                        "type": "conflict",
+                        "stage": exc.stage,
+                        "message": exc.message,
+                        "paths": list(exc.conflicts),
+                    },
+                )
+            )
+        else:
+            print(f"studio bootstrap: {exc.message}", file=sys.stderr)
+        return 1
+    except BootstrapError as exc:
+        if getattr(args, "json", False):
+            _print_json(
+                _json_envelope(
+                    success=False,
+                    operation="project.bootstrap",
+                    dry_run=getattr(args, "dry_run", False),
+                    error={
+                        "type": "bootstrap",
+                        "stage": exc.stage,
+                        "message": exc.message,
+                    },
+                )
+            )
+        else:
+            print(f"studio bootstrap: {exc}", file=sys.stderr)
+        return 2 if exc.stage in {"root", "confirmation", "initialization"} else 1
     except (
         CriticalPathNotFoundError,
         CriterionNotFoundError,

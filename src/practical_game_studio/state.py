@@ -21,7 +21,11 @@ STATE_FILES = {
 
 SEVERITIES = ("blocker", "critical", "major", "minor", "later")
 OPEN_ISSUE_STATUSES = {"open", "acknowledged", "in-progress", "blocked"}
-ROOT_MARKERS = ("AGENTS.md", ".studio", "pyproject.toml")
+ROOT_MARKERS = (
+    ".studio/config.json",
+    ".studio/framework.json",
+    ".studio/state/",
+)
 
 StateObject = dict[str, Any]
 CanonicalState = dict[str, StateObject]
@@ -32,17 +36,41 @@ class StateReadError(ValueError):
 
 
 def _is_project_root(path: Path) -> bool:
+    config_path = path / ".studio" / "config.json"
+    manifest_path = path / ".studio" / "framework.json"
+    if not config_path.is_file() or not manifest_path.is_file():
+        return False
+    if not (path / ".studio" / "state").is_dir():
+        return False
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
     return (
-        (path / "AGENTS.md").is_file()
-        and (path / ".studio").is_dir()
+        isinstance(config, dict)
+        and config.get("framework") == "Practical Game Studio"
+        and isinstance(manifest, dict)
+        and manifest.get("framework") == "Practical Game Studio"
+    )
+
+
+def is_framework_source_root(path: Path) -> bool:
+    """Return whether a PGS project also contains framework development sources."""
+
+    path = path.resolve()
+    return (
+        _is_project_root(path)
         and (path / "pyproject.toml").is_file()
+        and (path / "src" / "practical_game_studio" / "__init__.py").is_file()
+        and (path / "tests").is_dir()
     )
 
 
 def find_project_root(
     start: Path | None = None, *, explicit: Path | str | None = None
 ) -> Path:
-    """Resolve an explicit root or find the nearest parent with all PGS markers."""
+    """Resolve an explicit root or find the nearest parent with PGS project markers."""
 
     if explicit is not None:
         candidate = Path(explicit).expanduser().resolve()
@@ -54,7 +82,8 @@ def find_project_root(
             markers = ", ".join(ROOT_MARKERS)
             raise FileNotFoundError(
                 f"Not a Practical Game Studio root: {candidate}. "
-                f"Expected all of: {markers}."
+                f"Expected valid project markers: {markers}\n\n"
+                "Run:\nstudio bootstrap"
             )
         return candidate
 
@@ -65,9 +94,7 @@ def find_project_root(
         if _is_project_root(directory):
             return directory
     raise FileNotFoundError(
-        "No Practical Game Studio project found. "
-        "Run from a repository containing AGENTS.md, .studio/, and pyproject.toml, "
-        "or pass --root PATH."
+        "No Practical Game Studio project found.\n\nRun:\nstudio bootstrap"
     )
 
 

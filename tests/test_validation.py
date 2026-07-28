@@ -6,8 +6,14 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
+from practical_game_studio.bootstrap import BootstrapRequest, BootstrapService
+from practical_game_studio.scaffold import load_scaffold_files
 from practical_game_studio.state import StateRepository
-from practical_game_studio.validation import validate_project, validate_state
+from practical_game_studio.validation import (
+    validate_framework,
+    validate_project,
+    validate_state,
+)
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
@@ -15,6 +21,62 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 def test_repository_validates() -> None:
     result = validate_project(REPOSITORY_ROOT)
     assert result.ok, "\n".join(result.errors)
+
+
+def test_framework_repository_validates_source_and_packaged_scaffold() -> None:
+    result = validate_framework(REPOSITORY_ROOT)
+    assert result.ok, "\n".join(result.errors)
+
+
+def test_lightweight_game_project_does_not_require_framework_files(
+    tmp_path: Path,
+) -> None:
+    BootstrapService(tmp_path).bootstrap(BootstrapRequest(name="Lightweight"))
+
+    result = validate_project(tmp_path)
+
+    assert result.ok, "\n".join(result.errors)
+    assert not (tmp_path / "src").exists()
+    assert not (tmp_path / "tests").exists()
+    assert not (tmp_path / "docs").exists()
+    assert not (tmp_path / "pyproject.toml").exists()
+
+
+def test_framework_validation_rejects_lightweight_game_project(
+    tmp_path: Path,
+) -> None:
+    BootstrapService(tmp_path).bootstrap(BootstrapRequest())
+
+    result = validate_framework(tmp_path)
+
+    assert result.errors == [
+        (
+            "This is a bootstrapped PGS game project, not a GameStudioLite "
+            "framework source repository."
+        )
+    ]
+
+
+def test_framework_validation_reports_scaffold_drift_with_hashes(
+    tmp_path: Path,
+) -> None:
+    BootstrapService(tmp_path).bootstrap(BootstrapRequest())
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='fixture'\n")
+    package = tmp_path / "src" / "practical_game_studio"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("\n")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "AGENTS.md").write_text("drifted instructions\n", encoding="utf-8")
+
+    result = validate_framework(tmp_path)
+
+    assert any(
+        "Packaged scaffold differs from framework scaffold: AGENTS.md" in error
+        and "packaged sha256=" in error
+        and "framework sha256=" in error
+        for error in result.errors
+    )
+    assert load_scaffold_files()["AGENTS.md"] != (tmp_path / "AGENTS.md").read_bytes()
 
 
 def test_invalid_severity_fails_schema_validation() -> None:

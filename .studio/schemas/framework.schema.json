@@ -1,0 +1,41 @@
+{
+  "$id": "https://practical-game-studio.dev/schemas/framework.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bootstrapped_at": {
+      "format": "date-time",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "framework": {
+      "const": "Practical Game Studio"
+    },
+    "installed_from_version": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "managed_paths": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "scaffold_version": {
+      "const": "1.0"
+    }
+  },
+  "required": [
+    "framework",
+    "scaffold_version",
+    "installed_from_version",
+    "bootstrapped_at",
+    "managed_paths"
+  ],
+  "title": "PGS Bootstrap Manifest",
+  "type": "object"
+}
