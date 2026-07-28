@@ -145,3 +145,7 @@ transition milestones/project phases, execute workflows, control an engine,
 ingest media/telemetry, implement game code, or orchestrate agents.
 Verification rules depend on explicit policies and canonical relationships,
 never language-specific keyword detection.
+
+GitHub Actions validates path behavior on Ubuntu/Python 3.11 and 3.12 and
+Windows/Python 3.11. The Windows job runs `studio path check` in a temporary
+copied repository so the canonical sample path remains untouched.

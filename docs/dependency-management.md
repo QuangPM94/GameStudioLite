@@ -107,3 +107,7 @@ New ordering relationships should use the dedicated registry; representing the
 same active edge in both forms is invalid. Phase C2 supports only the hard
 `requires` relationship, not soft/informational edges, evidence endpoints,
 automatic workflow execution, or milestone progression.
+
+Cross-platform CI exercises dependency tests and runs `studio dependency list`
+inside a temporary copied repository on Windows; it does not mutate the
+checked-in dependency registry.

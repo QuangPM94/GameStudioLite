@@ -6,6 +6,7 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Cross-platform GitHub Actions validation for Ubuntu/Python 3.11 and 3.12 plus Windows/Python 3.11, including copied-repository CLI smoke coverage.
 - C2.1 canonical typed dependency-satisfaction verdicts shared by dependency display, validation, and critical-path closure, including actionable terminal-unsatisfied diagnostics.
 - Explicit criterion verification policies with multilingual player-behavior tests and policy-specific evidence source/classification rules.
 - Phase C2 typed dependency and milestone-criterion services with stable historical IDs, explicit lifecycle, deterministic graph validation, explicit evidence evaluation, and append-only evaluation history.

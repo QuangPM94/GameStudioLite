@@ -106,3 +106,6 @@ marks the critical path stale, preserves evaluation history, and recommends
 
 Phase C2 does not automatically infer support, progress milestones, change
 workflow phase, reactivate retired criteria, or execute verification work.
+
+Cross-platform CI exercises policy/schema/service/CLI/reporting behavior and
+runs `studio criterion list` in a temporary copied repository on Windows.

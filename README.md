@@ -44,6 +44,12 @@ ruff check src tests
 pytest
 ```
 
+GitHub Actions runs the same validation on every push and pull request across
+Ubuntu/Python 3.11, Ubuntu/Python 3.12, and Windows/Python 3.11. The Windows
+job also runs read-only criterion, dependency, and path CLI smoke commands in a
+temporary copied repository, so checked-in canonical state is not used as a
+smoke-test sandbox.
+
 `studio init` initializes only project identity and conservatively detects Unity, Godot, or Unreal indicators. Then open the repository with Codex and ask for `/start`. Aliases such as `/clarify` and `/prototype-plan` are prompt conventions interpreted through `AGENTS.md`, not guaranteed native slash commands.
 
 Preview initialization without writing:

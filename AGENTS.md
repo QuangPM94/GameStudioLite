@@ -117,6 +117,8 @@ studio status
 
 Run engine-specific build or smoke checks when an engine project exists. Report failed and unverified checks accurately. Do not turn inference into observed evidence.
 
+GitHub Actions repeats framework validation on Ubuntu/Python 3.11 and 3.12 and Windows/Python 3.11. Windows CLI smoke commands must run in a temporary copied repository and must not mutate checked-in canonical sample state.
+
 ## Completion response
 
 Every workflow response must end with a Direction Summary containing:
