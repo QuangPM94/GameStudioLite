@@ -24,10 +24,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
 
@@ -49,11 +49,134 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q src tests
 
-      - name: Validate canonical framework state
+      - name: Validate framework source and packaged scaffold
+        run: studio framework validate
+
+      - name: Validate canonical game-project state
         run: studio validate
 
       - name: Render reports
         run: studio report
+
+      - name: Build source and wheel distributions
+        run: python -m build
+
+      - name: Run isolated wheel distribution tests
+        if: matrix.python == '3.11'
+        run: python -m pytest tests/test_distribution.py
+
+      - name: Smoke wheel bootstrap and multi-project isolation
+        if: matrix.python == '3.11'
+        shell: pwsh
+        run: |
+          $smokeRoot = Join-Path $env:RUNNER_TEMP ("pgs-wheel-smoke-" + [guid]::NewGuid())
+          $venvRoot = Join-Path $smokeRoot "venv"
+          $gameA = Join-Path $smokeRoot "GameA"
+          $gameB = Join-Path $smokeRoot "GameB"
+          New-Item -ItemType Directory -Path $smokeRoot | Out-Null
+
+          python -m venv $venvRoot
+          if ($LASTEXITCODE -ne 0) {
+            throw "wheel smoke venv creation failed with exit code $LASTEXITCODE"
+          }
+
+          if ($IsWindows) {
+            $venvPython = Join-Path $venvRoot "Scripts/python.exe"
+            $studio = Join-Path $venvRoot "Scripts/studio.exe"
+          }
+          else {
+            $venvPython = Join-Path $venvRoot "bin/python"
+            $studio = Join-Path $venvRoot "bin/studio"
+          }
+          $wheel = Get-ChildItem -LiteralPath "dist" -Filter "*.whl" -File |
+            Sort-Object Name |
+            Select-Object -First 1
+          if ($null -eq $wheel) {
+            throw "wheel smoke could not find a built wheel"
+          }
+
+          & $venvPython -m pip install $wheel.FullName
+          if ($LASTEXITCODE -ne 0) {
+            throw "wheel smoke install failed with exit code $LASTEXITCODE"
+          }
+          New-Item -ItemType Directory -Path $gameA, $gameB | Out-Null
+
+          Push-Location $gameA
+          try {
+            & $studio bootstrap
+            if ($LASTEXITCODE -ne 0) {
+              throw "GameA bootstrap failed with exit code $LASTEXITCODE"
+            }
+            & $studio init --name "CI Game A"
+            if ($LASTEXITCODE -ne 0) {
+              throw "GameA init failed with exit code $LASTEXITCODE"
+            }
+            $issueAOutput = & $studio issue add `
+              --title "Game A issue" `
+              --severity minor `
+              --description "Isolation smoke for Game A." `
+              --yes `
+              --json
+            $issueAExit = $LASTEXITCODE
+            if ($issueAExit -ne 0) {
+              $issueAOutput
+              throw "GameA issue add failed with exit code $issueAExit"
+            }
+            $issueA = ($issueAOutput -join "`n" | ConvertFrom-Json)
+            & $studio validate
+            if ($LASTEXITCODE -ne 0) {
+              throw "GameA validate failed with exit code $LASTEXITCODE"
+            }
+          }
+          finally {
+            Pop-Location
+          }
+
+          Push-Location $gameB
+          try {
+            & $studio bootstrap
+            if ($LASTEXITCODE -ne 0) {
+              throw "GameB bootstrap failed with exit code $LASTEXITCODE"
+            }
+            & $studio init --name "CI Game B"
+            if ($LASTEXITCODE -ne 0) {
+              throw "GameB init failed with exit code $LASTEXITCODE"
+            }
+            $issueBOutput = & $studio issue add `
+              --title "Game B issue" `
+              --severity minor `
+              --description "Isolation smoke for Game B." `
+              --yes `
+              --json
+            $issueBExit = $LASTEXITCODE
+            if ($issueBExit -ne 0) {
+              $issueBOutput
+              throw "GameB issue add failed with exit code $issueBExit"
+            }
+            $issueB = ($issueBOutput -join "`n" | ConvertFrom-Json)
+            & $studio validate
+            if ($LASTEXITCODE -ne 0) {
+              throw "GameB validate failed with exit code $LASTEXITCODE"
+            }
+          }
+          finally {
+            Pop-Location
+          }
+
+          if ($issueA.data.issue.id -ne "ISS-0001" -or
+              $issueB.data.issue.id -ne "ISS-0001") {
+            throw "projects did not allocate independent ISS-0001 IDs"
+          }
+          $projectA = Get-Content -Raw -LiteralPath (
+            Join-Path $gameA ".studio/state/project.json"
+          ) | ConvertFrom-Json
+          $projectB = Get-Content -Raw -LiteralPath (
+            Join-Path $gameB ".studio/state/project.json"
+          ) | ConvertFrom-Json
+          if ($projectA.project_name -ne "CI Game A" -or
+              $projectB.project_name -ne "CI Game B") {
+            throw "project identities crossed during isolation smoke"
+          }
 
       - name: Check patch whitespace
         run: git diff --check

@@ -6,6 +6,9 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Cross-platform C2.2 distribution CI: source/wheel builds, isolated wheel
+  installation, lightweight bootstrap/init/validation, and two-project state
+  isolation smoke on Ubuntu and Windows Python 3.11.
 - Phase C2.2 lightweight `studio bootstrap` for empty or existing game
   repositories, including staged validation, managed-file conflict detection,
   protected state/reports, deterministic dry runs, rollback, and JSON output.
@@ -45,6 +48,8 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Changed
 
+- GitHub Actions checkout/setup-python actions move to Node 24-based stable
+  majors to remove Node 20 deprecation warnings.
 - `studio validate` now validates a lightweight game project; framework source,
   tests, docs, package metadata, and scaffold synchronization are checked by
   `studio framework validate`.

@@ -112,6 +112,13 @@ no-op. See `docs/project-bootstrap.md`.
 Editable and wheel installation, package-resource verification, and the
 installed-tool/game-project boundary are documented in `docs/distribution.md`.
 
+GitHub Actions validates Ubuntu/Python 3.11 and 3.12 plus Windows/Python 3.11.
+Every job runs lint, the full test suite, compilation, project/framework
+validation, report freshness, and package build. Ubuntu/Python 3.11 and
+Windows/Python 3.11 additionally install the built wheel, bootstrap two
+temporary lightweight projects, initialize/validate them, and prove
+independent `ISS-0001` allocation.
+
 ## Initialization behavior
 
 The only essential first-run value is the project name. Engine, engine version, platform, and genre may remain explicitly unknown (`null`). Review mode defaults to `guided`.

@@ -82,3 +82,12 @@ bootstrap timestamp, and managed paths without machine-specific installation
 locations. C2.2 uses it for ownership and conflict detection. It does not
 implement scaffold upgrades or state-schema migrations; those require a future
 explicit migration command with version-aware preservation rules.
+
+## Continuous integration
+
+The CI matrix builds both sdist and wheel on Ubuntu/Python 3.11 and 3.12 and
+Windows/Python 3.11. The Python 3.11 jobs on Ubuntu and Windows install the
+built wheel into a fresh virtual environment, bootstrap two temporary game
+projects, initialize and validate both, and confirm each independently
+allocates `ISS-0001`. No engine installation is required and the checked-in
+framework state is not used as a destructive smoke-test target.
