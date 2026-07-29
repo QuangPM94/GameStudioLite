@@ -6,7 +6,7 @@ Create, update, evaluate, and retire the current milestone's success criteria, a
 
 ## When to use
 
-Use for `/milestone-criteria` when a milestone needs explicit success criteria defined, an existing criterion needs correction, new evidence should be checked against a criterion, or a criterion no longer applies.
+Use for `GS:milestone-criteria` when a milestone needs explicit success criteria defined, an existing criterion needs correction, new evidence should be checked against a criterion, or a criterion no longer applies. Legacy alias: `/milestone-criteria`.
 
 ## Required inputs
 
@@ -56,7 +56,7 @@ Every touched criterion has a concrete completion condition, an explicit verific
 
 ## Next recommended workflows
 
-`/milestone-review` when enough criteria are evaluated to support a milestone recommendation; `/critical-path` when an unresolved criterion gates the path; otherwise `/next-step`.
+`GS:milestone-review` when enough criteria are evaluated to support a milestone recommendation; `GS:critical-path` when an unresolved criterion gates the path; otherwise `GS:next-step`.
 
 ## Failure and blocker behavior
 

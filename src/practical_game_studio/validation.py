@@ -176,6 +176,7 @@ FRAMEWORK_REQUIRED_FILES = (
     "src/practical_game_studio/initialization.py",
     "src/practical_game_studio/issues.py",
     "src/practical_game_studio/evidence.py",
+    "src/practical_game_studio/workflow_commands.py",
     "tests/conftest.py",
     "tests/__init__.py",
     "tests/fixtures/README.md",
@@ -190,6 +191,8 @@ FRAMEWORK_REQUIRED_FILES = (
     "tests/test_validation.py",
     "tests/test_reporting.py",
     "tests/test_catalog.py",
+    "tests/test_ai_agent_workflows.py",
+    "tests/test_workflow_commands.py",
     "tests/test_initialization.py",
     "tests/test_transaction.py",
     "tests/test_cli.py",
@@ -311,6 +314,9 @@ def _validate_framework_manifest(
 
 
 WORKFLOW_SCOPES = {"phase", "cross-phase"}
+WORKFLOW_ID_PATTERN = re.compile(r"^[a-z]+(-[a-z]+)*$")
+CANONICAL_INVOCATION_PATTERN = re.compile(r"^GS:[a-z]+(-[a-z]+)*$")
+DISALLOWED_CANONICAL_PREFIXES = ("/", "\\", "@", "!")
 
 
 def _validate_catalog(
@@ -321,11 +327,23 @@ def _validate_catalog(
     phase_ids = [phase.get("id") for phase in phases]
     aliases = [workflow.get("alias") for workflow in workflows]
     alias_set = set(aliases)
+    # "id" and "canonical" are optional so a catalog written before the
+    # GS: canonical-invocation representation existed (an already-bootstrapped
+    # project) continues to validate exactly as before, without silent
+    # migration.
+    workflow_ids = [workflow["id"] for workflow in workflows if "id" in workflow]
+    canonicals = [
+        workflow["canonical"] for workflow in workflows if "canonical" in workflow
+    ]
 
     if len(phase_ids) != len(set(phase_ids)):
         result.add(".studio/workflow-catalog.json: duplicate phase id")
     if len(aliases) != len(alias_set):
         result.add(".studio/workflow-catalog.json: duplicate workflow alias")
+    if len(workflow_ids) != len(set(workflow_ids)):
+        result.add(".studio/workflow-catalog.json: duplicate workflow id")
+    if len(canonicals) != len(set(canonicals)):
+        result.add(".studio/workflow-catalog.json: duplicate canonical invocation")
     for phase in phases:
         phase_id = phase.get("id")
         if phase_id not in PHASES:
@@ -337,6 +355,44 @@ def _validate_catalog(
                 )
     for workflow in workflows:
         alias = workflow.get("alias", "<missing>")
+        expected_id = alias.removeprefix("/")
+
+        if "id" in workflow:
+            workflow_id = workflow["id"]
+            if not WORKFLOW_ID_PATTERN.match(workflow_id):
+                result.add(
+                    f".studio/workflow-catalog.json: {alias} has a malformed "
+                    f"workflow id '{workflow_id}'"
+                )
+            elif workflow_id != expected_id:
+                result.add(
+                    f".studio/workflow-catalog.json: {alias} id '{workflow_id}' "
+                    f"does not match alias"
+                )
+
+        if "canonical" in workflow:
+            canonical = workflow["canonical"]
+            if canonical.startswith(DISALLOWED_CANONICAL_PREFIXES):
+                result.add(
+                    f".studio/workflow-catalog.json: {alias} canonical invocation "
+                    f"'{canonical}' must not start with a special character"
+                )
+            elif not CANONICAL_INVOCATION_PATTERN.match(canonical):
+                result.add(
+                    f".studio/workflow-catalog.json: {alias} has a malformed "
+                    f"canonical invocation '{canonical}'"
+                )
+            elif canonical != f"GS:{expected_id}":
+                result.add(
+                    f".studio/workflow-catalog.json: {alias} canonical invocation "
+                    f"'{canonical}' does not match its workflow id"
+                )
+            if canonical in alias_set:
+                result.add(
+                    f".studio/workflow-catalog.json: canonical invocation "
+                    f"'{canonical}' conflicts with a legacy alias"
+                )
+
         # A workflow defaults to "phase" scope so catalogs written before the
         # cross-phase representation existed (already-bootstrapped projects)
         # continue to validate exactly as before, without silent migration.

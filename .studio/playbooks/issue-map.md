@@ -6,7 +6,7 @@ Convert findings into a small, connected map of problems that affect the milesto
 
 ## When to use
 
-Use for `/issue-map` after a build or player review.
+Use for `GS:issue-map` after a build or player review. Legacy alias: `/issue-map`.
 
 ## Required inputs
 
@@ -53,7 +53,7 @@ Every material finding is mapped, deliberately deferred, or marked unknown witho
 
 ## Next recommended workflows
 
-`/critical-path`.
+`GS:critical-path`.
 
 ## Failure and blocker behavior
 

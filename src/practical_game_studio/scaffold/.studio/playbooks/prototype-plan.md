@@ -6,7 +6,7 @@ Define the smallest playable loop that can answer the prototype question.
 
 ## When to use
 
-Use for `/prototype-plan` after a falsifiable hypothesis exists.
+Use for `GS:prototype-plan` after a falsifiable hypothesis exists. Legacy alias: `/prototype-plan`.
 
 ## Required inputs
 
@@ -52,7 +52,7 @@ The prototype can be implemented without unresolved critical design ambiguity.
 
 ## Next recommended workflows
 
-`/build-prototype` when ready; `/clarify` for unresolved core design.
+`GS:build-prototype` when ready; `GS:clarify` for unresolved core design.
 
 ## Failure and blocker behavior
 

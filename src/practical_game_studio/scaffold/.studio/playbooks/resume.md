@@ -6,7 +6,7 @@ Continue an existing project from its current recorded state at the start of a n
 
 ## When to use
 
-Use for `/resume` whenever an AI-agent session opens on a project that already has `.studio/state/`. This is the normal entrypoint for a new session on an existing project; it is distinct from `/start`, which also inspects a project that may not yet have identity or history.
+Use for `GS:resume` whenever an AI-agent session opens on a project that already has `.studio/state/`. This is the normal entrypoint for a new session on an existing project; it is distinct from `GS:start`, which also inspects a project that may not yet have identity or history. Legacy aliases: `/resume`, `/start`.
 
 ## Required inputs
 
@@ -22,7 +22,7 @@ A stated user goal for this session.
 
 ## State changes
 
-None. `/resume` is read-only. It never runs `studio bootstrap` or `studio init`, and it never resets phase, milestone, issues, decisions, evidence, dependencies, criteria, reports, or history.
+None. `GS:resume` is read-only. It never runs `studio bootstrap` or `studio init`, and it never resets phase, milestone, issues, decisions, evidence, dependencies, criteria, reports, or history.
 
 ## Execution procedure
 
@@ -31,7 +31,7 @@ None. `/resume` is read-only. It never runs `studio bootstrap` or `studio init`,
 3. Read the current phase, milestone, build status, open issues, pending decisions, and unresolved criteria directly from state; do not infer them from chat history.
 4. Do not run `studio bootstrap` or `studio init`. Do not restart intake automatically, even if the conversation looks like a first session.
 5. If `studio path check` reports the path is fresh, identify the exact ready `CP-` item from `studio path show`.
-6. If the path is stale or absent, say so explicitly and recommend `/critical-path` to recalculate; do not calculate it from inside `/resume`.
+6. If the path is stale or absent, say so explicitly and recommend `GS:critical-path` to recalculate; do not calculate it from inside `GS:resume`.
 7. Route to the exact next workflow implied by current state (the recommended workflow in `project.json`, the ready path item, or an open decision), without expanding scope.
 8. Return the Direction Summary.
 
@@ -45,7 +45,7 @@ A current-state summary, the exact next workflow alias, and the ready critical-p
 
 ## Validation
 
-Run `studio status`, `studio path check`, and `studio path show`. `/resume` performs no writes, so `studio validate` is only needed if state looked inconsistent.
+Run `studio status`, `studio path check`, and `studio path show`. `GS:resume` performs no writes, so `studio validate` is only needed if state looked inconsistent.
 
 ## Completion criteria
 
@@ -53,7 +53,7 @@ The user has an accurate picture of current phase, milestone, blockers, and one 
 
 ## Next recommended workflows
 
-Exactly the routed alias: `/project-status`, `/critical-path`, `/next-step`, or the specific phase workflow that continues the current milestone.
+Exactly the routed alias: `GS:project-status`, `GS:critical-path`, `GS:next-step`, or the specific phase workflow that continues the current milestone.
 
 ## Failure and blocker behavior
 

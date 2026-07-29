@@ -6,7 +6,7 @@ Turn an idea into a concise brief and falsifiable prototype hypothesis.
 
 ## When to use
 
-Use for `/clarify`, Phase 1, a vague concept, or a prototype without a clear question. Run `studio init` first if project identity is still the placeholder.
+Use for `GS:clarify`, Phase 1, a vague concept, or a prototype without a clear question. Run `studio init` first if project identity is still the placeholder. Legacy alias: `/clarify`.
 
 ## Required inputs
 
@@ -54,7 +54,7 @@ A falsifiable prototype hypothesis exists. If strategic input is pending, keep t
 
 ## Next recommended workflows
 
-`/prototype-plan` after hypothesis approval; `/clarify` again when a blocking decision remains.
+`GS:prototype-plan` after hypothesis approval; `GS:clarify` again when a blocking decision remains.
 
 ## Failure and blocker behavior
 

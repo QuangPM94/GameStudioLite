@@ -6,7 +6,7 @@ Record a claim and its source using the evidence model, with an honest classific
 
 ## When to use
 
-Use for `/record-evidence` whenever a claim about the game, build, or player experience needs to be captured with its source and confidence, separate from recording a problem.
+Use for `GS:record-evidence` whenever a claim about the game, build, or player experience needs to be captured with its source and confidence, separate from recording a problem. Legacy alias: `/record-evidence`.
 
 ## Required inputs
 
@@ -35,7 +35,7 @@ Create or update exactly one evidence record with `studio evidence add` or `stud
 7. Capture the resulting `EVD-` identifier.
 8. Run `studio validate`.
 9. Run `studio path check`; do not recalculate unless required.
-10. Do not treat the existence of this evidence as verifying any milestone criterion; that requires an explicit `/milestone-criteria` evaluation.
+10. Do not treat the existence of this evidence as verifying any milestone criterion; that requires an explicit `GS:milestone-criteria` evaluation.
 11. Return the Direction Summary.
 
 ## User decision points
@@ -56,7 +56,7 @@ Exactly one evidence record accurately reflects the claim, its true classificati
 
 ## Next recommended workflows
 
-`/milestone-criteria` when the evidence addresses a specific criterion's completion condition; `/report-issue` when the evidence reveals a new problem; otherwise `/next-step`.
+`GS:milestone-criteria` when the evidence addresses a specific criterion's completion condition; `GS:report-issue` when the evidence reveals a new problem; otherwise `GS:next-step`.
 
 ## Failure and blocker behavior
 

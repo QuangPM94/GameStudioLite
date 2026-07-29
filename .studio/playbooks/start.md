@@ -6,7 +6,7 @@ Inspect the repository and route the user to the smallest appropriate entry work
 
 ## When to use
 
-Use for a new session, an unknown project, `/start`, or uncertain workflow intent. If `project_name` is still `Untitled Game`, initialize identity first with `studio init`.
+Use for a new session, an unknown project, `GS:start`, or uncertain workflow intent. If `project_name` is still `Untitled Game`, initialize identity first with `studio init`. Legacy alias: `/start`.
 
 ## Required inputs
 
@@ -54,7 +54,7 @@ The repository stage and build accessibility are recorded without unsupported cl
 
 ## Next recommended workflows
 
-`/clarify` for an unclear hypothesis; `/prototype-plan` for a clear hypothesis; `/review-build` for an existing accessible build.
+`GS:clarify` for an unclear hypothesis; `GS:prototype-plan` for a clear hypothesis; `GS:review-build` for an existing accessible build.
 
 ## Failure and blocker behavior
 

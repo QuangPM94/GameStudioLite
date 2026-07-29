@@ -171,3 +171,131 @@ def test_legacy_catalog_without_scope_field_still_validates(
     result = validate_project(framework_repo)
 
     assert result.ok, "\n".join(result.errors)
+
+
+def test_legacy_catalog_without_id_or_canonical_fields_still_validates(
+    framework_repo: Path,
+) -> None:
+    """A catalog written before GS:<workflow> canonical invocations existed
+    (no "id"/"canonical" fields at all) must continue to validate exactly as
+    before, without silent migration."""
+
+    catalog_path = framework_repo / ".studio" / "workflow-catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    for workflow in catalog["workflows"]:
+        workflow.pop("id", None)
+        workflow.pop("canonical", None)
+    catalog["catalog_version"] = "1.1"
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    result = validate_project(framework_repo)
+
+    assert result.ok, "\n".join(result.errors)
+
+
+def test_every_canonical_invocation_is_unique_and_disjoint_from_legacy_aliases() -> (
+    None
+):
+    catalog = _load_catalog()
+    canonicals = [workflow["canonical"] for workflow in catalog["workflows"]]
+    aliases = {workflow["alias"] for workflow in catalog["workflows"]}
+
+    assert len(canonicals) == len(set(canonicals))
+    assert set(canonicals).isdisjoint(aliases)
+    for canonical in canonicals:
+        assert canonical.startswith("GS:")
+        assert not canonical.startswith(("/", "\\", "@", "!"))
+
+
+def test_canonical_invocation_id_and_alias_stay_consistent() -> None:
+    catalog = _load_catalog()
+    for workflow in catalog["workflows"]:
+        assert workflow["canonical"] == f"GS:{workflow['id']}"
+        assert workflow["alias"] == f"/{workflow['id']}"
+
+
+def test_duplicate_canonical_invocation_fails_validation(
+    framework_repo: Path,
+) -> None:
+    catalog_path = framework_repo / ".studio" / "workflow-catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    for workflow in catalog["workflows"]:
+        if workflow["alias"] == "/next-step":
+            workflow["canonical"] = "GS:critical-path"
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    result = validate_project(framework_repo)
+
+    assert any("duplicate canonical invocation" in error for error in result.errors)
+
+
+def test_malformed_canonical_invocation_fails_validation(
+    framework_repo: Path,
+) -> None:
+    catalog_path = framework_repo / ".studio" / "workflow-catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    for workflow in catalog["workflows"]:
+        if workflow["alias"] == "/clarify":
+            workflow["canonical"] = "GS:Clarify"
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    result = validate_project(framework_repo)
+
+    assert any("malformed canonical invocation" in error for error in result.errors)
+
+
+def test_slash_prefixed_canonical_invocation_fails_validation(
+    framework_repo: Path,
+) -> None:
+    catalog_path = framework_repo / ".studio" / "workflow-catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    for workflow in catalog["workflows"]:
+        if workflow["alias"] == "/clarify":
+            workflow["canonical"] = "/GS:clarify"
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    result = validate_project(framework_repo)
+
+    assert any(
+        "must not start with a special character" in error for error in result.errors
+    )
+
+
+def test_canonical_invocation_conflicting_with_a_legacy_alias_fails_validation(
+    framework_repo: Path,
+) -> None:
+    catalog_path = framework_repo / ".studio" / "workflow-catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    for workflow in catalog["workflows"]:
+        if workflow["alias"] == "/clarify":
+            workflow["canonical"] = "/critical-path"
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    result = validate_project(framework_repo)
+
+    assert any("conflicts with a legacy alias" in error for error in result.errors)
+
+
+def test_mismatched_workflow_id_fails_validation(framework_repo: Path) -> None:
+    catalog_path = framework_repo / ".studio" / "workflow-catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    for workflow in catalog["workflows"]:
+        if workflow["alias"] == "/clarify":
+            workflow["id"] = "clarification"
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    result = validate_project(framework_repo)
+
+    assert any("does not match alias" in error for error in result.errors)

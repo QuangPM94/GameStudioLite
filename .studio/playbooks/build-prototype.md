@@ -6,7 +6,7 @@ Deliver a launchable prototype increment that tests the approved hypothesis.
 
 ## When to use
 
-Use for `/build-prototype` when the prototype plan has no unresolved critical design ambiguity.
+Use for `GS:build-prototype` when the prototype plan has no unresolved critical design ambiguity. Legacy alias: `/build-prototype`.
 
 ## Required inputs
 
@@ -51,7 +51,7 @@ The prototype launches and can be tested, or a specific blocker with recommended
 
 ## Next recommended workflows
 
-`/review-build` after delivery; `/critical-path` when blocked.
+`GS:review-build` after delivery; `GS:critical-path` when blocked.
 
 ## Failure and blocker behavior
 

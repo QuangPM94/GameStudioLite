@@ -6,7 +6,7 @@ Calculate the smallest ordered set of work whose delay most directly delays the 
 
 ## When to use
 
-Use for `/critical-path` after planning, issue mapping, a blocker, or a material issue, evidence, decision, dependency, or milestone change.
+Use for `GS:critical-path` after planning, issue mapping, a blocker, or a material issue, evidence, decision, dependency, or milestone change. Legacy alias: `/critical-path`.
 
 ## Required inputs
 
@@ -56,7 +56,7 @@ The path is current, every active item has a direct milestone-delay explanation 
 
 ## Next recommended workflows
 
-`/next-step`, `/iterate`, `/build-prototype`, or the workflow that executes the exact recommended item.
+`GS:next-step`, `GS:iterate`, `GS:build-prototype`, or the workflow that executes the exact recommended item.
 
 ## Failure and blocker behavior
 

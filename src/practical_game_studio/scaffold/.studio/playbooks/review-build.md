@@ -6,7 +6,7 @@ Verify build accessibility, scope compliance, technical stability, and readiness
 
 ## When to use
 
-Use for `/review-build` after a build increment or when adopting an existing build.
+Use for `GS:review-build` after a build increment or when adopting an existing build. Legacy alias: `/review-build`.
 
 ## Required inputs
 
@@ -53,7 +53,7 @@ Launchability and review readiness are evidenced or a concrete blocking issue is
 
 ## Next recommended workflows
 
-`/playtest-review` when evidence is sufficient; `/critical-path` when blocked.
+`GS:playtest-review` when evidence is sufficient; `GS:critical-path` when blocked.
 
 ## Failure and blocker behavior
 

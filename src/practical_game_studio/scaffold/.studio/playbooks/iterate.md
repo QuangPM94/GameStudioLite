@@ -6,7 +6,7 @@ Implement the highest-value change and gather evidence against updated prototype
 
 ## When to use
 
-Use for `/iterate` after issue mapping and critical-path selection.
+Use for `GS:iterate` after issue mapping and critical-path selection. Legacy alias: `/iterate`.
 
 ## Required inputs
 
@@ -55,7 +55,7 @@ The target issue is resolved, deliberately accepted, or remains blocked with bet
 
 ## Next recommended workflows
 
-`/playtest-review`, `/critical-path`, or `/milestone-review` depending on evidence.
+`GS:playtest-review`, `GS:critical-path`, or `GS:milestone-review` depending on evidence.
 
 ## Failure and blocker behavior
 

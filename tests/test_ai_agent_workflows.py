@@ -3,12 +3,19 @@ aliases, their playbooks, and the documentation that describes them."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PLAYBOOKS_DIR = REPOSITORY_ROOT / ".studio" / "playbooks"
+CATALOG = json.loads(
+    (REPOSITORY_ROOT / ".studio" / "workflow-catalog.json").read_text(encoding="utf-8")
+)
+ALL_CANONICAL_COMMANDS = tuple(
+    workflow["canonical"] for workflow in CATALOG["workflows"]
+)
 NEW_ALIASES = (
     "/resume",
     "/project-status",
@@ -44,6 +51,20 @@ def _section(text: str, heading: str) -> str:
 def test_readme_references_every_user_facing_alias(alias: str) -> None:
     readme = _read("README.md")
     assert f"`{alias}`" in readme, f"README.md does not document {alias}"
+
+
+@pytest.mark.parametrize("canonical", ALL_CANONICAL_COMMANDS)
+def test_readme_documents_every_canonical_command(canonical: str) -> None:
+    readme = _read("README.md")
+    assert f"`{canonical}`" in readme, f"README.md does not document {canonical}"
+
+
+def test_readme_explains_gs_syntax_works_across_ai_clients() -> None:
+    readme = _read("README.md").lower()
+    assert "plain text" in readme
+    assert "slash command" in readme
+    assert "@" in readme
+    assert "mention" in readme
 
 
 def test_agents_md_explains_cli_backed_mutation() -> None:
@@ -84,7 +105,9 @@ def test_next_step_is_read_only_by_contract() -> None:
     text = _playbook("next-step")
     state_changes = _section(text, "State changes").lower()
     assert "read-only" in state_changes
-    assert "do not run `studio path calculate` from inside `/next-step`" in text.lower()
+    assert (
+        "do not run `studio path calculate` from inside `gs:next-step`" in text.lower()
+    )
 
 
 def test_resume_prohibits_normal_bootstrap_and_init() -> None:

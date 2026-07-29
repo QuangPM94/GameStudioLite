@@ -6,7 +6,7 @@ Evaluate the intended experience across relevant player profiles using available
 
 ## When to use
 
-Use for `/playtest-review` with source/specification, screenshots, video, runtime, logs, telemetry, or human playtest notes.
+Use for `GS:playtest-review` with source/specification, screenshots, video, runtime, logs, telemetry, or human playtest notes. Legacy alias: `/playtest-review`.
 
 ## Required inputs
 
@@ -55,7 +55,7 @@ Findings distinguish observation from inference and are sufficient to map issues
 
 ## Next recommended workflows
 
-`/issue-map` when findings exist; `/review-build` when runtime access is the primary gap.
+`GS:issue-map` when findings exist; `GS:review-build` when runtime access is the primary gap.
 
 ## Failure and blocker behavior
 

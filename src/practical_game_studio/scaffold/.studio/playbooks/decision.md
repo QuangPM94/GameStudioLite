@@ -6,7 +6,7 @@ Create, update, and resolve meaningful project decisions without substituting an
 
 ## When to use
 
-Use for `/decision` when a question needs explicit options and trade-offs, when an existing decision needs refinement, or when the user has made a final choice that must be recorded.
+Use for `GS:decision` when a question needs explicit options and trade-offs, when an existing decision needs refinement, or when the user has made a final choice that must be recorded. Legacy alias: `/decision`.
 
 ## Required inputs
 
@@ -56,7 +56,7 @@ The decision record reflects the actual question, options, and trade-offs, and i
 
 ## Next recommended workflows
 
-`/critical-path` when the resolution unblocks gated work; otherwise `/next-step`.
+`GS:critical-path` when the resolution unblocks gated work; otherwise `GS:next-step`.
 
 ## Failure and blocker behavior
 

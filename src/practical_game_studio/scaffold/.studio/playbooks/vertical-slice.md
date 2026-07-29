@@ -6,7 +6,7 @@ Decide whether prototype evidence justifies a representative-quality vertical sl
 
 ## When to use
 
-Use for `/vertical-slice` after critical prototype issues are resolved or deliberately accepted.
+Use for `GS:vertical-slice` after critical prototype issues are resolved or deliberately accepted. Legacy alias: `/vertical-slice`.
 
 ## Required inputs
 
@@ -53,7 +53,7 @@ One evidence-backed verdict exists and the next milestone/action is explicit.
 
 ## Next recommended workflows
 
-For `PROCEED`, a future bounded vertical-slice planning workflow; otherwise `/iterate`, `/clarify`, or `/next-step`.
+For `PROCEED`, a future bounded vertical-slice planning workflow; otherwise `GS:iterate`, `GS:clarify`, or `GS:next-step`.
 
 ## Failure and blocker behavior
 

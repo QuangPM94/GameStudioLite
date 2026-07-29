@@ -69,41 +69,53 @@ Use `studio path check` before recommending major next work. If the milestone pa
 
 ## Workflow selection
 
-Interpret aliases as workflow requests routed through this file, not guaranteed native slash commands in every AI client. When an alias is not recognized natively, treat plain language such as "Read AGENTS.md and execute the /report-issue workflow" as an equivalent request. Match an explicit alias first, then infer the nearest workflow from the user's intent. Always load the playbook named below before acting; do not improvise a workflow's behavior from its name alone.
+### Canonical invocation syntax
+
+`GS:<workflow>` (for example `GS:clarify`, `GS:report-issue`) is the canonical, user-facing way to request a workflow. It is plain text, not a native slash command, so it works the same in any AI client — including ones that intercept `/` as a client-level slash command or reserve `@` for mentions.
+
+Any user message whose first non-whitespace text matches `GS:<workflow>` is a GameStudioLite workflow request:
+
+- Leading/trailing whitespace around the command is tolerated; the command itself must be exactly `GS:` (uppercase, one colon) immediately followed by the workflow id, with no space around the colon.
+- Everything after that first command line is the workflow's input, not part of the command.
+- The workflow id is always the punctuation-free, lowercase kebab-case internal id (`clarify`, `report-issue`, `critical-path`, ...) — never a leading `/`, `\`, `@`, `!`, or other special character, and never uppercase.
+- If the id after `GS:` is not a known workflow, do not guess which one was meant. Say it is unrecognized and list the valid `GS:<workflow>` commands from `.studio/workflow-catalog.json`.
+- A malformed attempt (`GS:` with no id, `GS:/clarify`, `GS:Clarify`) is also not a valid command; treat it the same as an unknown workflow rather than silently accepting it.
+
+Existing `/<workflow>` slash aliases (for example `/clarify`) remain supported as **legacy aliases** for backward compatibility, and native slash-command support in a given AI client is never required. New instructions and examples should prefer `GS:<workflow>`. When neither form is recognized natively, plain language such as "Read AGENTS.md and execute the GS:report-issue workflow" is an equivalent request. Match an explicit `GS:` command or legacy alias first, then infer the nearest workflow from the user's intent. Always load the playbook named below before acting; do not improvise a workflow's behavior from its name alone.
 
 Phase workflows (below) belong to the linear milestone pipeline. Cross-phase workflows are utility commands usable in any phase; they are never assigned to a phase merely because the catalog historically required one.
 
 ### Phase workflows
 
-| Alias | Playbook | Primary roles |
-|---|---|---|
-| `/start` | `.studio/playbooks/start.md` | Producer, Technical Lead |
-| `/clarify` | `.studio/playbooks/clarify.md` | Game Designer, Producer |
-| `/prototype-plan` | `.studio/playbooks/prototype-plan.md` | Game Designer, Technical Lead, Producer |
-| `/build-prototype` | `.studio/playbooks/build-prototype.md` | Developer, Technical Lead |
-| `/review-build` | `.studio/playbooks/review-build.md` | Technical Lead, Developer |
-| `/playtest-review` | `.studio/playbooks/playtest-review.md` | Player Advocate, Game Designer |
-| `/issue-map` | `.studio/playbooks/issue-map.md` | Producer, Player Advocate |
-| `/iterate` | `.studio/playbooks/iterate.md` | Developer, Game Designer |
-| `/vertical-slice` | `.studio/playbooks/vertical-slice.md` | Producer, Game Designer, Technical Lead |
-| `/milestone-review` | `.studio/playbooks/milestone-review.md` | Producer, Player Advocate, Technical Lead |
+| Canonical | Legacy alias | Playbook | Primary roles |
+|---|---|---|---|
+| `GS:start` | `/start` | `.studio/playbooks/start.md` | Producer, Technical Lead |
+| `GS:clarify` | `/clarify` | `.studio/playbooks/clarify.md` | Game Designer, Producer |
+| `GS:prototype-plan` | `/prototype-plan` | `.studio/playbooks/prototype-plan.md` | Game Designer, Technical Lead, Producer |
+| `GS:build-prototype` | `/build-prototype` | `.studio/playbooks/build-prototype.md` | Developer, Technical Lead |
+| `GS:review-build` | `/review-build` | `.studio/playbooks/review-build.md` | Technical Lead, Developer |
+| `GS:playtest-review` | `/playtest-review` | `.studio/playbooks/playtest-review.md` | Player Advocate, Game Designer |
+| `GS:issue-map` | `/issue-map` | `.studio/playbooks/issue-map.md` | Producer, Player Advocate |
+| `GS:iterate` | `/iterate` | `.studio/playbooks/iterate.md` | Developer, Game Designer |
+| `GS:vertical-slice` | `/vertical-slice` | `.studio/playbooks/vertical-slice.md` | Producer, Game Designer, Technical Lead |
+| `GS:milestone-review` | `/milestone-review` | `.studio/playbooks/milestone-review.md` | Producer, Player Advocate, Technical Lead |
 
 ### Cross-phase workflows
 
-| Alias | Playbook | Primary roles | Read-only? |
-|---|---|---|---|
-| `/resume` | `.studio/playbooks/resume.md` | Producer, Technical Lead | Yes |
-| `/project-status` | `.studio/playbooks/project-status.md` | Producer | Yes |
-| `/report-issue` | `.studio/playbooks/report-issue.md` | Producer, Technical Lead, Player Advocate | No (creates/updates one issue) |
-| `/record-evidence` | `.studio/playbooks/record-evidence.md` | Player Advocate, Producer | No (creates/updates one evidence record) |
-| `/decision` | `.studio/playbooks/decision.md` | Producer, Game Designer, Technical Lead | No (creates/updates/resolves one decision) |
-| `/milestone-criteria` | `.studio/playbooks/milestone-criteria.md` | Producer, Player Advocate, Technical Lead | No (creates/updates/evaluates/retires criteria) |
-| `/critical-path` | `.studio/playbooks/critical-path.md` | Producer, Technical Lead | No (recalculates the path) |
-| `/next-step` | `.studio/playbooks/next-step.md` | Producer | Yes |
+| Canonical | Legacy alias | Playbook | Primary roles | Read-only? |
+|---|---|---|---|---|
+| `GS:resume` | `/resume` | `.studio/playbooks/resume.md` | Producer, Technical Lead | Yes |
+| `GS:project-status` | `/project-status` | `.studio/playbooks/project-status.md` | Producer | Yes |
+| `GS:report-issue` | `/report-issue` | `.studio/playbooks/report-issue.md` | Producer, Technical Lead, Player Advocate | No (creates/updates one issue) |
+| `GS:record-evidence` | `/record-evidence` | `.studio/playbooks/record-evidence.md` | Player Advocate, Producer | No (creates/updates one evidence record) |
+| `GS:decision` | `/decision` | `.studio/playbooks/decision.md` | Producer, Game Designer, Technical Lead | No (creates/updates/resolves one decision) |
+| `GS:milestone-criteria` | `/milestone-criteria` | `.studio/playbooks/milestone-criteria.md` | Producer, Player Advocate, Technical Lead | No (creates/updates/evaluates/retires criteria) |
+| `GS:critical-path` | `/critical-path` | `.studio/playbooks/critical-path.md` | Producer, Technical Lead | No (recalculates the path) |
+| `GS:next-step` | `/next-step` | `.studio/playbooks/next-step.md` | Producer | Yes |
 
-`/resume` is the normal entrypoint for a new AI-agent session on an existing project: inspect current state and route to the next workflow. It never runs `studio bootstrap` or `studio init`, and never resets phase, milestone, issues, decisions, evidence, dependencies, criteria, reports, or history. `/start` inspects and routes an intake-stage or unclear project; in an existing project it behaves the same way and must not reset it either. `/project-status` and `/next-step` are read-only by contract: they inspect and report, they never mutate canonical state. `/report-issue` records a problem; `/record-evidence` records support for a claim — do not conflate the two. `/milestone-criteria` never treats the mere existence of evidence, a closed issue, or a resolved decision as verification; every evaluation requires an explicit support status and reason. `/critical-path` decides what actually gates the milestone; do not let other workflows quietly reprioritize it.
+`GS:resume` is the normal entrypoint for a new AI-agent session on an existing project: inspect current state and route to the next workflow. It never runs `studio bootstrap` or `studio init`, and never resets phase, milestone, issues, decisions, evidence, dependencies, criteria, reports, or history. `GS:start` inspects and routes an intake-stage or unclear project; in an existing project it behaves the same way and must not reset it either. `GS:project-status` and `GS:next-step` are read-only by contract: they inspect and report, they never mutate canonical state. `GS:report-issue` records a problem; `GS:record-evidence` records support for a claim — do not conflate the two. `GS:milestone-criteria` never treats the mere existence of evidence, a closed issue, or a resolved decision as verification; every evaluation requires an explicit support status and reason. `GS:critical-path` decides what actually gates the milestone; do not let other workflows quietly reprioritize it.
 
-If intent is ambiguous, use `/resume` for an existing project or `/start` for a new one. Read only the roles needed for the selected playbook. The Producer owns milestone direction; the Game Designer owns experience hypotheses; the Technical Lead owns technical risk and minimum verification; the Developer implements; the Player Advocate evaluates player experience.
+If intent is ambiguous, use `GS:resume` for an existing project or `GS:start` for a new one. Read only the roles needed for the selected playbook. The Producer owns milestone direction; the Game Designer owns experience hypotheses; the Technical Lead owns technical risk and minimum verification; the Developer implements; the Player Advocate evaluates player experience.
 
 ## Autonomy and user decisions
 

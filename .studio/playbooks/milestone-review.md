@@ -6,7 +6,7 @@ Compare milestone success criteria with evidence and make a defensible recommend
 
 ## When to use
 
-Use for `/milestone-review` when findings can support a milestone decision or at a phase boundary.
+Use for `GS:milestone-review` when findings can support a milestone decision or at a phase boundary. Legacy alias: `/milestone-review`.
 
 ## Required inputs
 
@@ -54,7 +54,7 @@ Every criterion has a result and evidence/unknown status sufficient for the stat
 
 ## Next recommended workflows
 
-`/vertical-slice` when prototype criteria warrant a boundary decision; otherwise `/critical-path`, `/iterate`, or `/clarify`.
+`GS:vertical-slice` when prototype criteria warrant a boundary decision; otherwise `GS:critical-path`, `GS:iterate`, or `GS:clarify`.
 
 ## Failure and blocker behavior
 
