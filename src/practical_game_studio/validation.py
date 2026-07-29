@@ -317,6 +317,18 @@ WORKFLOW_SCOPES = {"phase", "cross-phase"}
 WORKFLOW_ID_PATTERN = re.compile(r"^[a-z]+(-[a-z]+)*$")
 CANONICAL_INVOCATION_PATTERN = re.compile(r"^GS:[a-z]+(-[a-z]+)*$")
 DISALLOWED_CANONICAL_PREFIXES = ("/", "\\", "@", "!")
+# catalog_version at or above this is required to declare "id"/"canonical" on
+# every workflow. Older catalogs (already-bootstrapped projects) keep those
+# fields optional so they continue to validate without silent migration.
+CANONICAL_FIELDS_REQUIRED_SINCE = (1, 2)
+
+
+def _parse_catalog_version(value: Any) -> tuple[int, int]:
+    try:
+        major, minor = str(value).split(".", 1)
+        return (int(major), int(minor))
+    except (TypeError, ValueError):
+        return (0, 0)
 
 
 def _validate_catalog(
@@ -327,20 +339,30 @@ def _validate_catalog(
     phase_ids = [phase.get("id") for phase in phases]
     aliases = [workflow.get("alias") for workflow in workflows]
     alias_set = set(aliases)
-    # "id" and "canonical" are optional so a catalog written before the
-    # GS: canonical-invocation representation existed (an already-bootstrapped
-    # project) continues to validate exactly as before, without silent
-    # migration.
+    requires_canonical_fields = (
+        _parse_catalog_version(catalog.get("catalog_version"))
+        >= CANONICAL_FIELDS_REQUIRED_SINCE
+    )
+    # "id" and "canonical" are optional (unless catalog_version requires them)
+    # so a catalog written before the GS: canonical-invocation representation
+    # existed (an already-bootstrapped project) continues to validate exactly
+    # as before, without silent migration.
     workflow_ids = [workflow["id"] for workflow in workflows if "id" in workflow]
+    id_set = set(workflow_ids)
     canonicals = [
         workflow["canonical"] for workflow in workflows if "canonical" in workflow
     ]
+    # Phase workflow references and "next" relationships may name either a
+    # workflow's legacy slash alias or its internal id: this is what lets a
+    # catalog migrate those lists from aliases to ids without breaking older
+    # catalogs that still use aliases there.
+    known_references = alias_set | id_set
 
     if len(phase_ids) != len(set(phase_ids)):
         result.add(".studio/workflow-catalog.json: duplicate phase id")
     if len(aliases) != len(alias_set):
         result.add(".studio/workflow-catalog.json: duplicate workflow alias")
-    if len(workflow_ids) != len(set(workflow_ids)):
+    if len(workflow_ids) != len(id_set):
         result.add(".studio/workflow-catalog.json: duplicate workflow id")
     if len(canonicals) != len(set(canonicals)):
         result.add(".studio/workflow-catalog.json: duplicate canonical invocation")
@@ -348,15 +370,22 @@ def _validate_catalog(
         phase_id = phase.get("id")
         if phase_id not in PHASES:
             result.add(f".studio/workflow-catalog.json: invalid phase '{phase_id}'")
-        for alias in phase.get("workflows", []):
-            if alias not in alias_set:
+        for reference in phase.get("workflows", []):
+            if reference not in known_references:
                 result.add(
-                    f".studio/workflow-catalog.json: phase references unknown alias '{alias}'"
+                    f".studio/workflow-catalog.json: phase references unknown "
+                    f"workflow '{reference}'"
                 )
     for workflow in workflows:
         alias = workflow.get("alias", "<missing>")
         expected_id = alias.removeprefix("/")
 
+        if requires_canonical_fields and "id" not in workflow:
+            result.add(
+                f".studio/workflow-catalog.json: {alias} is missing the required "
+                f"'id' field (required for catalog_version "
+                f"{catalog.get('catalog_version')})"
+            )
         if "id" in workflow:
             workflow_id = workflow["id"]
             if not WORKFLOW_ID_PATTERN.match(workflow_id):
@@ -370,6 +399,12 @@ def _validate_catalog(
                     f"does not match alias"
                 )
 
+        if requires_canonical_fields and "canonical" not in workflow:
+            result.add(
+                f".studio/workflow-catalog.json: {alias} is missing the required "
+                f"'canonical' field (required for catalog_version "
+                f"{catalog.get('catalog_version')})"
+            )
         if "canonical" in workflow:
             canonical = workflow["canonical"]
             if canonical.startswith(DISALLOWED_CANONICAL_PREFIXES):
@@ -423,10 +458,11 @@ def _validate_catalog(
                 result.add(
                     f".studio/workflow-catalog.json: {alias} has broken role reference '{role}'"
                 )
-        for next_alias in workflow.get("next", []):
-            if next_alias not in alias_set:
+        for next_reference in workflow.get("next", []):
+            if next_reference not in known_references:
                 result.add(
-                    f".studio/workflow-catalog.json: {alias} references unknown next alias '{next_alias}'"
+                    f".studio/workflow-catalog.json: {alias} references unknown "
+                    f"next workflow '{next_reference}'"
                 )
 
 

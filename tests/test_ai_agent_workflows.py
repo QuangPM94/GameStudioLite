@@ -77,6 +77,45 @@ def test_agents_md_explains_cli_backed_mutation() -> None:
     assert agents.count("direct edits to") >= 3
 
 
+def test_agents_md_title_is_ai_client_neutral() -> None:
+    agents = _read("AGENTS.md")
+    assert "Codex Instructions" not in agents
+    assert "AI Agent Instructions" in agents
+    assert agents.splitlines()[0] == "# Practical Game Studio — AI Agent Instructions"
+
+
+def test_agents_md_canonical_state_forbids_manual_edits() -> None:
+    agents = _read("AGENTS.md")
+    assert (
+        "JSON under `.studio/state/` is the sole canonical source of project "
+        "state. AI workflows must use the studio CLI and must not edit it "
+        "manually" in agents
+    )
+    assert "sole manually editable source" not in agents
+
+
+def test_resume_legacy_alias_is_only_resume() -> None:
+    text = _playbook("resume")
+    when_to_use = _section(text, "When to use")
+    assert "Legacy alias: `/resume`." in when_to_use
+    assert "/start" not in when_to_use
+
+
+def test_resume_and_start_distinguish_new_vs_existing_initialized_projects() -> None:
+    resume_text = _playbook("resume").lower()
+    assert "already-initialized" in resume_text
+
+    start_text = _playbook("start").lower()
+    assert "new, unknown, uninitialized, or intake-stage" in start_text
+    assert "gs:resume" in start_text
+
+
+def test_readme_prefers_gs_start_in_fallback_examples() -> None:
+    readme = _read("README.md")
+    assert "Read AGENTS.md and execute the GS:start workflow." in readme
+    assert "Read AGENTS.md and execute the /start workflow." not in readme
+
+
 @pytest.mark.parametrize("name", READ_ONLY_NEW_ALIASES)
 def test_read_only_new_playbooks_declare_no_state_changes(name: str) -> None:
     text = _playbook(name)

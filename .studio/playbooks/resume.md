@@ -6,7 +6,7 @@ Continue an existing project from its current recorded state at the start of a n
 
 ## When to use
 
-Use for `GS:resume` whenever an AI-agent session opens on a project that already has `.studio/state/`. This is the normal entrypoint for a new session on an existing project; it is distinct from `GS:start`, which also inspects a project that may not yet have identity or history. Legacy aliases: `/resume`, `/start`.
+Use for `GS:resume` whenever an AI-agent session opens on a project that already has `.studio/state/`. This is the normal entrypoint for a new session on an existing, already-initialized project; it is distinct from `GS:start`, which is for new, unknown, uninitialized, or intake-stage projects. Legacy alias: `/resume`.
 
 ## Required inputs
 

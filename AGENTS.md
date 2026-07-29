@@ -1,4 +1,4 @@
-# Practical Game Studio — Codex Instructions
+# Practical Game Studio — AI Agent Instructions
 
 ## Framework mission
 
@@ -16,7 +16,7 @@ ADRs are optional. Create one only for an expensive-to-reverse, cross-cutting, s
 
 ## Canonical state
 
-JSON under `.studio/state/` is the sole manually editable source of project state:
+JSON under `.studio/state/` is the sole canonical source of project state. AI workflows must use the studio CLI and must not edit it manually:
 
 - `project.json`: project profile, phase, milestone, build, assumptions, and review mode
 - `issues.json`: issue records
@@ -113,7 +113,7 @@ Phase workflows (below) belong to the linear milestone pipeline. Cross-phase wor
 | `GS:critical-path` | `/critical-path` | `.studio/playbooks/critical-path.md` | Producer, Technical Lead | No (recalculates the path) |
 | `GS:next-step` | `/next-step` | `.studio/playbooks/next-step.md` | Producer | Yes |
 
-`GS:resume` is the normal entrypoint for a new AI-agent session on an existing project: inspect current state and route to the next workflow. It never runs `studio bootstrap` or `studio init`, and never resets phase, milestone, issues, decisions, evidence, dependencies, criteria, reports, or history. `GS:start` inspects and routes an intake-stage or unclear project; in an existing project it behaves the same way and must not reset it either. `GS:project-status` and `GS:next-step` are read-only by contract: they inspect and report, they never mutate canonical state. `GS:report-issue` records a problem; `GS:record-evidence` records support for a claim — do not conflate the two. `GS:milestone-criteria` never treats the mere existence of evidence, a closed issue, or a resolved decision as verification; every evaluation requires an explicit support status and reason. `GS:critical-path` decides what actually gates the milestone; do not let other workflows quietly reprioritize it.
+`GS:resume` is the normal entrypoint for a new AI-agent session on an existing, already-initialized project: inspect current state and route to the next workflow. It never runs `studio bootstrap` or `studio init`, and never resets phase, milestone, issues, decisions, evidence, dependencies, criteria, reports, or history. `GS:start` is for new, unknown, uninitialized, or intake-stage projects; it must not reset an existing project either. `GS:project-status` and `GS:next-step` are read-only by contract: they inspect and report, they never mutate canonical state. `GS:report-issue` records a problem; `GS:record-evidence` records support for a claim — do not conflate the two. `GS:milestone-criteria` never treats the mere existence of evidence, a closed issue, or a resolved decision as verification; every evaluation requires an explicit support status and reason. `GS:critical-path` decides what actually gates the milestone; do not let other workflows quietly reprioritize it.
 
 If intent is ambiguous, use `GS:resume` for an existing project or `GS:start` for a new one. Read only the roles needed for the selected playbook. The Producer owns milestone direction; the Game Designer owns experience hypotheses; the Technical Lead owns technical risk and minimum verification; the Developer implements; the Player Advocate evaluates player experience.
 

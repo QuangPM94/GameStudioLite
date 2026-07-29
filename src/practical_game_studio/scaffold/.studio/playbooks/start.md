@@ -6,7 +6,7 @@ Inspect the repository and route the user to the smallest appropriate entry work
 
 ## When to use
 
-Use for a new session, an unknown project, `GS:start`, or uncertain workflow intent. If `project_name` is still `Untitled Game`, initialize identity first with `studio init`. Legacy alias: `/start`.
+Use `GS:start` for a new, unknown, uninitialized, or intake-stage project, or when workflow intent is otherwise uncertain. If `project_name` is still `Untitled Game`, initialize identity first with `studio init`. Use `GS:resume` instead when the project is already initialized and this is simply a new AI-agent session continuing existing state. Legacy alias: `/start`.
 
 ## Required inputs
 

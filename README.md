@@ -301,10 +301,10 @@ Start with:
 GS:start
 ```
 
-This is plain text, so it works whether or not the AI client has native slash-command handling. A legacy `/start` alias and the fully spelled-out request below remain equally valid:
+This is plain text, so it works whether or not the AI client has native slash-command handling. The fully spelled-out request below is equally valid and preferred over the legacy `/start` alias:
 
 ```text
-Read AGENTS.md and execute the /start workflow.
+Read AGENTS.md and execute the GS:start workflow.
 ```
 
 See [section 6](#6-manage-gamestudiolite-through-an-ai-agent) for the full `GS:<workflow>` syntax.
@@ -396,7 +396,7 @@ GS:resume
 
 Run `studio bootstrap` or `studio init` only when GameStudioLite has not yet been attached to the project, identity must be explicitly corrected, or a managed scaffold refresh has been reviewed and intentionally approved — never as part of a normal resume.
 
-`GS:start` serves a related but distinct purpose: it inspects and routes a project, including one still in intake, but it must not reset an existing project either. Use `GS:resume` when you already know the project exists; use `GS:start` when you are unsure or the project may still need identity set up.
+`GS:start` serves a related but distinct purpose: it must not reset an existing project either, but it is for new, unknown, uninitialized, or intake-stage projects, not for continuing one that is already initialized. Use `GS:resume` for a new AI-agent session on an existing, already-initialized project; use `GS:start` when the project is new, unknown, uninitialized, or still in intake.
 
 ### User-facing commands
 

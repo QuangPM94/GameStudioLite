@@ -50,6 +50,22 @@ def test_catalog_has_seven_phases_and_eighteen_resolved_workflows() -> None:
         assert all((REPOSITORY_ROOT / role).is_file() for role in workflow["roles"])
 
 
+def test_shipped_catalog_references_workflows_by_id_not_legacy_alias() -> None:
+    """The shipped catalog itself has migrated phase membership and "next"
+    relationships from legacy slash aliases to internal workflow ids."""
+
+    catalog = _load_catalog()
+    known_ids = {workflow["id"] for workflow in catalog["workflows"]}
+    for phase in catalog["phases"]:
+        for reference in phase["workflows"]:
+            assert not reference.startswith("/"), reference
+            assert reference in known_ids
+    for workflow in catalog["workflows"]:
+        for reference in workflow["next"]:
+            assert not reference.startswith("/"), reference
+            assert reference in known_ids
+
+
 def test_original_twelve_aliases_remain_present() -> None:
     catalog = _load_catalog()
     aliases = {workflow["alias"] for workflow in catalog["workflows"]}
@@ -177,15 +193,104 @@ def test_legacy_catalog_without_id_or_canonical_fields_still_validates(
     framework_repo: Path,
 ) -> None:
     """A catalog written before GS:<workflow> canonical invocations existed
-    (no "id"/"canonical" fields at all) must continue to validate exactly as
-    before, without silent migration."""
+    has no "id"/"canonical" fields and references workflows by their legacy
+    slash alias everywhere (phase membership, "next" relationships). It must
+    continue to validate exactly as before, without silent migration."""
 
     catalog_path = framework_repo / ".studio" / "workflow-catalog.json"
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    id_to_alias = {
+        workflow["id"]: workflow["alias"] for workflow in catalog["workflows"]
+    }
     for workflow in catalog["workflows"]:
         workflow.pop("id", None)
         workflow.pop("canonical", None)
+        workflow["next"] = [id_to_alias[ref] for ref in workflow.get("next", [])]
+    for phase in catalog["phases"]:
+        phase["workflows"] = [id_to_alias[ref] for ref in phase.get("workflows", [])]
     catalog["catalog_version"] = "1.1"
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    result = validate_project(framework_repo)
+
+    assert result.ok, "\n".join(result.errors)
+
+
+def test_catalog_version_1_2_requires_id_field(framework_repo: Path) -> None:
+    catalog_path = framework_repo / ".studio" / "workflow-catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    assert catalog["catalog_version"] >= "1.2"
+    for workflow in catalog["workflows"]:
+        if workflow["alias"] == "/clarify":
+            del workflow["id"]
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    result = validate_project(framework_repo)
+
+    assert any(
+        "/clarify is missing the required 'id' field" in error
+        for error in result.errors
+    )
+
+
+def test_catalog_version_1_2_requires_canonical_field(framework_repo: Path) -> None:
+    catalog_path = framework_repo / ".studio" / "workflow-catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    assert catalog["catalog_version"] >= "1.2"
+    for workflow in catalog["workflows"]:
+        if workflow["alias"] == "/clarify":
+            del workflow["canonical"]
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    result = validate_project(framework_repo)
+
+    assert any(
+        "/clarify is missing the required 'canonical' field" in error
+        for error in result.errors
+    )
+
+
+def test_catalog_version_below_1_2_does_not_require_id_or_canonical(
+    framework_repo: Path,
+) -> None:
+    catalog_path = framework_repo / ".studio" / "workflow-catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    for workflow in catalog["workflows"]:
+        if workflow["alias"] == "/clarify":
+            del workflow["id"]
+            del workflow["canonical"]
+    catalog["catalog_version"] = "1.1"
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    result = validate_project(framework_repo)
+
+    assert not any("is missing the required" in error for error in result.errors)
+
+
+def test_phase_and_next_references_accept_either_alias_or_id_form(
+    framework_repo: Path,
+) -> None:
+    """The migration from legacy slash-alias references to internal-id
+    references in "workflows"/"next" lists is backward compatible: a catalog
+    may mix both forms and still validate, which is what lets an existing
+    catalog migrate incrementally instead of all at once."""
+
+    catalog_path = framework_repo / ".studio" / "workflow-catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    # The shipped catalog already references "next"/"workflows" by id; flip a
+    # couple of entries back to the legacy alias form to prove both work.
+    catalog["phases"][0]["workflows"] = ["/start"]
+    for workflow in catalog["workflows"]:
+        if workflow["alias"] == "/start":
+            workflow["next"] = ["/clarify", "prototype-plan", "/review-build"]
     catalog_path.write_text(
         json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )

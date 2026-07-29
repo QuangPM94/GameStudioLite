@@ -7,7 +7,7 @@
       "name": "Intake",
       "purpose": "Detect repository, engine, platform, build, and project stage.",
       "exit_condition": "Project profile, detected phase, and recommended entry workflow exist.",
-      "workflows": ["/start"]
+      "workflows": ["start"]
     },
     {
       "id": "clarify",
@@ -15,7 +15,7 @@
       "name": "Clarify",
       "purpose": "Define the intended experience and falsifiable prototype hypothesis.",
       "exit_condition": "A falsifiable prototype hypothesis exists.",
-      "workflows": ["/clarify"]
+      "workflows": ["clarify"]
     },
     {
       "id": "prototype-plan",
@@ -23,7 +23,7 @@
       "name": "Prototype Plan",
       "purpose": "Scope the smallest playable test and its evidence criteria.",
       "exit_condition": "Implementation has no unresolved critical design ambiguity.",
-      "workflows": ["/prototype-plan"]
+      "workflows": ["prototype-plan"]
     },
     {
       "id": "prototype-build",
@@ -31,7 +31,7 @@
       "name": "Prototype Build",
       "purpose": "Deliver and verify the playable experiment.",
       "exit_condition": "The prototype launches for testing or has a concrete recorded blocker.",
-      "workflows": ["/build-prototype", "/review-build"]
+      "workflows": ["build-prototype", "review-build"]
     },
     {
       "id": "evaluate",
@@ -39,7 +39,7 @@
       "name": "Evaluate",
       "purpose": "Evaluate experience and stability with explicitly classified evidence.",
       "exit_condition": "Findings can support a milestone recommendation.",
-      "workflows": ["/playtest-review", "/issue-map", "/milestone-review"]
+      "workflows": ["playtest-review", "issue-map", "milestone-review"]
     },
     {
       "id": "iterate",
@@ -47,7 +47,7 @@
       "name": "Iterate",
       "purpose": "Resolve or deliberately accept critical prototype issues.",
       "exit_condition": "Critical prototype issues are resolved or deliberately accepted.",
-      "workflows": ["/critical-path", "/next-step", "/iterate"]
+      "workflows": ["critical-path", "next-step", "iterate"]
     },
     {
       "id": "vertical-slice-decision",
@@ -55,27 +55,27 @@
       "name": "Vertical Slice Decision",
       "purpose": "Choose PROCEED, ITERATE, PIVOT, PAUSE, or STOP from evidence.",
       "exit_condition": "One verdict and next milestone/action are recorded.",
-      "workflows": ["/vertical-slice"]
+      "workflows": ["vertical-slice"]
     }
   ],
   "workflows": [
-    {"id": "start", "canonical": "GS:start", "alias": "/start", "playbook": ".studio/playbooks/start.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md"], "phase": "intake", "next": ["/clarify", "/prototype-plan", "/review-build"]},
-    {"id": "clarify", "canonical": "GS:clarify", "alias": "/clarify", "playbook": ".studio/playbooks/clarify.md", "roles": [".studio/roles/game-designer.md", ".studio/roles/producer.md"], "phase": "clarify", "next": ["/clarify", "/prototype-plan"]},
-    {"id": "prototype-plan", "canonical": "GS:prototype-plan", "alias": "/prototype-plan", "playbook": ".studio/playbooks/prototype-plan.md", "roles": [".studio/roles/game-designer.md", ".studio/roles/technical-lead.md", ".studio/roles/producer.md"], "phase": "prototype-plan", "next": ["/clarify", "/build-prototype"]},
-    {"id": "build-prototype", "canonical": "GS:build-prototype", "alias": "/build-prototype", "playbook": ".studio/playbooks/build-prototype.md", "roles": [".studio/roles/developer.md", ".studio/roles/technical-lead.md"], "phase": "prototype-build", "next": ["/review-build", "/critical-path"]},
-    {"id": "review-build", "canonical": "GS:review-build", "alias": "/review-build", "playbook": ".studio/playbooks/review-build.md", "roles": [".studio/roles/technical-lead.md", ".studio/roles/developer.md"], "phase": "prototype-build", "next": ["/playtest-review", "/critical-path"]},
-    {"id": "playtest-review", "canonical": "GS:playtest-review", "alias": "/playtest-review", "playbook": ".studio/playbooks/playtest-review.md", "roles": [".studio/roles/player-advocate.md", ".studio/roles/game-designer.md"], "phase": "evaluate", "next": ["/issue-map", "/review-build"]},
-    {"id": "issue-map", "canonical": "GS:issue-map", "alias": "/issue-map", "playbook": ".studio/playbooks/issue-map.md", "roles": [".studio/roles/producer.md", ".studio/roles/player-advocate.md"], "phase": "evaluate", "next": ["/critical-path"]},
-    {"id": "critical-path", "canonical": "GS:critical-path", "alias": "/critical-path", "playbook": ".studio/playbooks/critical-path.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md"], "phase": "iterate", "next": ["/next-step", "/iterate", "/build-prototype"]},
-    {"id": "next-step", "canonical": "GS:next-step", "alias": "/next-step", "playbook": ".studio/playbooks/next-step.md", "roles": [".studio/roles/producer.md"], "phase": "iterate", "next": ["/clarify", "/prototype-plan", "/build-prototype", "/review-build", "/playtest-review", "/critical-path", "/iterate", "/milestone-review"]},
-    {"id": "iterate", "canonical": "GS:iterate", "alias": "/iterate", "playbook": ".studio/playbooks/iterate.md", "roles": [".studio/roles/developer.md", ".studio/roles/game-designer.md"], "phase": "iterate", "next": ["/playtest-review", "/critical-path", "/milestone-review"]},
-    {"id": "vertical-slice", "canonical": "GS:vertical-slice", "alias": "/vertical-slice", "playbook": ".studio/playbooks/vertical-slice.md", "roles": [".studio/roles/producer.md", ".studio/roles/game-designer.md", ".studio/roles/technical-lead.md"], "phase": "vertical-slice-decision", "next": ["/iterate", "/clarify", "/next-step"]},
-    {"id": "milestone-review", "canonical": "GS:milestone-review", "alias": "/milestone-review", "playbook": ".studio/playbooks/milestone-review.md", "roles": [".studio/roles/producer.md", ".studio/roles/player-advocate.md", ".studio/roles/technical-lead.md"], "phase": "evaluate", "next": ["/vertical-slice", "/critical-path", "/iterate", "/clarify"]},
-    {"id": "resume", "canonical": "GS:resume", "alias": "/resume", "playbook": ".studio/playbooks/resume.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md"], "phase": null, "scope": "cross-phase", "next": ["/project-status", "/start", "/clarify", "/prototype-plan", "/build-prototype", "/review-build", "/playtest-review", "/issue-map", "/critical-path", "/next-step", "/iterate", "/milestone-review", "/vertical-slice"]},
-    {"id": "project-status", "canonical": "GS:project-status", "alias": "/project-status", "playbook": ".studio/playbooks/project-status.md", "roles": [".studio/roles/producer.md"], "phase": null, "scope": "cross-phase", "next": ["/critical-path", "/next-step", "/report-issue", "/record-evidence", "/decision", "/milestone-criteria"]},
-    {"id": "report-issue", "canonical": "GS:report-issue", "alias": "/report-issue", "playbook": ".studio/playbooks/report-issue.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md", ".studio/roles/player-advocate.md"], "phase": null, "scope": "cross-phase", "next": ["/record-evidence", "/critical-path", "/next-step"]},
-    {"id": "record-evidence", "canonical": "GS:record-evidence", "alias": "/record-evidence", "playbook": ".studio/playbooks/record-evidence.md", "roles": [".studio/roles/player-advocate.md", ".studio/roles/producer.md"], "phase": null, "scope": "cross-phase", "next": ["/milestone-criteria", "/report-issue", "/next-step"]},
-    {"id": "decision", "canonical": "GS:decision", "alias": "/decision", "playbook": ".studio/playbooks/decision.md", "roles": [".studio/roles/producer.md", ".studio/roles/game-designer.md", ".studio/roles/technical-lead.md"], "phase": null, "scope": "cross-phase", "next": ["/critical-path", "/next-step"]},
-    {"id": "milestone-criteria", "canonical": "GS:milestone-criteria", "alias": "/milestone-criteria", "playbook": ".studio/playbooks/milestone-criteria.md", "roles": [".studio/roles/producer.md", ".studio/roles/player-advocate.md", ".studio/roles/technical-lead.md"], "phase": null, "scope": "cross-phase", "next": ["/milestone-review", "/critical-path", "/next-step"]}
+    {"id": "start", "canonical": "GS:start", "alias": "/start", "playbook": ".studio/playbooks/start.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md"], "phase": "intake", "next": ["clarify", "prototype-plan", "review-build"]},
+    {"id": "clarify", "canonical": "GS:clarify", "alias": "/clarify", "playbook": ".studio/playbooks/clarify.md", "roles": [".studio/roles/game-designer.md", ".studio/roles/producer.md"], "phase": "clarify", "next": ["clarify", "prototype-plan"]},
+    {"id": "prototype-plan", "canonical": "GS:prototype-plan", "alias": "/prototype-plan", "playbook": ".studio/playbooks/prototype-plan.md", "roles": [".studio/roles/game-designer.md", ".studio/roles/technical-lead.md", ".studio/roles/producer.md"], "phase": "prototype-plan", "next": ["clarify", "build-prototype"]},
+    {"id": "build-prototype", "canonical": "GS:build-prototype", "alias": "/build-prototype", "playbook": ".studio/playbooks/build-prototype.md", "roles": [".studio/roles/developer.md", ".studio/roles/technical-lead.md"], "phase": "prototype-build", "next": ["review-build", "critical-path"]},
+    {"id": "review-build", "canonical": "GS:review-build", "alias": "/review-build", "playbook": ".studio/playbooks/review-build.md", "roles": [".studio/roles/technical-lead.md", ".studio/roles/developer.md"], "phase": "prototype-build", "next": ["playtest-review", "critical-path"]},
+    {"id": "playtest-review", "canonical": "GS:playtest-review", "alias": "/playtest-review", "playbook": ".studio/playbooks/playtest-review.md", "roles": [".studio/roles/player-advocate.md", ".studio/roles/game-designer.md"], "phase": "evaluate", "next": ["issue-map", "review-build"]},
+    {"id": "issue-map", "canonical": "GS:issue-map", "alias": "/issue-map", "playbook": ".studio/playbooks/issue-map.md", "roles": [".studio/roles/producer.md", ".studio/roles/player-advocate.md"], "phase": "evaluate", "next": ["critical-path"]},
+    {"id": "critical-path", "canonical": "GS:critical-path", "alias": "/critical-path", "playbook": ".studio/playbooks/critical-path.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md"], "phase": "iterate", "next": ["next-step", "iterate", "build-prototype"]},
+    {"id": "next-step", "canonical": "GS:next-step", "alias": "/next-step", "playbook": ".studio/playbooks/next-step.md", "roles": [".studio/roles/producer.md"], "phase": "iterate", "next": ["clarify", "prototype-plan", "build-prototype", "review-build", "playtest-review", "critical-path", "iterate", "milestone-review"]},
+    {"id": "iterate", "canonical": "GS:iterate", "alias": "/iterate", "playbook": ".studio/playbooks/iterate.md", "roles": [".studio/roles/developer.md", ".studio/roles/game-designer.md"], "phase": "iterate", "next": ["playtest-review", "critical-path", "milestone-review"]},
+    {"id": "vertical-slice", "canonical": "GS:vertical-slice", "alias": "/vertical-slice", "playbook": ".studio/playbooks/vertical-slice.md", "roles": [".studio/roles/producer.md", ".studio/roles/game-designer.md", ".studio/roles/technical-lead.md"], "phase": "vertical-slice-decision", "next": ["iterate", "clarify", "next-step"]},
+    {"id": "milestone-review", "canonical": "GS:milestone-review", "alias": "/milestone-review", "playbook": ".studio/playbooks/milestone-review.md", "roles": [".studio/roles/producer.md", ".studio/roles/player-advocate.md", ".studio/roles/technical-lead.md"], "phase": "evaluate", "next": ["vertical-slice", "critical-path", "iterate", "clarify"]},
+    {"id": "resume", "canonical": "GS:resume", "alias": "/resume", "playbook": ".studio/playbooks/resume.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md"], "phase": null, "scope": "cross-phase", "next": ["project-status", "start", "clarify", "prototype-plan", "build-prototype", "review-build", "playtest-review", "issue-map", "critical-path", "next-step", "iterate", "milestone-review", "vertical-slice"]},
+    {"id": "project-status", "canonical": "GS:project-status", "alias": "/project-status", "playbook": ".studio/playbooks/project-status.md", "roles": [".studio/roles/producer.md"], "phase": null, "scope": "cross-phase", "next": ["critical-path", "next-step", "report-issue", "record-evidence", "decision", "milestone-criteria"]},
+    {"id": "report-issue", "canonical": "GS:report-issue", "alias": "/report-issue", "playbook": ".studio/playbooks/report-issue.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md", ".studio/roles/player-advocate.md"], "phase": null, "scope": "cross-phase", "next": ["record-evidence", "critical-path", "next-step"]},
+    {"id": "record-evidence", "canonical": "GS:record-evidence", "alias": "/record-evidence", "playbook": ".studio/playbooks/record-evidence.md", "roles": [".studio/roles/player-advocate.md", ".studio/roles/producer.md"], "phase": null, "scope": "cross-phase", "next": ["milestone-criteria", "report-issue", "next-step"]},
+    {"id": "decision", "canonical": "GS:decision", "alias": "/decision", "playbook": ".studio/playbooks/decision.md", "roles": [".studio/roles/producer.md", ".studio/roles/game-designer.md", ".studio/roles/technical-lead.md"], "phase": null, "scope": "cross-phase", "next": ["critical-path", "next-step"]},
+    {"id": "milestone-criteria", "canonical": "GS:milestone-criteria", "alias": "/milestone-criteria", "playbook": ".studio/playbooks/milestone-criteria.md", "roles": [".studio/roles/producer.md", ".studio/roles/player-advocate.md", ".studio/roles/technical-lead.md"], "phase": null, "scope": "cross-phase", "next": ["milestone-review", "critical-path", "next-step"]}
   ]
 }
