@@ -22,29 +22,30 @@ All canonical state and the relevant first-item playbook.
 
 ## State changes
 
-Normally none beyond correcting stale direction. Regenerate reports when state changed.
+None. `/next-step` is normally read-only: it selects and explains, it does not calculate the path or mutate records itself.
 
 ## Execution procedure
 
-1. Run `studio path check`; if absent or stale, preview and run `studio path calculate`.
+1. Run `studio path check`. If the path is absent or stale, report that plainly and recommend `/critical-path` to recalculate; do not run `studio path calculate` from inside `/next-step`.
 2. Use `studio path show` to confirm goal, evidence gaps, blockers, manual controls, and the recommended-next item.
 3. Use `studio issue list`/`show`, `studio evidence list`/`show`, `studio decision list`/`show`, `studio dependency list`/`show`, and `studio criterion list`/`show` instead of reading generated Markdown as state. Treat only active evidence as current support and only explicit evaluation as criterion truth.
-4. Select the exact recommended `CP-` item; use `studio path explain CP-ID` when its rationale is questioned. If a decision unlocks it, update the existing record with issues/evidence and present its recommendation before asking.
-5. Recommend one workflow and define its expected outcome.
-6. Name important work that should not start.
-7. Return the Direction Summary.
+4. Select exactly one ready, unblocked, high-value action — never an item whose prerequisites are not yet satisfied. Use `studio path explain CP-ID` when its rationale is questioned.
+5. State why it is next, what completing it means, and which existing workflow should execute it.
+6. Name the specific work that should not be started yet, and why (blocked, lower priority, or not milestone-gating).
+7. If a decision blocks the only ready item, name the exact decision and recommend `/decision` instead of resolving it here.
+8. Return the Direction Summary.
 
 ## User decision points
 
-Ask only when no action is possible without a strategic user choice. Use `studio decision add`/`update`, present options and a recommendation, then `studio decision resolve` after the choice.
+None normally. If no action is possible without a strategic user choice, name the exact blocking decision and recommend `/decision`; do not create or resolve it from inside `/next-step`.
 
 ## Outputs
 
-One recommended action, exact workflow alias, rationale, expected evidence, and deferred work.
+Exactly one recommended action, the exact workflow alias that executes it, its rationale, what completion means, and the specific work that should not start yet.
 
 ## Validation
 
-Run `studio validate` and `studio status`; run `studio report` if direction state was corrected.
+Run `studio path check` and `studio status`. `/next-step` performs no writes, so `studio validate` and `studio report` are not expected to be needed.
 
 ## Completion criteria
 

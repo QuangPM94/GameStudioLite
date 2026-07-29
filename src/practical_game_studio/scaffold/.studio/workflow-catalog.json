@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.0",
+  "catalog_version": "1.1",
   "phases": [
     {
       "id": "intake",
@@ -70,6 +70,12 @@
     {"alias": "/next-step", "playbook": ".studio/playbooks/next-step.md", "roles": [".studio/roles/producer.md"], "phase": "iterate", "next": ["/clarify", "/prototype-plan", "/build-prototype", "/review-build", "/playtest-review", "/critical-path", "/iterate", "/milestone-review"]},
     {"alias": "/iterate", "playbook": ".studio/playbooks/iterate.md", "roles": [".studio/roles/developer.md", ".studio/roles/game-designer.md"], "phase": "iterate", "next": ["/playtest-review", "/critical-path", "/milestone-review"]},
     {"alias": "/vertical-slice", "playbook": ".studio/playbooks/vertical-slice.md", "roles": [".studio/roles/producer.md", ".studio/roles/game-designer.md", ".studio/roles/technical-lead.md"], "phase": "vertical-slice-decision", "next": ["/iterate", "/clarify", "/next-step"]},
-    {"alias": "/milestone-review", "playbook": ".studio/playbooks/milestone-review.md", "roles": [".studio/roles/producer.md", ".studio/roles/player-advocate.md", ".studio/roles/technical-lead.md"], "phase": "evaluate", "next": ["/vertical-slice", "/critical-path", "/iterate", "/clarify"]}
+    {"alias": "/milestone-review", "playbook": ".studio/playbooks/milestone-review.md", "roles": [".studio/roles/producer.md", ".studio/roles/player-advocate.md", ".studio/roles/technical-lead.md"], "phase": "evaluate", "next": ["/vertical-slice", "/critical-path", "/iterate", "/clarify"]},
+    {"alias": "/resume", "playbook": ".studio/playbooks/resume.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md"], "phase": null, "scope": "cross-phase", "next": ["/project-status", "/start", "/clarify", "/prototype-plan", "/build-prototype", "/review-build", "/playtest-review", "/issue-map", "/critical-path", "/next-step", "/iterate", "/milestone-review", "/vertical-slice"]},
+    {"alias": "/project-status", "playbook": ".studio/playbooks/project-status.md", "roles": [".studio/roles/producer.md"], "phase": null, "scope": "cross-phase", "next": ["/critical-path", "/next-step", "/report-issue", "/record-evidence", "/decision", "/milestone-criteria"]},
+    {"alias": "/report-issue", "playbook": ".studio/playbooks/report-issue.md", "roles": [".studio/roles/producer.md", ".studio/roles/technical-lead.md", ".studio/roles/player-advocate.md"], "phase": null, "scope": "cross-phase", "next": ["/record-evidence", "/critical-path", "/next-step"]},
+    {"alias": "/record-evidence", "playbook": ".studio/playbooks/record-evidence.md", "roles": [".studio/roles/player-advocate.md", ".studio/roles/producer.md"], "phase": null, "scope": "cross-phase", "next": ["/milestone-criteria", "/report-issue", "/next-step"]},
+    {"alias": "/decision", "playbook": ".studio/playbooks/decision.md", "roles": [".studio/roles/producer.md", ".studio/roles/game-designer.md", ".studio/roles/technical-lead.md"], "phase": null, "scope": "cross-phase", "next": ["/critical-path", "/next-step"]},
+    {"alias": "/milestone-criteria", "playbook": ".studio/playbooks/milestone-criteria.md", "roles": [".studio/roles/producer.md", ".studio/roles/player-advocate.md", ".studio/roles/technical-lead.md"], "phase": null, "scope": "cross-phase", "next": ["/milestone-review", "/critical-path", "/next-step"]}
   ]
 }

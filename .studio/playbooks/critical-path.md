@@ -26,15 +26,17 @@ Use `studio path calculate` to transactionally replace active path membership/or
 
 ## Execution procedure
 
-1. Run `studio dependency list` and `studio criterion list`; confirm any claimed hard order is explicit and every current required criterion has a concrete completion condition.
-2. Run `studio path check`.
-3. If the path is absent or stale, preview `studio path calculate --dry-run`; review combined-graph cycles, missing references, dependency origins, exclusion conflicts, and oversize warnings.
-4. Use repeated `--include SOURCE-ID` or `--exclude SOURCE-ID --exclude-reason TEXT` only for explicit user direction. Do not use them to hide inconvenient blockers.
-5. Commit with `studio path calculate` (and `--yes` in guided/strict non-interactive use).
-6. Run `studio path show` and identify its exact recommended-next `CP-` item.
-7. Use `studio path explain CP-ID` when the item’s rationale, criterion/evidence state, dependency origins, downstream work, or manual context needs review.
-8. Treat the result as a dependency-aware milestone priority path, not a mathematically exact schedule.
-9. Run validation and return the Direction Summary with exactly one next workflow.
+1. Run `studio issue list`, `studio decision list`, `studio criterion list`, and `studio dependency list`; confirm any claimed hard order is explicit and every current required criterion has a concrete completion condition.
+2. Distinguish decision states before treating one as satisfied: `resolved` can unblock a dependent; `rejected`, `deferred`, and `superseded` are all terminal but none of them means the same thing as `resolved`, and none of them silently unlocks a dependent. Repair or deactivate a stale dependency instead of reinterpreting its state.
+3. Run `studio path check`.
+4. If the path is absent or stale, preview `studio path calculate --dry-run`; review combined-graph cycles, missing references, dependency origins, exclusion conflicts, and oversize warnings.
+5. Use repeated `--include SOURCE-ID` or `--exclude SOURCE-ID --exclude-reason TEXT` only for explicit user direction, and always review them with `--dry-run` first since they change scope. Do not use them to hide inconvenient blockers.
+6. Include only items with a direct, real milestone-delay explanation. Never pad the path to reach a target item count.
+7. Commit with `studio path calculate` (and `--yes` in guided/strict non-interactive use).
+8. Run `studio path show` and separate its items into active/ready (unblocked now), blocked (waiting on a dependency, decision, or criterion), and non-critical/do-not-work-on-yet; identify the exact recommended-next `CP-` item.
+9. Use `studio path explain CP-ID` when the item's rationale, criterion/evidence state, dependency origins, downstream work, or manual context needs review.
+10. Treat the result as a dependency-aware milestone priority path, not a mathematically exact schedule.
+11. Run validation and return the Direction Summary with exactly one next workflow.
 
 ## User decision points
 
@@ -42,7 +44,7 @@ Ask when a manual inclusion/exclusion, milestone override, or prioritization cha
 
 ## Outputs
 
-Calculated active path, stable history, one recommended-next item, manual controls, non-critical work, freshness state, generated reports, and Direction Summary.
+Active critical-path items, ready items, blocked items, one recommended-next action, explicit do-not-work-on-yet items, path freshness, stable history, manual controls, generated reports, and Direction Summary.
 
 ## Validation
 

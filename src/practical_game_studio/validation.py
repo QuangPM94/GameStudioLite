@@ -97,6 +97,12 @@ PROJECT_REQUIRED_FILES = (
             "iterate",
             "vertical-slice",
             "milestone-review",
+            "resume",
+            "project-status",
+            "report-issue",
+            "record-evidence",
+            "decision",
+            "milestone-criteria",
         )
     ),
     *(
@@ -230,9 +236,9 @@ def _validate_documents(root: Path, result: ValidationResult) -> None:
         result.add(
             f".studio/roles: expected exactly 5 role files, found {len(role_paths)}"
         )
-    if len(playbook_paths) != 12:
+    if len(playbook_paths) != 18:
         result.add(
-            f".studio/playbooks: expected exactly 12 playbook files, found {len(playbook_paths)}"
+            f".studio/playbooks: expected exactly 18 playbook files, found {len(playbook_paths)}"
         )
     for path in role_paths:
         _check_sections(path, REQUIRED_ROLE_SECTIONS, result)
@@ -304,6 +310,9 @@ def _validate_framework_manifest(
         result.add(f"{_relative(root, manifest_path)}:{location}: {error.message}")
 
 
+WORKFLOW_SCOPES = {"phase", "cross-phase"}
+
+
 def _validate_catalog(
     root: Path, catalog: dict[str, Any], result: ValidationResult
 ) -> None:
@@ -328,7 +337,22 @@ def _validate_catalog(
                 )
     for workflow in workflows:
         alias = workflow.get("alias", "<missing>")
-        if workflow.get("phase") not in phase_ids:
+        # A workflow defaults to "phase" scope so catalogs written before the
+        # cross-phase representation existed (already-bootstrapped projects)
+        # continue to validate exactly as before, without silent migration.
+        scope = workflow.get("scope", "phase")
+        phase = workflow.get("phase")
+        if scope not in WORKFLOW_SCOPES:
+            result.add(
+                f".studio/workflow-catalog.json: {alias} has invalid scope '{scope}'"
+            )
+        elif scope == "cross-phase":
+            if phase is not None:
+                result.add(
+                    f".studio/workflow-catalog.json: {alias} is cross-phase and must "
+                    "not declare a phase"
+                )
+        elif phase not in phase_ids:
             result.add(
                 f".studio/workflow-catalog.json: {alias} references unknown phase"
             )

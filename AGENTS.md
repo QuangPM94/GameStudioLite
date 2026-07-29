@@ -69,7 +69,11 @@ Use `studio path check` before recommending major next work. If the milestone pa
 
 ## Workflow selection
 
-Interpret aliases as workflow requests routed through this file; they are not guaranteed native slash commands. Match an explicit alias first, then infer the nearest workflow from the user's intent. Load the playbook named below before acting.
+Interpret aliases as workflow requests routed through this file, not guaranteed native slash commands in every AI client. When an alias is not recognized natively, treat plain language such as "Read AGENTS.md and execute the /report-issue workflow" as an equivalent request. Match an explicit alias first, then infer the nearest workflow from the user's intent. Always load the playbook named below before acting; do not improvise a workflow's behavior from its name alone.
+
+Phase workflows (below) belong to the linear milestone pipeline. Cross-phase workflows are utility commands usable in any phase; they are never assigned to a phase merely because the catalog historically required one.
+
+### Phase workflows
 
 | Alias | Playbook | Primary roles |
 |---|---|---|
@@ -80,13 +84,26 @@ Interpret aliases as workflow requests routed through this file; they are not gu
 | `/review-build` | `.studio/playbooks/review-build.md` | Technical Lead, Developer |
 | `/playtest-review` | `.studio/playbooks/playtest-review.md` | Player Advocate, Game Designer |
 | `/issue-map` | `.studio/playbooks/issue-map.md` | Producer, Player Advocate |
-| `/critical-path` | `.studio/playbooks/critical-path.md` | Producer, Technical Lead |
-| `/next-step` | `.studio/playbooks/next-step.md` | Producer |
 | `/iterate` | `.studio/playbooks/iterate.md` | Developer, Game Designer |
 | `/vertical-slice` | `.studio/playbooks/vertical-slice.md` | Producer, Game Designer, Technical Lead |
 | `/milestone-review` | `.studio/playbooks/milestone-review.md` | Producer, Player Advocate, Technical Lead |
 
-If intent is ambiguous, use `/start`. Read only the roles needed for the selected playbook. The Producer owns milestone direction; the Game Designer owns experience hypotheses; the Technical Lead owns technical risk and minimum verification; the Developer implements; the Player Advocate evaluates player experience.
+### Cross-phase workflows
+
+| Alias | Playbook | Primary roles | Read-only? |
+|---|---|---|---|
+| `/resume` | `.studio/playbooks/resume.md` | Producer, Technical Lead | Yes |
+| `/project-status` | `.studio/playbooks/project-status.md` | Producer | Yes |
+| `/report-issue` | `.studio/playbooks/report-issue.md` | Producer, Technical Lead, Player Advocate | No (creates/updates one issue) |
+| `/record-evidence` | `.studio/playbooks/record-evidence.md` | Player Advocate, Producer | No (creates/updates one evidence record) |
+| `/decision` | `.studio/playbooks/decision.md` | Producer, Game Designer, Technical Lead | No (creates/updates/resolves one decision) |
+| `/milestone-criteria` | `.studio/playbooks/milestone-criteria.md` | Producer, Player Advocate, Technical Lead | No (creates/updates/evaluates/retires criteria) |
+| `/critical-path` | `.studio/playbooks/critical-path.md` | Producer, Technical Lead | No (recalculates the path) |
+| `/next-step` | `.studio/playbooks/next-step.md` | Producer | Yes |
+
+`/resume` is the normal entrypoint for a new AI-agent session on an existing project: inspect current state and route to the next workflow. It never runs `studio bootstrap` or `studio init`, and never resets phase, milestone, issues, decisions, evidence, dependencies, criteria, reports, or history. `/start` inspects and routes an intake-stage or unclear project; in an existing project it behaves the same way and must not reset it either. `/project-status` and `/next-step` are read-only by contract: they inspect and report, they never mutate canonical state. `/report-issue` records a problem; `/record-evidence` records support for a claim — do not conflate the two. `/milestone-criteria` never treats the mere existence of evidence, a closed issue, or a resolved decision as verification; every evaluation requires an explicit support status and reason. `/critical-path` decides what actually gates the milestone; do not let other workflows quietly reprioritize it.
+
+If intent is ambiguous, use `/resume` for an existing project or `/start` for a new one. Read only the roles needed for the selected playbook. The Producer owns milestone direction; the Game Designer owns experience hypotheses; the Technical Lead owns technical risk and minimum verification; the Developer implements; the Player Advocate evaluates player experience.
 
 ## Autonomy and user decisions
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -95,14 +96,19 @@ def test_built_wheel_contains_every_scaffold_resource(built_wheel: Path) -> None
     )
 
 
+def _venv_python_and_studio(venv_root: Path) -> tuple[Path, Path]:
+    scripts = venv_root / ("Scripts" if os.name == "nt" else "bin")
+    python = scripts / ("python.exe" if os.name == "nt" else "python")
+    studio = scripts / ("studio.exe" if os.name == "nt" else "studio")
+    return python, studio
+
+
 def test_wheel_installed_cli_bootstraps_without_source_checkout(
     built_wheel: Path, tmp_path: Path
 ) -> None:
     venv_root = tmp_path / "venv"
     _run([sys.executable, "-m", "venv", str(venv_root)], cwd=tmp_path)
-    scripts = venv_root / ("Scripts" if os.name == "nt" else "bin")
-    python = scripts / ("python.exe" if os.name == "nt" else "python")
-    studio = scripts / ("studio.exe" if os.name == "nt" else "studio")
+    python, studio = _venv_python_and_studio(venv_root)
     environment = dict(os.environ)
     environment.pop("PYTHONPATH", None)
     environment["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
@@ -137,3 +143,101 @@ def test_wheel_installed_cli_bootstraps_without_source_checkout(
     assert not (game / "tests").exists()
     assert not (game / "docs").exists()
     assert not (game / "pyproject.toml").exists()
+    for name in (
+        "resume",
+        "project-status",
+        "report-issue",
+        "record-evidence",
+        "decision",
+        "milestone-criteria",
+    ):
+        assert (game / ".studio" / "playbooks" / f"{name}.md").is_file()
+    catalog = json.loads(
+        (game / ".studio" / "workflow-catalog.json").read_text(encoding="utf-8")
+    )
+    assert len(catalog["workflows"]) == 18
+
+
+def test_wheel_installed_projects_remain_isolated(
+    built_wheel: Path, tmp_path: Path
+) -> None:
+    venv_root = tmp_path / "venv"
+    _run([sys.executable, "-m", "venv", str(venv_root)], cwd=tmp_path)
+    _python, studio = _venv_python_and_studio(venv_root)
+    environment = dict(os.environ)
+    environment.pop("PYTHONPATH", None)
+    environment["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+    _run(
+        [str(_python), "-m", "pip", "install", str(built_wheel)],
+        cwd=tmp_path,
+        environment=environment,
+    )
+
+    game_a = tmp_path / "GameA"
+    game_b = tmp_path / "GameB"
+    game_a.mkdir()
+    game_b.mkdir()
+    _run(
+        [str(studio), "bootstrap", "--name", "Game A"],
+        cwd=game_a,
+        environment=environment,
+    )
+    _run(
+        [str(studio), "bootstrap", "--name", "Game B"],
+        cwd=game_b,
+        environment=environment,
+    )
+    _run(
+        [
+            str(studio),
+            "issue",
+            "add",
+            "--title",
+            "A-only issue",
+            "--severity",
+            "minor",
+            "--description",
+            "Only in Game A.",
+            "--yes",
+        ],
+        cwd=game_a,
+        environment=environment,
+    )
+    _run(
+        [
+            str(studio),
+            "issue",
+            "add",
+            "--title",
+            "B-only issue",
+            "--severity",
+            "minor",
+            "--description",
+            "Only in Game B.",
+            "--yes",
+        ],
+        cwd=game_b,
+        environment=environment,
+    )
+    _run([str(studio), "validate"], cwd=game_a, environment=environment)
+    _run([str(studio), "validate"], cwd=game_b, environment=environment)
+
+    issues_a = json.loads(
+        (game_a / ".studio" / "state" / "issues.json").read_text(encoding="utf-8")
+    )
+    issues_b = json.loads(
+        (game_b / ".studio" / "state" / "issues.json").read_text(encoding="utf-8")
+    )
+    project_a = json.loads(
+        (game_a / ".studio" / "state" / "project.json").read_text(encoding="utf-8")
+    )
+    project_b = json.loads(
+        (game_b / ".studio" / "state" / "project.json").read_text(encoding="utf-8")
+    )
+
+    assert issues_a["issues"][0]["id"] == "ISS-0001"
+    assert issues_b["issues"][0]["id"] == "ISS-0001"
+    assert issues_a["issues"][0]["title"] == "A-only issue"
+    assert issues_b["issues"][0]["title"] == "B-only issue"
+    assert project_a["project_name"] == "Game A"
+    assert project_b["project_name"] == "Game B"

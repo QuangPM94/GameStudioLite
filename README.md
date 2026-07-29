@@ -39,8 +39,8 @@ It does not currently:
 - [2. Requirements](#2-requirements)
 - [3. Install GameStudioLite](#3-install-gamestudiolite)
 - [4. Attach GameStudioLite to a game](#4-attach-gamestudiolite-to-a-game)
-- [5. Use GameStudioLite with an AI agent](#5-use-gamestudiolite-with-an-ai-agent)
-- [6. Resume in a new AI-agent session](#6-resume-in-a-new-ai-agent-session)
+- [5. Open a game project in an AI agent](#5-open-a-game-project-in-an-ai-agent)
+- [6. Manage GameStudioLite through an AI agent](#6-manage-gamestudiolite-through-an-ai-agent)
 - [7. AI-agent workflow aliases](#7-ai-agent-workflow-aliases)
 - [8. Daily workflow](#8-daily-workflow)
 - [9. Core CLI command reference](#9-core-cli-command-reference)
@@ -274,7 +274,7 @@ studio init `
 
 Repeating `studio init` is a no-op unless explicitly supplied fields are changed with `--force`.
 
-## 5. Use GameStudioLite with an AI agent
+## 5. Open a game project in an AI agent
 
 Open the **game repository**, not the GameStudioLite framework repository, as the agent's active workspace.
 
@@ -334,78 +334,120 @@ Do not invent evidence or silently make final user decisions.
 Execute the /start workflow and report the recommended next workflow.
 ```
 
-## 6. Resume in a new AI-agent session
+## 6. Manage GameStudioLite through an AI agent
 
-Opening a new chat or agent session does **not** mean restarting the project.
-
-The project state already lives under `.studio/state/`. The agent should inspect that state and continue from the current phase, milestone, decisions, criteria, issues, evidence, dependencies, and critical path.
-
-Use this prompt whenever a new AI-agent session begins:
+Most day-to-day use of GameStudioLite should go through an AI agent, not through hand-typed CLI commands. The agent turns a short workflow request into the long, exact `studio` invocation, and the CLI stays the only thing that ever validates or writes canonical state:
 
 ```text
-Read AGENTS.md and resume this project from its current state.
-
-Run or inspect:
-- studio status
-- studio path check
-- studio path show
-
-Do not run studio bootstrap or studio init.
-Do not reset project state, phase, milestone, issues, evidence, decisions, dependencies, criteria, or reports.
-The /start workflow means inspect and route the current project, not restart it from the beginning.
-
-Identify the current ready critical-path item.
-Then execute or recommend the exact next workflow without expanding scope.
-Use the supported studio CLI for all state mutations.
+User instruction
+→ AI-agent workflow (playbook in .studio/playbooks/)
+→ studio CLI (studio issue/evidence/decision/criterion/dependency/path/validate/report)
+→ validated canonical state (.studio/state/*.json)
+→ reports and critical path (.studio/reports/, studio path show)
 ```
 
-An agent with terminal access should run:
+What this means in practice:
 
-```powershell
-studio status
-studio path check
-studio path show
+- Users normally interact with the AI agent, in plain language or with a workflow alias such as `/report-issue`.
+- The AI agent constructs and runs the long CLI commands; the user does not need to remember flags like `--verification-policy` or `--exclude-reason`.
+- The `studio` CLI remains the trusted state-mutation and validation layer. No workflow edits `.studio/state/*.json` directly, and no workflow invents its own mutation logic — it only calls the same supported commands documented in [section 9](#9-core-cli-command-reference).
+- These aliases are workflow instructions interpreted through `AGENTS.md`, not native slash commands guaranteed to exist inside every AI client.
+
+When the agent does not recognize an alias natively, use plain language instead:
+
+```text
+Read AGENTS.md and execute the /report-issue workflow.
 ```
 
-When the path is stale:
+### Resume an existing project
 
-```powershell
-studio path calculate --dry-run
-studio path calculate --yes
-studio path show
+Opening a new chat or agent session does **not** mean restarting the project. The project state already lives under `.studio/state/`; the agent should inspect it and continue from the current phase, milestone, decisions, criteria, issues, evidence, dependencies, and critical path.
+
+```text
+Read AGENTS.md and execute the /resume workflow.
 ```
 
-An agent without terminal access should ask the user to run those commands and provide their output.
+`/resume` (read-only):
 
-### Do not run these during a normal resume
+1. Runs or inspects `studio status`, `studio path check`, and `studio path show`.
+2. Never runs `studio bootstrap` or `studio init` as part of a normal resume.
+3. Never resets phase, milestone, issues, decisions, evidence, dependencies, criteria, reports, or history.
+4. Names the exact next workflow and the current ready critical-path item.
+5. If the path is stale, says so plainly and recommends `/critical-path` instead of silently recalculating it.
 
-```powershell
-studio bootstrap
-studio init
+Run `studio bootstrap` or `studio init` only when GameStudioLite has not yet been attached to the project, identity must be explicitly corrected, or a managed scaffold refresh has been reviewed and intentionally approved — never as part of a normal resume.
+
+`/start` serves a related but distinct purpose: it inspects and routes a project, including one still in intake, but it must not reset an existing project either. Use `/resume` when you already know the project exists; use `/start` when you are unsure or the project may still need identity set up.
+
+### User-facing commands
+
+| Command | When to use it | Read-only or write | Records it may create/update |
+| --- | --- | --- | --- |
+| `/resume` | Opening a new AI-agent session on an existing project | Read-only | None |
+| `/project-status` | Getting a snapshot of direction without changing anything | Read-only | None |
+| `/report-issue` | Recording a bug, blocker, or risk from a report, review, or failure | Writes state | One issue (`ISS-####`) |
+| `/record-evidence` | Recording a claim and its source (observed, user-reported, inferred, or unknown) | Writes state | One evidence record (`EVD-####`) |
+| `/decision` | Creating, refining, or resolving a meaningful project decision | Writes state | One decision (`DEC-####`) |
+| `/milestone-criteria` | Defining, updating, evaluating, or retiring milestone success criteria | Writes state | One or more criteria (`MC-###`) |
+| `/critical-path` | Recalculating the short list of work that actually gates the milestone | Writes state | The active critical path and its history |
+| `/next-step` | Picking exactly one ready, high-value action right now | Read-only | None |
+
+Example requests:
+
+```text
+/report-issue
+
+Defender can place two towers in the same build slot after selling a tower.
+Record this issue and tell me whether it affects the current milestone.
 ```
 
-Use them only when:
+```text
+/record-evidence
 
-- GameStudioLite has not yet been attached to the project
-- Project identity must be explicitly corrected or updated
-- A managed scaffold refresh has been reviewed and intentionally approved
+I tested the Android build. Three units reached the Core, but the third unit
+paused for about one second. Record this as user-reported evidence.
+```
 
-### What `/start` means in an existing project
+```text
+/decision
 
-In an existing project, `/start` should:
+Create a decision for whether the first prototype should use one lane or three
+lanes. Compare the options, but do not resolve it for me.
+```
 
-1. Inspect the repository and current state.
-2. Check the current phase and milestone.
-3. Check critical-path freshness.
-4. Identify blockers and pending decisions.
-5. Select or recommend the correct next workflow.
-6. Continue from the current state without clearing history.
+```text
+/milestone-criteria
 
-It should not repeat intake automatically when the project has already progressed beyond intake.
+Create the required success criteria for the first offline Defender-versus-
+Attacker prototype.
+```
+
+```text
+/project-status
+
+Summarize the current milestone, blockers, unsupported criteria, and next
+critical-path item.
+```
+
+An agent recommendation is guidance, not the user's final choice. `/decision` only resolves a decision after the user explicitly selects an option or states an explicit custom decision; `/milestone-criteria` only marks a criterion verified after an explicit evaluation, never because supporting evidence merely exists. `/report-issue` records a problem; `/record-evidence` records support for a claim — they are not interchangeable.
+
+### Direct CLI use remains available
+
+The AI-agent layer is an orchestration convenience, not a replacement for the CLI. Use `studio` commands directly for:
+
+- Automation and scripts
+- CI pipelines
+- Debugging and recovery
+- Advanced or manual operation (for example custom `studio path calculate --include`/`--exclude` scopes)
+- AI agents without terminal integration, where a human runs the printed commands and reports the output back
 
 ## 7. AI-agent workflow aliases
 
 These workflows are available to any compatible AI agent. They are not PowerShell commands.
+
+### Phase workflows
+
+These follow the milestone pipeline and belong to one phase each.
 
 | Workflow | Use it when | What the AI agent should do |
 | --- | --- | --- |
@@ -416,13 +458,26 @@ These workflows are available to any compatible AI agent. They are not PowerShel
 | `/review-build` | Code or a build needs technical readiness review | Check compilation, launch path, core interaction, obvious runtime blockers, and testability. Record issues and determine whether the build is ready for playtest. |
 | `/playtest-review` | A human or accessible test session produced observations | Separate observed behavior, user-reported feedback, inference, and unknowns. Record evidence with limitations and evaluate the experience against criteria. |
 | `/issue-map` | Findings must become a prioritized problem set | Create or update issues, severity, impact, owner, recommended action, links, and decision requirements. Avoid placing every note on the critical path. |
-| `/critical-path` | The project has many possible tasks and needs a short gating path | Identify the few items that actually block the milestone, account for dependencies and unsupported criteria, calculate the path, and state what should not be worked on yet. |
-| `/next-step` | The user needs one concrete action now | Select one ready, high-value action from current state and critical path. Explain why it is next, what completion means, and which workflow should perform it. |
 | `/iterate` | One bounded issue or hypothesis should be improved and rechecked | Make one focused change, verify it, record evidence, update affected issues or criteria, and recalculate the path when state changes make it stale. |
 | `/milestone-review` | The current milestone may be complete | Review required criteria, evidence quality, unresolved blockers, and accepted risks. Give a supported readiness recommendation without silently advancing the milestone. |
 | `/vertical-slice` | Prototype evidence supports a strategic product decision | Recommend `PROCEED`, `ITERATE`, `PIVOT`, `PAUSE`, or `STOP`, with evidence, trade-offs, risks, and a specific next milestone or action. |
 
-Broad workflow sequence:
+### Cross-phase workflows
+
+These are utility commands usable in any phase; the catalog does not force them into a single phase. See [section 6](#6-manage-gamestudiolite-through-an-ai-agent) for full read/write and record details.
+
+| Workflow | Use it when | What the AI agent should do |
+| --- | --- | --- |
+| `/resume` | Opening a new AI-agent session on an existing project | Inspect current state and the critical path, then route to the exact next workflow. Never resets state; never runs bootstrap/init as part of a normal resume. |
+| `/project-status` | A read-only summary of direction is needed | Summarize phase, milestone, build status, blockers, pending decisions, unsupported criteria, and path freshness without changing anything. |
+| `/report-issue` | A concrete problem was found | Search for a duplicate, record severity/category/impact/owner as a proposal or confirmed fact, and create or update exactly one issue. |
+| `/record-evidence` | A claim needs its source recorded | Classify the claim as observed, user-reported, inferred, or unknown, record confidence/limitations, and create or update exactly one evidence record. |
+| `/decision` | A meaningful choice needs options and trade-offs | Define the question, options, and trade-offs; recommend one option without resolving it; resolve only after the user's explicit choice. |
+| `/milestone-criteria` | Milestone success criteria need defining or checking | Require a completion condition and explicit verification policy; evaluate only with an explicit support status, never from evidence existence alone. |
+| `/critical-path` | The project has many possible tasks and needs a short gating path | Identify the few items that actually block the milestone, account for dependencies and unsupported criteria, calculate the path, and state what should not be worked on yet. |
+| `/next-step` | The user needs one concrete action now | Select one ready, high-value action from current state and critical path. Explain why it is next, what completion means, and which workflow should perform it. |
+
+Broad phase workflow sequence:
 
 ```text
 /start
@@ -829,7 +884,7 @@ This changes metadata only. It does not install or control Unity.
 
 ### A new AI-agent session starts from the beginning
 
-Give the agent the resume prompt from [Resume in a new AI-agent session](#6-resume-in-a-new-ai-agent-session).
+Give the agent the `/resume` guidance from [Manage GameStudioLite through an AI agent](#6-manage-gamestudiolite-through-an-ai-agent).
 
 Explicitly state:
 
