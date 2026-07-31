@@ -22,12 +22,14 @@ GameStudioLite currently manages:
 - Dependency-aware critical paths
 - Generated reports
 - AI-agent workflow playbooks
+- Engine MCP readiness checks during `GS:start`
 
 It does not currently:
 
 - Create a Unity, Godot, or Unreal project
 - Control a game editor
 - Automatically build or run the game
+- Automatically install or configure engine MCP servers without human approval
 - Automatically transition phases or milestones
 - Autonomously implement an entire game
 - Automatically ingest video or telemetry
@@ -114,6 +116,7 @@ Current capabilities:
 | Milestone criteria | Available |
 | Critical-path calculation | Available |
 | Generated reports | Available |
+| Engine MCP readiness workflow | Available |
 | Automatic workflow transitions | Not available |
 | Engine editor integration | Not available |
 | Autonomous game implementation | Not available |
@@ -333,12 +336,14 @@ A compatible AI agent should:
 2. Read `.studio/workflow-catalog.json`.
 3. Read the playbook for the requested workflow.
 4. Read relevant canonical state under `.studio/state/`.
-5. Use `studio` commands for state mutations instead of manually editing canonical JSON.
-6. Distinguish an agent recommendation from the user's final decision.
-7. Never label a claim `observed` unless the observation is directly accessible.
-8. Avoid work explicitly listed under “Do not work on yet.”
-9. Validate and regenerate reports after meaningful state changes.
-10. Finish with current direction, evidence, unknowns, critical path, and the recommended next workflow.
+5. During `GS:start`, detect or confirm the intended engine, check whether a stable or experimental engine MCP/editor-control integration exists, and inspect accessible AI-client MCP/tool configuration to see whether it is installed and enabled.
+6. Ask before installing, enabling, or relying on any experimental MCP, and ask before any stable MCP setup that requires network access, global AI-client configuration, credentials, or editor-side changes.
+7. Use `studio` commands for state mutations instead of manually editing canonical JSON.
+8. Distinguish an agent recommendation from the user's final decision.
+9. Never label a claim `observed` unless the observation is directly accessible.
+10. Avoid work explicitly listed under “Do not work on yet.”
+11. Validate and regenerate reports after meaningful state changes.
+12. Finish with current direction, evidence, unknowns, critical path, and the recommended next workflow.
 
 Generic first-session prompt:
 
@@ -486,7 +491,7 @@ These follow the milestone pipeline and belong to one phase each.
 
 | Canonical | Legacy alias | Use it when | What the AI agent should do |
 | --- | --- | --- | --- |
-| `GS:start` | `/start` | Opening a new session or inspecting a project | Inspect repository, engine indicators, current state, build status, phase, milestone, blockers, and critical path; then route to the correct next workflow. It must not reset an existing project. |
+| `GS:start` | `/start` | Opening a new session or inspecting a project | Inspect repository, engine indicators, engine MCP/editor-control readiness, current state, build status, phase, milestone, blockers, and critical path; then route to the correct next workflow. It must not reset an existing project. |
 | `GS:clarify` | `/clarify` | The game idea, player experience, or core loop is ambiguous | Define intended player experience, core loop, target player, constraints, assumptions, unknowns, and a falsifiable prototype hypothesis. Record blocking decisions instead of guessing. |
 | `GS:prototype-plan` | `/prototype-plan` | The idea is clear enough to define the first playable experiment | Select the smallest testable scope, explicit exclusions, implementation order, success criteria, evidence requirements, and risks. Avoid production architecture unless required by the experiment. |
 | `GS:build-prototype` | `/build-prototype` | The prototype plan has no unresolved critical design ambiguity | Implement the smallest approved playable experiment, keep changes bounded, run available checks, and record concrete blockers or evidence. Do not add unrelated features. |

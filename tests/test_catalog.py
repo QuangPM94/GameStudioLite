@@ -50,6 +50,24 @@ def test_catalog_has_seven_phases_and_eighteen_resolved_workflows() -> None:
         assert all((REPOSITORY_ROOT / role).is_file() for role in workflow["roles"])
 
 
+def test_start_playbook_requires_engine_mcp_readiness_check() -> None:
+    paths = [
+        REPOSITORY_ROOT / ".studio" / "playbooks" / "start.md",
+        REPOSITORY_ROOT
+        / "src"
+        / "practical_game_studio"
+        / "scaffold"
+        / ".studio"
+        / "playbooks"
+        / "start.md",
+    ]
+
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        assert "Determine engine MCP readiness before recommending build work" in text
+        assert "If the only available MCP is experimental, ask the human" in text
+
+
 def test_shipped_catalog_references_workflows_by_id_not_legacy_alias() -> None:
     """The shipped catalog itself has migrated phase membership and "next"
     relationships from legacy slash aliases to internal workflow ids."""

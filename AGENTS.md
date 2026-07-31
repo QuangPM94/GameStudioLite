@@ -69,6 +69,14 @@ Use `studio criterion add`, `studio criterion update`, `studio criterion list`, 
 
 Use `studio path check` before recommending major next work. If the milestone path is absent or stale, use `studio path calculate`; use `studio path show` for direction and `studio path explain CP-ID` when rationale is requested. Do not edit `.studio/state/critical-path.json` directly except for framework maintenance or recovery. Recalculate after material issue, evidence, decision, dependency, or milestone changes, but not after trivial wording edits. State the exact next path item.
 
+## Engine MCP readiness
+
+`GS:start` must check engine MCP/editor-control readiness before routing to build work. After detecting or confirming the intended engine, determine whether a known MCP or equivalent editor-control integration exists, whether it is already installed/enabled in the accessible AI-client tool configuration, and whether it is stable or experimental.
+
+If a stable MCP exists but is not installed, recommend setting it up before `GS:prototype-plan` or `GS:build-prototype`; perform installation only when the environment permits it and the human approves any network access, global AI-client configuration, credentials, or editor-side changes. If the MCP is experimental, ask the human whether to use it before installing, enabling, or relying on it. Present the trade-off plainly: better editor interaction versus instability, security, and maintenance risk. If no MCP exists or configuration is inaccessible, label the readiness `UNKNOWN` or unavailable, record the exact blocker or manual check, and proceed with file/CLI/manual editor workflows when that is still viable.
+
+MCP availability is tooling readiness, not gameplay evidence. Do not label engine control, build launch, editor state, or playtest behavior `OBSERVED` unless directly verified through accessible runtime output, screenshots, logs, telemetry, or tests.
+
 ## Workflow selection
 
 ### Canonical invocation syntax
