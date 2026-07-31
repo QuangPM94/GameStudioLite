@@ -62,6 +62,7 @@ The installed `studio` CLI provides runtime and state-management commands. Each 
 ```text
 Game project/
 ├── AGENTS.md
+├── GAME_BRIEF.md
 └── .studio/
     ├── config.json
     ├── framework.json
@@ -208,6 +209,20 @@ studio bootstrap `
   --platform Windows
 ```
 
+To immediately open the starter brief after bootstrap:
+
+```powershell
+studio bootstrap `
+  --name "My Game" `
+  --engine Unity `
+  --platform Windows `
+  --open-brief
+```
+
+Bootstrap creates `GAME_BRIEF.md` in the game repository root. Fill it with what
+the game is, how to play, the core idea, and the prototype hypothesis. The file
+is project-specific and is preserved by future bootstrap refreshes.
+
 Validate and calculate the initial path:
 
 ```powershell
@@ -289,6 +304,7 @@ F:\Tools\GameStudioLite
 The game repository contains:
 
 - `AGENTS.md`
+- `GAME_BRIEF.md`
 - `.studio/workflow-catalog.json`
 - `.studio/playbooks/`
 - `.studio/roles/`

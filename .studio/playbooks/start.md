@@ -14,7 +14,7 @@ Repository access, `.studio/config.json`, and initialized project identity.
 
 ## Optional inputs
 
-User idea, engine/platform preference, existing build, run instructions, and prior artifacts.
+User idea, engine/platform preference, existing game brief, existing build, run instructions, and prior artifacts.
 
 ## Files to read
 
@@ -28,10 +28,10 @@ Update the project profile, detected phase, build status, assumptions, and recom
 
 1. Read `.studio/state/project.json`. If it still contains the Phase A placeholder, collect the project name and run `studio init`; use `--dry-run` first when proposed detection needs review.
 2. Determine whether the game repository is empty or existing.
-3. Detect engine, engine version, platform, game artifacts, tests, build outputs, and run instructions. Treat CLI engine detection as a suggestion, not runtime proof.
+3. Detect engine, engine version, platform, starter game brief, game artifacts, tests, build outputs, and run instructions. Treat CLI engine detection as a suggestion, not runtime proof.
 4. Classify the current stage as idea, prototype, vertical slice, or production project; label uncertain classification `INFERRED`.
 5. Check whether a build is accessible and distinguish its existence from verified launchability.
-6. Produce the project profile, detected phase, and recommended entry workflow.
+6. Produce the project profile, detected phase, and recommended entry workflow. If a concise game brief is missing or lacks what the game is, how to play, the core idea, or the prototype hypothesis, recommend `GS:clarify` before any build workflow.
 7. Inspect `studio criterion list` and `studio dependency list`; use their supported commands for structural corrections rather than editing milestone/dependency JSON.
 8. Run `studio path check`; calculate when absent/stale, then use `studio path show` to identify the exact recommended item.
 9. Apply state changes through the validated transaction layer without automatically changing phase/milestone, then run `studio validate` and present the Direction Summary.

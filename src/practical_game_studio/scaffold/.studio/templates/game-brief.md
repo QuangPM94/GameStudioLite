@@ -2,6 +2,18 @@
 
 Consumer: `/prototype-plan`. Validation purpose: establish a falsifiable hypothesis before scope is defined.
 
+## What Is This Game?
+
+One or two sentences describing the player-facing idea.
+
+## How To Play
+
+List the expected player actions, controls, objective, and end condition at prototype level.
+
+## Core Idea
+
+The smallest idea the prototype must prove or disprove.
+
 ## Player Fantasy
 
 ## Player Role

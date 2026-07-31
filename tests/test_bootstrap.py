@@ -67,7 +67,11 @@ def test_bootstrap_empty_directory_without_identity(tmp_path: Path) -> None:
     assert result.success
     assert result.operation == "project.bootstrap"
     assert result.details["initialized"] is False
-    assert result.details["created_count"] == len(load_scaffold_files())
+    assert result.details["created_count"] == len(load_scaffold_files()) + 1
+    assert result.details["starter_brief_path"] == str(tmp_path / "GAME_BRIEF.md")
+    assert (tmp_path / "GAME_BRIEF.md").read_bytes() == load_scaffold_files()[
+        ".studio/templates/game-brief.md"
+    ]
     assert (
         result.details["recommended_next_command"]
         == 'studio init --name "Project Name"'
@@ -191,6 +195,21 @@ def test_second_bootstrap_is_byte_identical_noop(tmp_path: Path) -> None:
     assert result.details["created_count"] == 0
     assert result.details["updated_count"] == 0
     assert _managed_bytes(tmp_path) == before
+
+
+def test_existing_game_brief_is_preserved_on_bootstrap_and_force(
+    tmp_path: Path,
+) -> None:
+    _service(tmp_path).bootstrap(BootstrapRequest(name="Brief Game"))
+    brief = tmp_path / "GAME_BRIEF.md"
+    brief.write_text("# My Game\n\nCustom player idea.\n", encoding="utf-8")
+
+    result = _service(tmp_path).bootstrap(
+        BootstrapRequest(force=True, acknowledged=True)
+    )
+
+    assert "GAME_BRIEF.md" not in result.changed_files
+    assert brief.read_text(encoding="utf-8") == "# My Game\n\nCustom player idea.\n"
 
 
 @pytest.mark.parametrize("relative", ["AGENTS.md", ".studio/config.json"])

@@ -6,11 +6,12 @@ Practical Game Studio (PGS) helps a solo developer or small team move from an un
 
 ## Product principles
 
-1. Build before bureaucracy: create only documents consumed by a build, review, decision, or validator.
-2. Prototype before production architecture: test the core hypothesis with the smallest playable artifact.
-3. Evidence before opinion: label claims `OBSERVED`, `USER_REPORTED`, `INFERRED`, or `UNKNOWN`.
-4. Direction before backlog volume: show the milestone, three-to-seven critical items when they exist, user decisions, next step, and deferred work.
-5. Practical autonomy: decide reversible, low-impact details without stopping for approval.
+1. Build from a starter brief: every game needs a concise, current game brief that says what the game is, how to play, the core idea, and the prototype hypothesis before build work starts.
+2. Build before bureaucracy: create only documents consumed by a build, review, decision, or validator.
+3. Prototype before production architecture: test the core hypothesis with the smallest playable artifact.
+4. Evidence before opinion: label claims `OBSERVED`, `USER_REPORTED`, `INFERRED`, or `UNKNOWN`.
+5. Direction before backlog volume: show the milestone, three-to-seven critical items when they exist, user decisions, next step, and deferred work.
+6. Practical autonomy: decide reversible, low-impact details without stopping for approval.
 
 ADRs are optional. Create one only for an expensive-to-reverse, cross-cutting, security-sensitive, performance-critical, multi-system, or easily misunderstood decision. Record prototype shortcuts in an assumption or shortcut log.
 
@@ -40,11 +41,12 @@ studio init --name "Project Name"
 ```
 
 `studio bootstrap` works in an empty directory or existing game repository
-before normal PGS root discovery. It installs only `AGENTS.md` and `.studio/`;
+before normal PGS root discovery. It installs only `AGENTS.md`, `GAME_BRIEF.md`,
+and `.studio/`;
 it never copies framework source/tests/docs, creates a nested Git repository,
 or overwrites unrelated engine files. Managed scaffold conflicts stop before
 writes. `--force --yes` may refresh framework-managed files but never replaces
-existing `.studio/state/` or `.studio/reports/` project data.
+existing `GAME_BRIEF.md`, `.studio/state/`, or `.studio/reports/` project data.
 
 Use `studio init --dry-run` to preview detection, validation, proposed fields, and affected files. An already initialized project is a successful no-op; use `studio status`. `--force` updates only explicitly supplied identity fields and requires `--yes` in a non-interactive terminal.
 
@@ -141,7 +143,7 @@ Update canonical JSON only when a workflow requires it. Generate Markdown with `
 
 CLI mutation code must return a structured `MutationResult` and keep human formatting in `cli.py`. On a concurrent-modification error, do not retry against stale state: identify the changed path and reload before trying again. A dry run must validate and render without writing tracked state or reports.
 
-Allowed workflow outputs include canonical state, generated reports, game briefs, prototype scopes, success criteria, player reviews, assumption logs, optional ADRs, game source/assets, tests, and run instructions. Do not create a full GDD, production architecture, epic tree, or broad backlog unless a later approved milestone genuinely consumes it.
+Allowed workflow outputs include canonical state, generated reports, game briefs, prototype scopes, success criteria, player reviews, assumption logs, optional ADRs, game source/assets, tests, and run instructions. A game brief is a starter build artifact, not optional bureaucracy: keep it concise and update it when the game idea, play instructions, core loop, or prototype hypothesis changes. Do not create a full GDD, production architecture, epic tree, or broad backlog unless a later approved milestone genuinely consumes it.
 
 ## Validation
 

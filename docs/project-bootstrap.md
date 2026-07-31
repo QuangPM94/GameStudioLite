@@ -2,7 +2,8 @@
 
 `studio bootstrap` attaches Practical Game Studio to an empty directory or an
 existing game repository. The Python runtime stays in the installed
-`practical-game-studio` package; the game owns only `AGENTS.md` and `.studio/`.
+`practical-game-studio` package; the game owns only `AGENTS.md`,
+`GAME_BRIEF.md`, and `.studio/`.
 
 ## Typical use
 
@@ -12,6 +13,21 @@ studio bootstrap
 studio init --name "Midnight Carrier"
 studio validate
 ```
+
+To create the scaffold and immediately open the starter brief for editing:
+
+```powershell
+studio bootstrap --open-brief
+```
+
+The editable starter brief is created at:
+
+```text
+GAME_BRIEF.md
+```
+
+Use it for the game's short idea, how to play, core loop, and prototype
+hypothesis. `.studio/templates/game-brief.md` is only the framework template.
 
 Bootstrap and identity initialization may be combined:
 
@@ -29,7 +45,7 @@ the markers discovery needs.
 
 ## Managed and protected paths
 
-Replaceable framework files are:
+Bootstrap-managed paths are:
 
 - `AGENTS.md`
 - `.studio/config.json`
@@ -40,10 +56,14 @@ Replaceable framework files are:
 - `.studio/schemas/`
 - `.studio/templates/`
 
-Project-specific `.studio/state/` and `.studio/reports/` files are protected.
-Existing protected files are never replaced by ordinary force bootstrap.
-Missing seed files may be created only when the complete staged project
-validates.
+Project-specific starter and state files are protected:
+
+- `GAME_BRIEF.md`
+- `.studio/state/`
+- `.studio/reports/`
+
+Existing protected files are never replaced by ordinary force bootstrap. Missing
+seed files may be created only when the complete staged project validates.
 
 Unrelated files—including `Assets/`, `Packages/`, `ProjectSettings/`,
 `project.godot`, `*.uproject`, `Source/`, `Content/`, README files,

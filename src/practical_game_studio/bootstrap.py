@@ -19,6 +19,7 @@ from .scaffold import (
     FRAMEWORK_NAME,
     MANAGED_PATHS,
     SCAFFOLD_VERSION,
+    STARTER_BRIEF_PATH,
     is_protected_path,
     is_replaceable_path,
     load_scaffold_files,
@@ -143,6 +144,7 @@ class BootstrapService:
         proposed[FRAMEWORK_MANIFEST_PATH] = self._manifest_content(
             packaged[FRAMEWORK_MANIFEST_PATH]
         )
+        proposed[STARTER_BRIEF_PATH] = packaged[".studio/templates/game-brief.md"]
         initial_plan = self._plan(proposed, request)
         if initial_plan.conflicts:
             raise BootstrapConflictError(initial_plan.conflicts)
@@ -231,6 +233,7 @@ class BootstrapService:
             changed_fields=init_result.changed_fields if init_result else {},
             details={
                 "root": str(self.root),
+                "starter_brief_path": str(self.root / STARTER_BRIEF_PATH),
                 "created_count": len(final_plan.created),
                 "updated_count": len(final_plan.updated),
                 "preserved_count": len(final_plan.preserved),

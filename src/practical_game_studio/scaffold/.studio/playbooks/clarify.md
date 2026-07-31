@@ -10,7 +10,7 @@ Use for `GS:clarify`, Phase 1, a vague concept, or a prototype without a clear q
 
 ## Required inputs
 
-User concept or existing project intent.
+User concept or existing project intent. If the repository does not already contain a concise game brief, create one from `.studio/templates/game-brief.md` before routing to build work.
 
 ## Optional inputs
 
@@ -18,7 +18,7 @@ References, constraints, audience, platform, schedule, and existing artifacts.
 
 ## Files to read
 
-`.studio/state/project.json`, `.studio/state/decisions.json`, `.studio/state/dependencies.json`, `.studio/state/milestone.json`, `.studio/templates/game-brief.md`, and relevant existing design notes.
+`.studio/state/project.json`, `.studio/state/decisions.json`, `.studio/state/dependencies.json`, `.studio/state/milestone.json`, `.studio/templates/game-brief.md`, any existing game brief, and relevant existing design notes.
 
 ## State changes
 
@@ -27,14 +27,15 @@ Set current phase to `clarify`, record approved assumptions and prototype hypoth
 ## Execution procedure
 
 1. Confirm project identity has been initialized; if not, initialize it without inventing optional engine or platform values.
-2. Extract the player fantasy, role, core loop, primary mechanic, target emotion, completion/win and relevant failure conditions.
-3. Identify unknowns and assumptions without expanding scope.
-4. Form one falsifiable hypothesis connecting mechanic, player behavior, and observable outcome.
-5. Define explicit prototype exclusions.
-6. Before asking about strategic ambiguity, use `studio decision list`/`show`; update an existing record or create one with `studio decision add`, including options, recommendation, trade-offs, and available evidence.
-7. Use `studio criterion list`/`show`; add or update approved completion conditions with `studio criterion add`/`update`. Do not mark them verified from document presence alone.
-8. When one action concretely requires another, inspect `studio dependency list` and create/update the explicit edge with a reason.
-9. After the user chooses, use `studio decision resolve`; then produce the game brief, update state, check path freshness, and regenerate reports.
+2. Extract what the game is, how to play, the core idea, player fantasy, role, core loop, primary mechanic, target emotion, completion/win and relevant failure conditions.
+3. Create or update a concise game brief with every required field. Do not route to `GS:prototype-plan` or `GS:build-prototype` while these starter fields are missing.
+4. Identify unknowns and assumptions without expanding scope.
+5. Form one falsifiable hypothesis connecting mechanic, player behavior, and observable outcome.
+6. Define explicit prototype exclusions.
+7. Before asking about strategic ambiguity, use `studio decision list`/`show`; update an existing record or create one with `studio decision add`, including options, recommendation, trade-offs, and available evidence.
+8. Use `studio criterion list`/`show`; add or update approved completion conditions with `studio criterion add`/`update`. Do not mark them verified from document presence alone.
+9. When one action concretely requires another, inspect `studio dependency list` and create/update the explicit edge with a reason.
+10. After the user chooses, use `studio decision resolve`; then produce the game brief, update state, check path freshness, and regenerate reports.
 
 ## User decision points
 
@@ -42,7 +43,7 @@ Ask about competing fantasies/mechanics, narrative direction, platform, material
 
 ## Outputs
 
-A concise game brief with every required field, an approved or pending falsifiable hypothesis, and a Direction Summary.
+A concise game brief with what the game is, how to play, the core idea, every required field, an approved or pending falsifiable hypothesis, and a Direction Summary.
 
 ## Validation
 

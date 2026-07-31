@@ -30,8 +30,24 @@ def test_bootstrap_human_output_and_no_identity(
     assert exit_code == 0
     assert "project scaffold created" in output.out
     assert "Project state:\nNot initialized" in output.out
+    assert "Starter game brief:" in output.out
+    assert str(tmp_path / "GAME_BRIEF.md") in output.out
     assert 'studio init --name "Project Name"' in output.out
     assert output.err == ""
+
+
+def test_bootstrap_open_brief_opens_created_starter_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    opened: list[Path] = []
+
+    monkeypatch.setattr(cli, "_open_path", lambda path: opened.append(path))
+
+    exit_code = cli.main(["bootstrap", "--root", str(tmp_path), "--open-brief"])
+
+    assert exit_code == 0
+    assert opened == [tmp_path / "GAME_BRIEF.md"]
 
 
 def test_bootstrap_json_is_one_stable_envelope(

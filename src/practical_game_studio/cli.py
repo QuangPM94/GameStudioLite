@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -123,6 +125,11 @@ def _parser() -> argparse.ArgumentParser:
         "--yes",
         action="store_true",
         help="acknowledge non-interactive managed-file replacement",
+    )
+    bootstrap_parser.add_argument(
+        "--open-brief",
+        action="store_true",
+        help="open GAME_BRIEF.md after a successful non-dry-run bootstrap",
     )
     validate_parser = subparsers.add_parser(
         "validate", help="validate a bootstrapped game project"
@@ -830,9 +837,24 @@ def _format_bootstrap_result(result: MutationResult) -> str:
             "",
             "Recommended next command:",
             details["recommended_next_command"],
+            "",
+            "Starter game brief:",
+            details["starter_brief_path"],
         ]
     )
     return "\n".join(lines)
+
+
+def _open_path(path: Path) -> None:
+    if sys.platform.startswith("win"):
+        os.startfile(path)  # type: ignore[attr-defined]
+        return
+    command = "open" if sys.platform == "darwin" else "xdg-open"
+    subprocess.Popen(
+        [command, str(path)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 def _run_bootstrap(args: argparse.Namespace, root: Path) -> int:
@@ -868,6 +890,8 @@ def _run_bootstrap(args: argparse.Namespace, root: Path) -> int:
         _print_json(_mutation_envelope(result))
     else:
         print(_format_bootstrap_result(result))
+    if args.open_brief and not result.dry_run:
+        _open_path(Path(result.details["starter_brief_path"]))
     return 0
 
 

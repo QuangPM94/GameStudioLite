@@ -13,7 +13,9 @@ FRAMEWORK_NAME = "Practical Game Studio"
 SCAFFOLD_VERSION = "1.0"
 SCAFFOLD_PACKAGE_DIRECTORY = "scaffold"
 FRAMEWORK_MANIFEST_PATH = ".studio/framework.json"
+STARTER_BRIEF_PATH = "GAME_BRIEF.md"
 
+PROTECTED_PATHS = (STARTER_BRIEF_PATH,)
 PROTECTED_PREFIXES = (".studio/state/", ".studio/reports/")
 REPLACEABLE_PREFIXES = (
     "AGENTS.md",
@@ -97,7 +99,7 @@ def load_scaffold_files() -> dict[str, bytes]:
 def is_protected_path(relative: str) -> bool:
     """Return whether an existing project-specific file must be preserved."""
 
-    return relative.startswith(PROTECTED_PREFIXES)
+    return relative in PROTECTED_PATHS or relative.startswith(PROTECTED_PREFIXES)
 
 
 def is_replaceable_path(relative: str) -> bool:
