@@ -24,6 +24,7 @@ from .dependencies import (
     resolve_endpoint_satisfaction,
     source_key_endpoint,
 )
+from .milestones import find_milestone_id
 from .models import MutationResult
 from .reporting import render_report_contents
 from .state import CanonicalState, StateObject, StateRepository
@@ -676,8 +677,14 @@ class CriticalPathService:
             milestone, candidates, includes, excludes, state
         )
         proposed = {
-            "schema_version": "3.0",
+            "schema_version": "3.1",
             "current_milestone": milestone,
+            # The path references a milestone; it never creates one, so an
+            # override naming an unregistered milestone records a null id
+            # rather than inventing a registry entry that is never written.
+            "current_milestone_id": find_milestone_id(
+                state["milestone"].get("milestones", []), milestone
+            ),
             "milestone_override": request.milestone is not None,
             "configured_max_items": request.max_items,
             "items": active,

@@ -26,7 +26,7 @@
       "uniqueItems": true
     },
     "scaffold_version": {
-      "const": "1.0"
+      "const": "1.2"
     }
   },
   "required": [

@@ -3,6 +3,7 @@
   "calculation_snapshot": null,
   "configured_max_items": 7,
   "current_milestone": "Clarify the game idea",
+  "current_milestone_id": "MS-0001",
   "excluded_sources": [],
   "exclusion_reasons": {},
   "exit_condition": "A falsifiable prototype hypothesis is approved.",
@@ -49,6 +50,6 @@
   ],
   "pinned_sources": [],
   "recommended_next_id": "CP-0001",
-  "schema_version": "3.0",
+  "schema_version": "3.1",
   "warnings": []
 }

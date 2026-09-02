@@ -47,7 +47,7 @@ def test_add_human_and_json_output(
     assert "Decision created." in output.out
     assert "ID: DEC-0001" in output.out
     assert "OPT-B — Environmental guidance" in output.out
-    assert "Recommended next workflow:\n/next-step" in output.out
+    assert "Recommended next workflow:\nGS:next-step" in output.out
 
     assert cli.main(_add_args(framework_repo, "--json")) == 0
     payload = json.loads(capsys.readouterr().out)
@@ -149,7 +149,7 @@ def test_list_show_update_and_resolve_human(
     resolved = capsys.readouterr().out
     assert "Decision resolved." in resolved
     assert "Recommendation:\nFollowed" in resolved
-    assert "Recommended next workflow:\n/iterate" in resolved
+    assert "Recommended next workflow:\nGS:iterate" in resolved
 
 
 def test_update_and_resolve_dry_runs(

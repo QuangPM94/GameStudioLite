@@ -6,6 +6,21 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- `studio upgrade check|plan|apply`: a migration engine that carries a project
+  from the scaffold version it records to the version the installed package
+  produces. State is migrated in memory and validated against the new schemas
+  before any file is touched; `--dry-run` proves the upgrade would validate;
+  a failure after the first write restores the pre-upgrade snapshot.
+- Migration `001` (scaffold 1.0 -> 1.1): canonical state stores the recommended
+  next workflow as a workflow id (`recommended_next_workflow: "start"`) instead
+  of a slash alias (`recommended_next_playbook: "/start"`).
+- Migration `002` (scaffold 1.1 -> 1.2): `MS-####` milestone ids and a milestone
+  registry in `milestone.json`, referenced by `project.json`,
+  `critical-path.json`, and every criterion, so milestone references survive a
+  title rename.
+- `docs/upgrade-and-migrations.md` describing the upgrade contract and how to
+  write a migration.
+
 - `src/practical_game_studio/commands/` package: one module per `studio`
   command noun, each registering its own arguments and rendering its own
   human/JSON output, with `cli.py` reduced to a router. No CLI syntax, stdout
@@ -54,6 +69,9 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Changed
 
+- Human output now renders the recommended workflow as its canonical `GS:`
+  command (`GS:start`) rather than the legacy alias (`/start`). Both spellings
+  remain valid agent input.
 - GitHub Actions checkout/setup-python actions move to Node 24-based stable
   majors to remove Node 20 deprecation warnings.
 - `studio validate` now validates a lightweight game project; framework source,

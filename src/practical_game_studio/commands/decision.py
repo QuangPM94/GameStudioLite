@@ -16,7 +16,13 @@ from ..decisions import (
     DecisionService,
 )
 from ..state import StateRepository
-from ._shared import _add_root_argument, _json_envelope, _mutation_envelope, _print_json
+from ._shared import (
+    _add_root_argument,
+    _json_envelope,
+    _mutation_envelope,
+    _print_json,
+    _recommended_workflow_block,
+)
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -286,9 +292,7 @@ def _run_decision_add(args: argparse.Namespace, root: Path) -> int:
         )
     else:
         print(f"\nReports regenerated: {result.report_summary['rendered']}")
-    print(
-        f"\nRecommended next workflow:\n{result.details['recommended_next_workflow']}"
-    )
+    print(_recommended_workflow_block(result.details))
     return 0
 
 
@@ -580,9 +584,7 @@ def _run_decision_resolve(args: argparse.Namespace, root: Path) -> int:
         "Reports rendered for validation" if result.dry_run else "Reports regenerated"
     )
     print(f"\n{label}: {result.report_summary['rendered']}")
-    print(
-        f"\nRecommended next workflow:\n{result.details['recommended_next_workflow']}"
-    )
+    print(_recommended_workflow_block(result.details))
     return 0
 
 

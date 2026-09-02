@@ -7,6 +7,7 @@
   "required": [
     "schema_version",
     "current_milestone",
+    "current_milestone_id",
     "milestone_override",
     "configured_max_items",
     "items",
@@ -23,8 +24,9 @@
     "warnings"
   ],
   "properties": {
-    "schema_version": {"const": "3.0"},
+    "schema_version": {"const": "3.1"},
     "current_milestone": {"type": "string", "minLength": 1},
+    "current_milestone_id": {"type": ["string", "null"], "pattern": "^MS-[0-9]{4,}$"},
     "milestone_override": {"type": "boolean"},
     "configured_max_items": {"type": "integer", "minimum": 3, "maximum": 10},
     "items": {

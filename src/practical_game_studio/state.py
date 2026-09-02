@@ -234,5 +234,5 @@ def build_status_summary(state: dict[str, Any]) -> StatusSummary:
         pending_decisions_by_urgency=pending_by_urgency,
         next_required_decision=next_required,
         critical_path_items=path_items,
-        recommended_next_playbook=project["recommended_next_playbook"],
+        recommended_next_workflow=project["recommended_next_workflow"],
     )

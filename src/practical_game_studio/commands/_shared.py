@@ -16,6 +16,19 @@ from typing import Any
 
 from ..models import MutationResult
 from ..state import StateRepository
+from ..workflow_commands import canonical_command
+
+
+def _recommended_workflow_block(details: dict[str, Any]) -> str:
+    """Render the recommended-next-workflow footer.
+
+    Services return the workflow id; the canonical `GS:` command is what a
+    reader types. Keeping the translation here means adding another spelling
+    never means touching four command modules.
+    """
+
+    command = canonical_command(details["recommended_next_workflow"])
+    return f"\nRecommended next workflow:\n{command}"
 
 
 def _add_root_argument(parser: argparse.ArgumentParser) -> None:

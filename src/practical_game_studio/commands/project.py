@@ -11,6 +11,7 @@ from ..models import MutationResult
 from ..reporting import format_status
 from ..state import StateRepository, load_state
 from ..validation import validate_project
+from ..workflow_commands import canonical_command
 from ._shared import _add_root_argument, _json_envelope, _print_json
 
 
@@ -160,7 +161,7 @@ def _format_init_result(result: MutationResult) -> str:
         [
             "",
             "Recommended next workflow:",
-            result.details["recommended_next_workflow"],
+            canonical_command(result.details["recommended_next_workflow"]),
         ]
     )
     if already_initialized and not result.changed_files and not result.dry_run:

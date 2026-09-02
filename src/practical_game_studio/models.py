@@ -34,7 +34,7 @@ class StatusSummary:
     pending_decisions_by_urgency: dict[str, int]
     next_required_decision: str | None
     critical_path_items: list[str]
-    recommended_next_playbook: str
+    recommended_next_workflow: str
 
 
 @dataclass(frozen=True, slots=True)

@@ -17,6 +17,7 @@
       "lifecycle_status": "active",
       "milestone": "Clarify the game idea",
       "milestone_history": [],
+      "milestone_id": "MS-0001",
       "related_decisions": [],
       "related_issues": [],
       "required": true,
@@ -30,9 +31,27 @@
     }
   ],
   "milestone": "Clarify the game idea",
+  "milestone_id": "MS-0001",
+  "milestones": [
+    {
+      "created_at": "2025-01-01T00:00:00Z",
+      "id": "MS-0001",
+      "status": "current",
+      "title": "Clarify the game idea",
+      "updated_at": "2025-01-01T00:00:00Z"
+    },
+    {
+      "created_at": "2025-01-01T00:00:00Z",
+      "id": "MS-0002",
+      "status": "known",
+      "title": "Define the smallest useful prototype",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  ],
   "next_milestone": "Define the smallest useful prototype",
+  "next_milestone_id": "MS-0002",
   "recommendation": "Run guided intake before selecting or building a prototype.",
-  "schema_version": "3.1",
+  "schema_version": "3.2",
   "supporting_evidence": [],
   "verdict": "PAUSE"
 }

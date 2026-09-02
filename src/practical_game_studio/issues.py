@@ -16,6 +16,7 @@ from .models import MutationResult
 from .reporting import render_report_contents
 from .state import OPEN_ISSUE_STATUSES, SEVERITIES, StateObject, StateRepository
 from .transaction import ReportRenderer, StateTransaction
+from .workflow_commands import catalog_workflows_by_id
 
 ISSUE_ID_PATTERN = re.compile(r"^ISS-(\d{3,})$")
 CP_ID_PATTERN = re.compile(r"^CP-(\d{4,})$")
@@ -868,9 +869,10 @@ class IssueService:
         }
 
     def _issue_map_workflow(self) -> str:
+        """Return the workflow id to recommend after an issue mutation."""
+
         catalog = self.repository.root / ".studio" / "workflow-catalog.json"
         payload = json.loads(catalog.read_text(encoding="utf-8"))
-        aliases = {item["alias"] for item in payload["workflows"]}
-        if "/issue-map" in aliases:
-            return "/issue-map"
-        return self.repository.load_project()["recommended_next_playbook"]
+        if "issue-map" in catalog_workflows_by_id(payload):
+            return "issue-map"
+        return self.repository.load_project()["recommended_next_workflow"]

@@ -19,6 +19,7 @@ from .state import (
     is_framework_source_root,
     load_json,
 )
+from .workflow_commands import catalog_workflows_by_id
 
 REQUIRED_ROLE_SECTIONS = (
     "Purpose",
@@ -161,6 +162,7 @@ FRAMEWORK_REQUIRED_FILES = (
     "docs/distribution.md",
     "docs/project-bootstrap.md",
     "docs/baseline.md",
+    "docs/upgrade-and-migrations.md",
     "src/practical_game_studio/__init__.py",
     "src/practical_game_studio/bootstrap.py",
     "src/practical_game_studio/cli.py",
@@ -176,6 +178,13 @@ FRAMEWORK_REQUIRED_FILES = (
     "src/practical_game_studio/commands/dependency.py",
     "src/practical_game_studio/commands/criterion.py",
     "src/practical_game_studio/commands/path.py",
+    "src/practical_game_studio/commands/upgrade.py",
+    "src/practical_game_studio/migrations/__init__.py",
+    "src/practical_game_studio/migrations/registry.py",
+    "src/practical_game_studio/migrations/engine.py",
+    "src/practical_game_studio/migrations/migration_001.py",
+    "src/practical_game_studio/migrations/migration_002.py",
+    "src/practical_game_studio/milestones.py",
     "src/practical_game_studio/decisions.py",
     "src/practical_game_studio/dependencies.py",
     "src/practical_game_studio/criteria.py",
@@ -210,6 +219,7 @@ FRAMEWORK_REQUIRED_FILES = (
     "tests/test_transaction.py",
     "tests/test_cli.py",
     "tests/test_commands_package.py",
+    "tests/test_migrations.py",
     "tests/test_issues.py",
     "tests/test_issue_cli.py",
     "tests/test_evidence.py",
@@ -1444,14 +1454,14 @@ def _validate_relationships(
             )
 
     project = state["project"]
-    aliases = {workflow["alias"] for workflow in catalog["workflows"]}
+    workflow_ids = set(catalog_workflows_by_id(catalog))
     catalog_phases = {phase["id"] for phase in catalog["phases"]}
     if project["current_phase"] not in PHASES:
         result.add(f"Project: invalid phase {project['current_phase']}")
     if project["current_phase"] not in catalog_phases:
         result.add("Project: current phase is not present in the workflow catalog")
-    if project["recommended_next_playbook"] not in aliases:
-        result.add("Project: recommended next playbook is not in workflow catalog")
+    if project["recommended_next_workflow"] not in workflow_ids:
+        result.add("Project: recommended next workflow is not in workflow catalog")
     if state["critical_path"]["current_milestone"] != project[
         "current_milestone"
     ] and not state["critical_path"].get("milestone_override", False):

@@ -10,7 +10,12 @@ PGS welcomes focused changes that improve prototype delivery or evidence-backed 
 6. Add failure-injection tests for schema, relationship, rendering, replacement, and concurrency risks introduced by a mutation.
 7. Keep commits intentional and avoid bundling unrelated production-scale features.
 
-Use `studio init --dry-run`, `studio issue add|update --dry-run`, `studio evidence add|update --dry-run`, `studio decision add|update|resolve --dry-run`, `studio dependency add|update|deactivate --dry-run`, `studio criterion add|update|evaluate|retire --dry-run`, and `studio path calculate --dry-run` when checking mutation behavior against a real project. Fixture and manual CLI tests must not mutate the framework repository's canonical state.
+Use `studio init --dry-run`, `studio issue add|update --dry-run`, `studio evidence add|update --dry-run`, `studio decision add|update|resolve --dry-run`, `studio dependency add|update|deactivate --dry-run`, `studio criterion add|update|evaluate|retire --dry-run`, `studio path calculate --dry-run`, and `studio upgrade apply --dry-run` when checking mutation behavior against a real project. Fixture and manual CLI tests must not mutate the framework repository's canonical state.
+
+Changing the shape of canonical state requires a migration in
+`src/practical_game_studio/migrations/`; see
+[docs/upgrade-and-migrations.md](docs/upgrade-and-migrations.md). A release that
+changes state without one leaves existing projects unupgradeable.
 
 CLI code is split by command noun. `src/practical_game_studio/cli.py` is a
 router: it builds the parser from `src/practical_game_studio/commands/` and

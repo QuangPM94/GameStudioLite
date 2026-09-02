@@ -193,7 +193,7 @@ def test_legacy_catalog_without_scope_field_still_validates(
     legacy_catalog["catalog_version"] = "1.0"
     project_path = framework_repo / ".studio" / "state" / "project.json"
     project = json.loads(project_path.read_text(encoding="utf-8"))
-    project["recommended_next_playbook"] = "/start"
+    project["recommended_next_workflow"] = "start"
     project_path.write_text(
         json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )

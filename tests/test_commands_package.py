@@ -24,6 +24,7 @@ from practical_game_studio.commands import (
     path,
     project,
     report,
+    upgrade,
 )
 
 #: The baseline command surface. Extending it is a deliberate, documented act.
@@ -34,6 +35,7 @@ EXPECTED_COMMANDS = (
     "status",
     "report",
     "init",
+    "upgrade",
     "issue",
     "evidence",
     "decision",
@@ -44,6 +46,7 @@ EXPECTED_COMMANDS = (
 
 EXPECTED_SUBCOMMANDS = {
     "framework": ("validate",),
+    "upgrade": ("check", "plan", "apply"),
     "issue": ("add", "list", "show", "update"),
     "evidence": ("add", "list", "show", "update"),
     "decision": ("add", "list", "show", "update", "resolve"),
@@ -90,6 +93,7 @@ def test_command_modules_expose_registration_and_a_handler() -> None:
         issue,
         path,
         report,
+        upgrade,
     ):
         assert callable(module.register), module.__name__
         assert callable(module.run), module.__name__

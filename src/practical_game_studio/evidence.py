@@ -691,11 +691,13 @@ class EvidenceService:
         }
 
     def _recommended_workflow(self) -> str:
+        """Return the workflow id to recommend after an evidence mutation."""
+
         project = self.repository.load_project()
         return (
-            "/issue-map"
+            "issue-map"
             if (self.root / ".studio" / "playbooks" / "issue-map.md").is_file()
-            else project["recommended_next_playbook"]
+            else project["recommended_next_workflow"]
         )
 
     @staticmethod

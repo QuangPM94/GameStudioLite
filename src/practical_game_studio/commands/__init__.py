@@ -20,6 +20,7 @@ from . import (
     path,
     project,
     report,
+    upgrade,
 )
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "path",
     "project",
     "report",
+    "upgrade",
 ]

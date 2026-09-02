@@ -26,6 +26,7 @@ from .commands import (
     path,
     project,
     report,
+    upgrade,
 )
 from .commands._shared import _json_envelope, _print_json
 from .criteria import CriterionInputError, CriterionNotFoundError
@@ -35,6 +36,7 @@ from .dependencies import DependencyInputError, DependencyNotFoundError
 from .evidence import EvidenceInputError, EvidenceNotFoundError
 from .initialization import InitializationError
 from .issues import IssueInputError, IssueNotFoundError
+from .migrations import MigrationError
 from .state import StateReadError, find_project_root
 from .transaction import TransactionError
 
@@ -44,6 +46,7 @@ CommandHandler = Callable[[argparse.Namespace, Path], int]
 #: that carries it. Used to name the failing operation in JSON error envelopes.
 _SUBCOMMAND_DESTS = {
     "framework": "framework_command",
+    "upgrade": "upgrade_command",
     "issue": "issue_command",
     "evidence": "evidence_command",
     "decision": "decision_command",
@@ -57,6 +60,7 @@ _SUBCOMMAND_DESTS = {
 _HANDLERS: dict[str, CommandHandler] = {
     "validate": project.run_validate,
     "framework": framework.run,
+    "upgrade": upgrade.run,
     "status": project.run_status,
     "report": report.run,
     "init": project.run_init,
@@ -82,6 +86,7 @@ def _parser() -> argparse.ArgumentParser:
     project.register_status(subparsers)
     report.register(subparsers)
     project.register_init(subparsers)
+    upgrade.register(subparsers)
     issue.register(subparsers)
     evidence.register(subparsers)
     decision.register(subparsers)
@@ -199,6 +204,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(f"studio: {exc}", file=sys.stderr)
         return 2
+    except MigrationError as exc:
+        if getattr(args, "json", False):
+            _print_json(
+                _json_envelope(
+                    success=False,
+                    operation=_operation(args),
+                    dry_run=getattr(args, "dry_run", False),
+                    error={
+                        "type": "migration",
+                        "stage": exc.stage,
+                        "message": exc.message,
+                    },
+                )
+            )
+        else:
+            print(f"studio: {exc}", file=sys.stderr)
+        return 1
     except TransactionError as exc:
         if getattr(args, "json", False):
             _print_json(

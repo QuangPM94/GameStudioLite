@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .milestones import resolve_milestone_id
 from .models import MutationResult
 from .reporting import render_report_contents
 from .state import CanonicalState, StateObject, StateRepository
@@ -481,6 +482,9 @@ class CriterionService:
                             }
                         )
                     criterion[field_name] = new_milestone
+                    criterion["milestone_id"] = resolve_milestone_id(
+                        state["milestone"], new_milestone, timestamp=timestamp
+                    )
                 elif field_name == "required":
                     criterion[field_name] = bool(value)
                 else:
@@ -816,6 +820,9 @@ class CriterionService:
         return {
             "id": allocate_criterion_id(state["milestone"]["criteria_results"]),
             "milestone": milestone,
+            "milestone_id": resolve_milestone_id(
+                state["milestone"], milestone, timestamp=timestamp
+            ),
             "description": description,
             "required": bool(request.required),
             "lifecycle_status": "active",
