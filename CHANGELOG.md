@@ -6,6 +6,12 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- `src/practical_game_studio/commands/` package: one module per `studio`
+  command noun, each registering its own arguments and rendering its own
+  human/JSON output, with `cli.py` reduced to a router. No CLI syntax, stdout
+  text, exit code, or JSON envelope changed.
+- `docs/baseline.md` recording the pre-execution-layer baseline: test count,
+  CLI surface, package/scaffold/catalog versions, and schema versions.
 - Cross-platform C2.2 distribution CI: source/wheel builds, isolated wheel
   installation, lightweight bootstrap/init/validation, and two-project state
   isolation smoke on Ubuntu and Windows Python 3.11.

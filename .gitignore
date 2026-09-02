@@ -8,3 +8,6 @@ pytest-cache-files-*/
 .venv/
 build/
 dist/
+
+# Local planning docs (not tracked)
+GameStudioLite — Development Backlog.md

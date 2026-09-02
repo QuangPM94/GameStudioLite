@@ -12,6 +12,13 @@ PGS welcomes focused changes that improve prototype delivery or evidence-backed 
 
 Use `studio init --dry-run`, `studio issue add|update --dry-run`, `studio evidence add|update --dry-run`, `studio decision add|update|resolve --dry-run`, `studio dependency add|update|deactivate --dry-run`, `studio criterion add|update|evaluate|retire --dry-run`, and `studio path calculate --dry-run` when checking mutation behavior against a real project. Fixture and manual CLI tests must not mutate the framework repository's canonical state.
 
+CLI code is split by command noun. `src/practical_game_studio/cli.py` is a
+router: it builds the parser from `src/practical_game_studio/commands/` and
+dispatches a parsed command to the module that owns it. A new command gets a
+new module there with a `register` and a `run` function; helpers shared by more
+than one command module belong in `commands/_shared.py`. Domain rules and state
+mutation stay in the service modules, never in a command module.
+
 PGS stays engine-neutral and dependency-light. New dependencies require a clear maintenance and user benefit.
 
 The packaged scaffold in `src/practical_game_studio/scaffold/` is the canonical

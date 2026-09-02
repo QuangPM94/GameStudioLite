@@ -149,7 +149,7 @@ Never claim a real playtest occurred without runtime or human-playtest evidence.
 
 Update canonical JSON only when a workflow requires it. Generate Markdown with `studio report` after state changes and keep `.studio/reports/direction-report.md` current. Generated reports must begin with `<!-- Generated file. Do not edit manually. -->`.
 
-CLI mutation code must return a structured `MutationResult` and keep human formatting in `cli.py`. On a concurrent-modification error, do not retry against stale state: identify the changed path and reload before trying again. A dry run must validate and render without writing tracked state or reports.
+CLI mutation code must return a structured `MutationResult` and keep human formatting in the command module that owns the noun, under `src/practical_game_studio/commands/`; `cli.py` only routes. On a concurrent-modification error, do not retry against stale state: identify the changed path and reload before trying again. A dry run must validate and render without writing tracked state or reports.
 
 Allowed workflow outputs include canonical state, generated reports, game briefs, prototype scopes, success criteria, player reviews, assumption logs, optional ADRs, game source/assets, tests, and run instructions. A game brief is a starter build artifact, not optional bureaucracy: keep it concise and update it when the game idea, play instructions, core loop, or prototype hypothesis changes. Do not create a full GDD, production architecture, epic tree, or broad backlog unless a later approved milestone genuinely consumes it.
 
