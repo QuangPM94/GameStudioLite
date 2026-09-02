@@ -82,6 +82,8 @@ class EvidenceCreateRequest:
     confidence: str | None = None
     limitations: tuple[str, ...] = ()
     captured_at: str | None = None
+    related_runs: tuple[str, ...] = ()
+    related_artifacts: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +93,10 @@ class EvidencePatch:
     remove_limitations: tuple[str, ...] = ()
     add_issues: tuple[str, ...] = ()
     remove_issues: tuple[str, ...] = ()
+    add_runs: tuple[str, ...] = ()
+    remove_runs: tuple[str, ...] = ()
+    add_artifacts: tuple[str, ...] = ()
+    remove_artifacts: tuple[str, ...] = ()
     supersedes: str | None = None
 
     @property
@@ -179,6 +185,36 @@ def _canonical_evidence_id(value: str) -> str:
             f"invalid evidence ID '{value}'; expected a value such as EVD-0001"
         )
     return normalized
+
+
+#: How each execution reference kind is named, validated, and looked up.
+EXECUTION_REFERENCES = {
+    "run": ("run", "runs", "runs"),
+    "artifact": ("artifact", "artifacts", "artifacts"),
+}
+
+
+def _resolve_execution_references(
+    state: dict[str, StateObject], values: Iterable[str], *, kind: str
+) -> list[str]:
+    """Return deduplicated run or artifact ids, rejecting any that do not exist.
+
+    Evidence that cites a run nobody recorded is worse than evidence citing
+    nothing: it reads as sourced when its source cannot be inspected.
+    """
+
+    label, document, collection = EXECUTION_REFERENCES[kind]
+    known = {item["id"] for item in state[document][collection]}
+    resolved: list[str] = []
+    for value in values:
+        identifier = str(value).strip()
+        if not identifier:
+            continue
+        if identifier not in known:
+            raise EvidenceInputError(f"referenced {label} {identifier} does not exist")
+        if identifier not in resolved:
+            resolved.append(identifier)
+    return resolved
 
 
 def _deduplicate_issue_ids(values: Iterable[str]) -> list[str]:
@@ -478,6 +514,12 @@ class EvidenceService:
             "updated_at": timestamp,
             "status": "active",
             "supersedes": None,
+            "related_runs": _resolve_execution_references(
+                state, request.related_runs, kind="run"
+            ),
+            "related_artifacts": _resolve_execution_references(
+                state, request.related_artifacts, kind="artifact"
+            ),
         }
         self._validate_source(record)
         return record

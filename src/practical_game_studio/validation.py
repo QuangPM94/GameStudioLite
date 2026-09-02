@@ -67,6 +67,8 @@ SCHEMA_FILES = {
     "critical_path": "critical-path.schema.json",
     "evidence": "evidence.schema.json",
     "milestone": "milestone.schema.json",
+    "runs": "runs.schema.json",
+    "artifacts": "artifacts.schema.json",
 }
 PROJECT_REQUIRED_FILES = (
     "AGENTS.md",
@@ -117,6 +119,8 @@ PROJECT_REQUIRED_FILES = (
             "evidence",
             "milestone",
             "framework",
+            "runs",
+            "artifacts",
         )
     ),
     *(f".studio/state/{filename}" for filename in STATE_FILES.values()),
@@ -500,6 +504,44 @@ def _duplicates(values: Iterable[str]) -> set[str]:
     return duplicate
 
 
+def _validate_execution_references(
+    state: dict[str, Any], result: ValidationResult
+) -> None:
+    """Check that every run/artifact/evidence cross-reference resolves.
+
+    A dangling execution reference is worse than a missing one: it makes a
+    claim look sourced when its source is gone.
+    """
+
+    runs = state["runs"]["runs"]
+    artifacts = state["artifacts"]["artifacts"]
+    run_ids = {item["id"] for item in runs}
+    artifact_ids = {item["id"] for item in artifacts}
+
+    for duplicate in sorted(_duplicates([item["id"] for item in runs])):
+        result.add(f"Runs: duplicate run ID {duplicate}")
+    for duplicate in sorted(_duplicates([item["id"] for item in artifacts])):
+        result.add(f"Artifacts: duplicate artifact ID {duplicate}")
+
+    for run in runs:
+        for reference in run["artifacts"]:
+            if reference not in artifact_ids:
+                result.add(f"{run['id']}: references unknown artifact {reference}")
+
+    for artifact in artifacts:
+        source = artifact["source_run"]
+        if source is not None and source not in run_ids:
+            result.add(f"{artifact['id']}: references unknown source run {source}")
+
+    for record in state["evidence"]["evidence"]:
+        for reference in record.get("related_runs", []):
+            if reference not in run_ids:
+                result.add(f"{record['id']}: references unknown run {reference}")
+        for reference in record.get("related_artifacts", []):
+            if reference not in artifact_ids:
+                result.add(f"{record['id']}: references unknown artifact {reference}")
+
+
 def _validate_relationships(
     state: dict[str, Any], catalog: dict[str, Any], result: ValidationResult
 ) -> None:
@@ -510,6 +552,8 @@ def _validate_relationships(
         validate_verification_policy,
     )
     from .dependencies import resolve_endpoint_satisfaction
+
+    _validate_execution_references(state, result)
 
     issues = state["issues"]["issues"]
     decisions = state["decisions"]["decisions"]

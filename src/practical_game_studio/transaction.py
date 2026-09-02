@@ -154,6 +154,12 @@ class StateTransaction:
     def set_milestone(self, value: StateObject) -> None:
         self._set("milestone", value)
 
+    def set_runs(self, value: StateObject) -> None:
+        self._set("runs", value)
+
+    def set_artifacts(self, value: StateObject) -> None:
+        self._set("artifacts", value)
+
     def commit(
         self,
         *,

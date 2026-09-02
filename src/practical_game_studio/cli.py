@@ -14,13 +14,16 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from .artifacts import ArtifactInputError, ArtifactNotFoundError
 from .bootstrap import BootstrapConflictError, BootstrapError
 from .commands import (
+    artifact,
     bootstrap,
     criterion,
     decision,
     dependency,
     evidence,
+    execution,
     framework,
     issue,
     path,
@@ -36,7 +39,8 @@ from .dependencies import DependencyInputError, DependencyNotFoundError
 from .evidence import EvidenceInputError, EvidenceNotFoundError
 from .initialization import InitializationError
 from .issues import IssueInputError, IssueNotFoundError
-from .migrations import MigrationError
+from .migrations import MigrationError, MigrationInputError
+from .runs import RunInputError, RunNotFoundError
 from .state import StateReadError, find_project_root
 from .transaction import TransactionError
 
@@ -47,6 +51,8 @@ CommandHandler = Callable[[argparse.Namespace, Path], int]
 _SUBCOMMAND_DESTS = {
     "framework": "framework_command",
     "upgrade": "upgrade_command",
+    "execution": "execution_command",
+    "artifact": "artifact_command",
     "issue": "issue_command",
     "evidence": "evidence_command",
     "decision": "decision_command",
@@ -61,6 +67,8 @@ _HANDLERS: dict[str, CommandHandler] = {
     "validate": project.run_validate,
     "framework": framework.run,
     "upgrade": upgrade.run,
+    "execution": execution.run,
+    "artifact": artifact.run,
     "status": project.run_status,
     "report": report.run,
     "init": project.run_init,
@@ -93,6 +101,8 @@ def _parser() -> argparse.ArgumentParser:
     dependency.register(subparsers)
     criterion.register(subparsers)
     path.register(subparsers)
+    execution.register(subparsers)
+    artifact.register(subparsers)
     return parser
 
 
@@ -171,6 +181,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         DecisionNotFoundError,
         EvidenceNotFoundError,
         IssueNotFoundError,
+        RunNotFoundError,
+        ArtifactNotFoundError,
     ) as exc:
         if getattr(args, "json", False):
             _print_json(
@@ -191,6 +203,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         DecisionInputError,
         EvidenceInputError,
         IssueInputError,
+        MigrationInputError,
+        RunInputError,
+        ArtifactInputError,
     ) as exc:
         if getattr(args, "json", False):
             _print_json(

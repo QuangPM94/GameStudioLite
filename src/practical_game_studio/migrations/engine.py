@@ -34,8 +34,14 @@ from ..scaffold import (
     load_scaffold_files,
     render_framework_manifest,
 )
-from ..state import CanonicalState, StateRepository, load_json
-from ..transaction import StateTransaction, _replace_file
+from ..state import (
+    STATE_FILES,
+    CanonicalState,
+    StateReadError,
+    StateRepository,
+    load_json,
+)
+from ..transaction import StateTransaction, _replace_file, deterministic_json
 from ..validation import validate_state
 from .registry import Migration, MigrationError, resolve_migration_chain
 
@@ -196,9 +202,54 @@ def plan_migration(root: Path) -> MigrationPlan:
 
 
 def _state_filename(name: str) -> str:
-    from ..state import STATE_FILES
-
     return STATE_FILES[name]
+
+
+def _state_path(name: str) -> str:
+    return f".studio/state/{STATE_FILES[name]}"
+
+
+def _load_state_for_migration(root: Path) -> CanonicalState:
+    """Load canonical state tolerantly, skipping documents that do not exist yet.
+
+    A scaffold version that introduces a state document meets projects that
+    predate it, where the file is legitimately absent. Its migration is what
+    creates the document, so refusing to load would make the document
+    uncreatable. Every other read path still treats a missing state file as an
+    error.
+    """
+
+    repository = StateRepository(root)
+    state: CanonicalState = {}
+    for name in STATE_FILES:
+        try:
+            state[name] = repository.load_one(name)
+        except StateReadError as exc:
+            if not (root / _state_path(name)).exists():
+                continue
+            raise MigrationError("load", str(exc)) from exc
+    return state
+
+
+def _assert_complete(state: CanonicalState) -> None:
+    """Every state document must exist once the chain has run."""
+
+    missing = sorted(set(STATE_FILES) - set(state))
+    if missing:
+        raise MigrationError(
+            "migration",
+            "migrated state is missing document(s): " + ", ".join(missing),
+        )
+
+
+def _missing_state_paths(root: Path) -> dict[str, str]:
+    """State files the upgrade must create, mapped to their state name."""
+
+    return {
+        _state_path(name): name
+        for name in STATE_FILES
+        if not (root / _state_path(name)).exists()
+    }
 
 
 def _refreshed_managed_paths(root: Path) -> tuple[str, ...]:
@@ -245,8 +296,9 @@ def apply_migration(root: Path, *, dry_run: bool = False) -> MutationResult:
             details=plan.to_dict(),
         )
 
-    current_state = StateRepository(root).load_all()
+    current_state = _load_state_for_migration(root)
     migrated_state = _apply_chain(current_state, plan.migrations)
+    _assert_complete(migrated_state)
 
     try:
         managed = _managed_scaffold_files(root)
@@ -269,12 +321,20 @@ def apply_migration(root: Path, *, dry_run: bool = False) -> MutationResult:
         )
 
     changed_managed = _refreshed_managed_paths(root)
+    created_state = _missing_state_paths(root)
     snapshot = {
-        relative: _read_optional(root / relative) for relative in changed_managed
+        relative: _read_optional(root / relative)
+        for relative in (*changed_managed, *created_state)
     }
     try:
         for relative in changed_managed:
             _write_managed(root / relative, managed[relative])
+        # A migration that introduces a state document must create the file
+        # before StateTransaction runs: the transaction snapshots and validates
+        # the complete set of state files and cannot open against a missing one.
+        # These are in the snapshot as None, so a rollback deletes them.
+        for relative, name in created_state.items():
+            _write_managed(root / relative, deterministic_json(migrated_state[name]))
         result = _commit_state(root, migrated_state, plan)
     except Exception:
         _restore(root, snapshot)
@@ -324,6 +384,8 @@ def _commit_state(
         transaction.set_critical_path(state["critical_path"])
         transaction.set_evidence(state["evidence"])
         transaction.set_milestone(state["milestone"])
+        transaction.set_runs(state["runs"])
+        transaction.set_artifacts(state["artifacts"])
         return transaction.commit(
             warnings=plan.manual_actions,
             details=plan.to_dict(),

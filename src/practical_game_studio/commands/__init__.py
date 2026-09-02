@@ -10,11 +10,13 @@ service modules, never here.
 from __future__ import annotations
 
 from . import (
+    artifact,
     bootstrap,
     criterion,
     decision,
     dependency,
     evidence,
+    execution,
     framework,
     issue,
     path,
@@ -24,11 +26,13 @@ from . import (
 )
 
 __all__ = [
+    "artifact",
     "bootstrap",
     "criterion",
     "decision",
     "dependency",
     "evidence",
+    "execution",
     "framework",
     "issue",
     "path",
