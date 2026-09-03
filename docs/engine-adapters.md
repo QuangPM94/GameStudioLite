@@ -51,6 +51,22 @@ HEADLESS, LOG_CAPTURE, RUN
 The message names what was asked, why it failed, and what this adapter *can* do,
 so an agent can choose a different action rather than retrying the same wall.
 
+## Real-engine integration gate
+
+The unit suite uses a deterministic fake executable for failure and timeout
+coverage. CI also has a separate real-engine job pinned to Godot 4.7.2. That
+job checksum-verifies the official Linux binary, bootstraps a disposable game,
+launches it headlessly through `studio run`, performs smoke verification, and
+checks that the resulting RUN and log ART records retain engine version, status,
+hash, and source relationships. It then explicitly accepts the verification
+proposal as evidence, evaluates an observed-runtime criterion, and recalculates
+the milestone critical path; verification itself still performs none of those
+state transitions.
+
+The gate observes a real engine process and its output. It does not establish
+gameplay quality, player behaviour, export-template availability, or support for
+every Godot version.
+
 ## Resolution
 
 `resolve_adapter(root)` asks every registered adapter to detect the project and
