@@ -65,12 +65,18 @@ class Migration:
 
 
 def _load_migrations() -> tuple[Migration, ...]:
-    from . import migration_001, migration_002, migration_003
+    from . import (
+        migration_001,
+        migration_002,
+        migration_003,
+        migration_004,
+    )
 
     return (
         migration_001.MIGRATION,
         migration_002.MIGRATION,
         migration_003.MIGRATION,
+        migration_004.MIGRATION,
     )
 
 

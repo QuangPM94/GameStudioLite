@@ -6,6 +6,36 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- `studio criterion support MC-###`: a read-only helper that reports what a
+  criterion's evidence supports, which evidence does not meet its policy, which
+  is retracted or superseded, and what is still missing. It never evaluates —
+  a command that both advised and decided could talk a milestone into passing.
+- `studio workflow list|ready|check|explain`: workflow readiness computed from
+  requirements declared in the catalog rather than read out of prose. Three
+  statuses (`ready`, `ready-with-unknowns`, `blocked`) keep "everything checked
+  out" distinct from "nothing blocks, but some checks could not be performed".
+  An unrecognised requirement is `unknown`, never satisfied, and unknowns do
+  not block, so a project with no engine can still run planning workflows.
+- Execution safety: every operation carries a risk class, review mode sets the
+  approval threshold, and a non-interactive terminal denies anything above it
+  unless `--yes` was passed. High risk is refused even with `--yes` when nobody
+  is present. Denials name the operation, its risk, the reason, and the flag
+  that would authorise it; exit code 5 is reserved for them.
+- Migration `004` (scaffold 1.3 -> 1.4) recording each run's risk class and how
+  it was authorised, so "who agreed to this build?" is answerable from the
+  record. Pre-existing runs are marked `unrecorded` rather than backfilled.
+- `docs/workflow-readiness.md` and `docs/execution-safety.md`.
+
+### Changed
+
+- `GS:build-prototype` and `GS:review-build` now call `studio doctor`,
+  `studio test`, `studio verify`, `studio execution show`, and
+  `studio criterion support` instead of describing ad-hoc verification, and
+  state explicitly that a `passed` run is a fact about a process rather than
+  about gameplay. Manual fallback is retained and must be recorded as
+  `user-reported`, never as `observed` runtime evidence.
+- `studio build` and `studio artifact add` are medium risk and require
+  confirmation or `--yes` under guided and strict review modes.
 - Execution core (`practical_game_studio.execution`): one supervised way to run
   an external process. Nothing runs forever, nothing waits for stdin, output
   survives undecodable bytes, and a process the framework killed maps to

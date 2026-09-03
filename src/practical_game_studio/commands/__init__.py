@@ -25,6 +25,7 @@ from . import (
     project,
     report,
     upgrade,
+    workflow,
 )
 
 __all__ = [
@@ -43,4 +44,5 @@ __all__ = [
     "project",
     "report",
     "upgrade",
+    "workflow",
 ]

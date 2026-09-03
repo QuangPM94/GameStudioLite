@@ -428,6 +428,7 @@ def test_artifact_add_and_show_over_the_cli(
             str(log),
             "--root",
             str(project),
+            "--yes",
             "--json",
         ]
     )
@@ -451,6 +452,7 @@ def test_artifact_add_warns_rather_than_hiding_a_missing_file(
             "dist/game.exe",
             "--root",
             str(project),
+            "--yes",
         ]
     )
 

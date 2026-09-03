@@ -31,6 +31,7 @@ from ..base import (
     BuildOptions,
     CapabilityReport,
     DetectionResult,
+    OperationAuthorization,
     ProbeResult,
     RunOptions,
     TestOptions,
@@ -234,6 +235,7 @@ class GodotCliAdapter(BaseEngineAdapter):
         timeout_seconds: float | None,
         capture_log: bool,
         engine_version: str | None,
+        authorization: OperationAuthorization,
         extra_limitations: tuple[str, ...] = (),
     ) -> ExecutionRecord:
         run_id = create_execution_record(
@@ -246,6 +248,8 @@ class GodotCliAdapter(BaseEngineAdapter):
             engine=self.engine,
             engine_version=engine_version,
             platform=platform_label(),
+            risk_level=authorization.risk_level,
+            authorization=authorization.authorization,
         )
         process = execute_process(
             ExecutionRequest(
@@ -279,6 +283,7 @@ class GodotCliAdapter(BaseEngineAdapter):
             timeout_seconds=timeout,
             capture_log=options.capture_log,
             engine_version=probe.engine_version,
+            authorization=options.authorization,
             extra_limitations=(
                 (
                     "The engine process was launched and observed; no gameplay, "
@@ -339,6 +344,7 @@ class GodotCliAdapter(BaseEngineAdapter):
             timeout_seconds=options.timeout_seconds or DEFAULT_TEST_TIMEOUT_SECONDS,
             capture_log=True,
             engine_version=probe.engine_version,
+            authorization=options.authorization,
             extra_limitations=(
                 (
                     "Passing tests describe the code under test, not whether the "
@@ -408,6 +414,7 @@ class GodotCliAdapter(BaseEngineAdapter):
             timeout_seconds=options.timeout_seconds or DEFAULT_BUILD_TIMEOUT_SECONDS,
             capture_log=True,
             engine_version=probe.engine_version,
+            authorization=options.authorization,
             extra_limitations=(
                 (
                     "A completed export is not a verified build; the packaged game "

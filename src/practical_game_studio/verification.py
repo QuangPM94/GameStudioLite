@@ -33,6 +33,7 @@ from typing import Any
 from .adapters import (
     AdapterOperationResult,
     BuildOptions,
+    OperationAuthorization,
     RunOptions,
     TestOptions,
     resolve_adapter,
@@ -225,7 +226,13 @@ def verify_smoke(root: Path, *, adapter_id: str | None = None) -> VerificationCh
             detail="No engine adapter recognises this project.",
             limitations=("The game was not launched.",),
         )
-    operation = adapter.run(root, RunOptions(headless=True))
+    operation = adapter.run(
+        root,
+        RunOptions(
+            headless=True,
+            authorization=OperationAuthorization(risk_level="low"),
+        ),
+    )
     check = _from_operation("smoke", operation)
     # A headless game with a main loop is *supposed* to keep running. Being
     # stopped by the timeout is the successful smoke outcome, not a failure.
@@ -257,7 +264,10 @@ def verify_runtime(root: Path, *, adapter_id: str | None = None) -> Verification
             detail="No engine adapter recognises this project.",
             limitations=("No tests were run.",),
         )
-    operation = adapter.test(root, TestOptions())
+    operation = adapter.test(
+        root,
+        TestOptions(authorization=OperationAuthorization(risk_level="low")),
+    )
     if operation.status == "skipped":
         # No test framework is not a failing project. It is a project whose
         # test result is unknown, which the caller must be free to accept.
@@ -315,7 +325,15 @@ def verify_release(root: Path, *, adapter_id: str | None = None) -> Verification
             detail="No engine adapter recognises this project.",
             limitations=("No build was produced.",),
         )
-    operation = adapter.build(root, BuildOptions(profile="release"))
+    operation = adapter.build(
+        root,
+        BuildOptions(
+            profile="release",
+            # `studio verify --level release` is itself gated by the caller;
+            # the build inherits that decision rather than claiming its own.
+            authorization=OperationAuthorization(risk_level="medium"),
+        ),
+    )
     check = _from_operation("release", operation)
     return VerificationCheck(
         name=check.name,

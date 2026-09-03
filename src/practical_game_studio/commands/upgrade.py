@@ -13,6 +13,7 @@ from ..migrations import (
     get_target_version,
     plan_migration,
 )
+from ..safety import classify
 from ._shared import (
     _add_root_argument,
     _confirm_structural_write,
@@ -165,7 +166,8 @@ def _run_apply(args: argparse.Namespace, root: Path) -> int:
         root,
         prompt=(
             f"Upgrade scaffold {plan.source_version} -> {plan.target_version} "
-            f"and migrate {len(plan.affected_files)} file(s)?"
+            f"and migrate {len(plan.affected_files)} file(s)? "
+            f"({classify('upgrade.apply')} risk)"
         ),
         error_type=MigrationInputError,
     )

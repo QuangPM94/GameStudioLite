@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 FRAMEWORK_NAME = "Practical Game Studio"
-SCAFFOLD_VERSION = "1.3"
+SCAFFOLD_VERSION = "1.4"
 SCAFFOLD_PACKAGE_DIRECTORY = "scaffold"
 FRAMEWORK_MANIFEST_PATH = ".studio/framework.json"
 STARTER_BRIEF_PATH = "GAME_BRIEF.md"

@@ -211,6 +211,20 @@ class ProbeResult:
 
 
 @dataclass(frozen=True, slots=True)
+class OperationAuthorization:
+    """How the caller was permitted to ask for an operation.
+
+    Carried on every options object so the adapter records what the safety
+    layer actually decided. Defaults describe an operation that needed no
+    approval; an adapter must never invent a stronger authorisation than it
+    was handed.
+    """
+
+    risk_level: str = "low"
+    authorization: str = "risk-below-threshold"
+
+
+@dataclass(frozen=True, slots=True)
 class RunOptions:
     """What `studio run` asks an adapter for."""
 
@@ -219,6 +233,9 @@ class RunOptions:
     timeout_seconds: float | None = None
     capture_log: bool = True
     extra_args: tuple[str, ...] = ()
+    authorization: OperationAuthorization = field(
+        default_factory=OperationAuthorization
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,6 +246,9 @@ class TestOptions:
     suite: str = "all"
     timeout_seconds: float | None = None
     extra_args: tuple[str, ...] = ()
+    authorization: OperationAuthorization = field(
+        default_factory=OperationAuthorization
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,6 +260,9 @@ class BuildOptions:
     output: str | None = None
     timeout_seconds: float | None = None
     extra_args: tuple[str, ...] = ()
+    authorization: OperationAuthorization = field(
+        default_factory=OperationAuthorization
+    )
 
 
 @dataclass(frozen=True, slots=True)

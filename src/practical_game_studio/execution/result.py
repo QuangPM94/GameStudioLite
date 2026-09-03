@@ -99,6 +99,8 @@ def create_execution_record(
     engine_version: str | None = None,
     platform: str | None = None,
     limitations: Sequence[str] = (),
+    risk_level: str = "low",
+    authorization: str = "risk-below-threshold",
 ) -> str:
     """Open a run record before the process starts, returning its id."""
 
@@ -114,6 +116,8 @@ def create_execution_record(
             engine_version=engine_version,
             platform=platform,
             limitations=limitations,
+            risk_level=risk_level,
+            authorization=authorization,
         )
     )
     return result.details["run_id"]

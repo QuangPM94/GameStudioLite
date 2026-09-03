@@ -17,6 +17,7 @@ from ..artifacts import (
     filter_artifacts,
     find_artifact,
 )
+from ..safety import authorize
 from ..state import StateRepository
 from ._shared import (
     _add_root_argument,
@@ -51,6 +52,11 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         "--metadata", help="additional provenance as a JSON object"
     )
     artifact_add.add_argument("--dry-run", action="store_true")
+    artifact_add.add_argument(
+        "--yes",
+        action="store_true",
+        help="authorise this medium-risk operation without a prompt",
+    )
     artifact_add.add_argument("--json", action="store_true")
 
     artifact_list = artifact_subparsers.add_parser("list", help="list artifacts")
@@ -130,6 +136,16 @@ def _format_detail(artifact: dict[str, Any]) -> str:
 
 
 def _run_add(args: argparse.Namespace, root: Path) -> int:
+    # Registering an artifact hashes and records a file path the project
+    # will later treat as provenance, so it is gated like other writes.
+    if not args.dry_run:
+        authorize(
+            root,
+            "artifact.add",
+            acknowledged=args.yes,
+            json_output=args.json,
+            prompt_detail=f"Register {args.path} as a {args.type} artifact.",
+        )
     service = ArtifactService(root)
     result = service.add(
         ArtifactCreateRequest(

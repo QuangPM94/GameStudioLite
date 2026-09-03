@@ -115,40 +115,41 @@ def _project(root: Path) -> dict:
 def test_registered_chain_is_contiguous_and_ordered() -> None:
     migrations = list_available_migrations()
 
-    assert [step.id for step in migrations] == ["001", "002", "003"]
-    assert known_versions() == ("1.0", "1.1", "1.2", "1.3")
+    assert [step.id for step in migrations] == ["001", "002", "003", "004"]
+    assert known_versions() == ("1.0", "1.1", "1.2", "1.3", "1.4")
     assert migrations[-1].to_version == get_target_version()
 
 
 def test_resolve_returns_only_the_steps_between_two_versions() -> None:
-    assert [step.id for step in resolve_migration_chain("1.0", "1.3")] == [
+    assert [step.id for step in resolve_migration_chain("1.0", "1.4")] == [
         "001",
         "002",
         "003",
+        "004",
     ]
     assert [step.id for step in resolve_migration_chain("1.1", "1.2")] == ["002"]
-    assert resolve_migration_chain("1.3", "1.3") == ()
+    assert resolve_migration_chain("1.4", "1.4") == ()
 
 
 def test_unknown_and_newer_versions_are_refused_rather_than_guessed() -> None:
     with pytest.raises(MigrationError, match="unknown scaffold version"):
-        resolve_migration_chain("0.9", "1.3")
+        resolve_migration_chain("0.9", "1.4")
     with pytest.raises(MigrationError, match="newer than the installed package"):
-        resolve_migration_chain("1.3", "1.1")
+        resolve_migration_chain("1.4", "1.1")
 
 
 def test_plan_reports_every_reviewable_fact(legacy_project: Path) -> None:
     plan = plan_migration(legacy_project)
 
     assert plan.source_version == "1.0"
-    assert plan.target_version == "1.3"
+    assert plan.target_version == "1.4"
     assert not plan.up_to_date
-    assert [step.id for step in plan.migrations] == ["001", "002", "003"]
+    assert [step.id for step in plan.migrations] == ["001", "002", "003", "004"]
     assert ".studio/state/project.json" in plan.affected_files
     assert ".studio/schemas/milestone.schema.json" in plan.affected_files
     assert plan.destructive_changes == ()
     assert plan.manual_actions
-    assert len(plan.compatibility_impact) == 3
+    assert len(plan.compatibility_impact) == 4
 
 
 def test_dry_run_validates_without_writing_anything(legacy_project: Path) -> None:
@@ -173,7 +174,7 @@ def test_apply_upgrades_state_and_scaffold_together(legacy_project: Path) -> Non
     result = apply_migration(legacy_project)
 
     assert result.success
-    assert get_current_version(legacy_project) == "1.3"
+    assert get_current_version(legacy_project) == "1.4"
     project = _project(legacy_project)
     assert project["recommended_next_workflow"] == "start"
     assert "recommended_next_playbook" not in project
@@ -266,7 +267,7 @@ def _chain_producing(migrate: object) -> object:
     step = Migration(
         id="test",
         from_version="1.0",
-        to_version="1.3",
+        to_version="1.4",
         summary="test-only migration",
         migrate=migrate,
     )
@@ -324,8 +325,8 @@ def test_upgrade_check_reports_a_pending_upgrade(
     assert exit_code == 0
     assert payload["success"]
     assert payload["data"]["current_version"] == "1.0"
-    assert payload["data"]["target_version"] == "1.3"
-    assert payload["data"]["pending_migrations"] == ["001", "002", "003"]
+    assert payload["data"]["target_version"] == "1.4"
+    assert payload["data"]["pending_migrations"] == ["001", "002", "003", "004"]
 
 
 def test_upgrade_plan_names_every_required_section(
@@ -338,7 +339,7 @@ def test_upgrade_plan_names_every_required_section(
     for heading in (
         "Source version:",
         "Target version:",
-        "Migrations (3):",
+        "Migrations (4):",
         "Affected files",
         "Destructive changes:",
         "Manual actions:",
@@ -368,5 +369,5 @@ def test_upgrade_apply_json_is_one_envelope(
     assert payload["success"]
     assert payload["operation"] == "framework.upgrade"
     assert payload["data"]["source_version"] == "1.0"
-    assert payload["data"]["target_version"] == "1.3"
-    assert get_current_version(legacy_project) == "1.3"
+    assert payload["data"]["target_version"] == "1.4"
+    assert get_current_version(legacy_project) == "1.4"

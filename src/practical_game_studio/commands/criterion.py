@@ -13,6 +13,7 @@ from ..criteria import (
     CriterionPatch,
     CriterionService,
 )
+from ..criterion_support import SupportAssessment, assess_support
 from ._shared import (
     _add_root_argument,
     _confirm_structural_write,
@@ -158,6 +159,14 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     criterion_retire.add_argument("--dry-run", action="store_true")
     criterion_retire.add_argument("--json", action="store_true")
     criterion_retire.add_argument("--yes", action="store_true")
+
+    criterion_support = criterion_subparsers.add_parser(
+        "support",
+        help="show what a criterion's evidence supports (read-only)",
+    )
+    criterion_support.add_argument("criterion_id")
+    _add_root_argument(criterion_support)
+    criterion_support.add_argument("--json", action="store_true")
 
 
 def _criterion_create_request(args: argparse.Namespace) -> CriterionCreateRequest:
@@ -446,6 +455,81 @@ def _run_criterion_retire(args: argparse.Namespace, root: Path) -> int:
     return 0
 
 
+def _evidence_rows(rows: tuple, empty: str) -> list[str]:
+    if not rows:
+        return [f"- {empty}"]
+    lines: list[str] = []
+    for row in rows:
+        suffix = f" — {row['reason']}" if row.get("reason") else ""
+        lines.append(
+            f"- {row['id']} [{row['classification']}/{row['source_type']}] "
+            f"{row['title']}{suffix}"
+        )
+        provenance = [*row["related_runs"], *row["related_artifacts"]]
+        if provenance:
+            lines.append("    provenance: " + ", ".join(provenance))
+    return lines
+
+
+def _format_support(assessment: SupportAssessment) -> str:
+    """Render the assessment, keeping advice visibly separate from a verdict."""
+
+    lines = [
+        f"{assessment.criterion_id} — {assessment.description}",
+        "",
+        f"Verification policy: {assessment.policy}",
+        f"Recorded support status: {assessment.support_status}",
+        "",
+        "Required by this policy:",
+        f"- {assessment.required_policy}",
+        "",
+        "Available evidence:",
+    ]
+    lines.extend(_evidence_rows(assessment.qualifying_evidence, "none"))
+    lines.extend(["", "Linked evidence that does not meet this policy:"])
+    lines.extend(_evidence_rows(assessment.non_qualifying_evidence, "none"))
+    lines.extend(["", "Conflicting evidence:"])
+    lines.extend(_evidence_rows(assessment.conflicting_evidence, "none"))
+
+    # Always printed. An empty section is the difference between "nothing is
+    # missing" and "we forgot to check", and someone deciding whether to mark
+    # a milestone criterion verified needs to tell those apart.
+    lines.extend(["", "Missing evidence:"])
+    lines.extend(f"- {item}" for item in assessment.missing or ("none",))
+    lines.extend(["", "Limitations of the available evidence:"])
+    lines.extend(f"- {item}" for item in assessment.limitations or ("none recorded",))
+    lines.extend(
+        [
+            "",
+            "Recommended evaluation:",
+            assessment.recommendation,
+            "",
+            "This command is read-only; it has not evaluated anything.",
+            "",
+            "Recommended next command:",
+            assessment.recommended_command,
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _run_criterion_support(args: argparse.Namespace, root: Path) -> int:
+    """Report what a criterion's evidence supports, without evaluating it."""
+
+    assessment = assess_support(root, args.criterion_id)
+    if args.json:
+        _print_json(
+            _json_envelope(
+                success=True,
+                operation="criterion.support",
+                data=assessment.to_dict(),
+            )
+        )
+        return 0
+    print(_format_support(assessment))
+    return 0
+
+
 def run(args: argparse.Namespace, root: Path) -> int:
     if args.criterion_command == "add":
         return _run_criterion_add(args, root)
@@ -459,4 +543,6 @@ def run(args: argparse.Namespace, root: Path) -> int:
         return _run_criterion_evaluate(args, root)
     if args.criterion_command == "retire":
         return _run_criterion_retire(args, root)
+    if args.criterion_command == "support":
+        return _run_criterion_support(args, root)
     raise CriterionInputError(f"unknown criterion command {args.criterion_command}")

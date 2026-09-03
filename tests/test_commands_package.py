@@ -29,6 +29,7 @@ from practical_game_studio.commands import (
     project,
     report,
     upgrade,
+    workflow,
 )
 
 #: The baseline command surface. Extending it is a deliberate, documented act.
@@ -46,6 +47,7 @@ EXPECTED_COMMANDS = (
     "dependency",
     "criterion",
     "path",
+    "workflow",
     "execution",
     "artifact",
     "doctor",
@@ -62,10 +64,19 @@ EXPECTED_SUBCOMMANDS = {
     "evidence": ("add", "list", "show", "update"),
     "decision": ("add", "list", "show", "update", "resolve"),
     "dependency": ("add", "list", "show", "update", "deactivate"),
-    "criterion": ("add", "list", "show", "update", "evaluate", "retire"),
+    "criterion": (
+        "add",
+        "list",
+        "show",
+        "update",
+        "evaluate",
+        "retire",
+        "support",
+    ),
     "path": ("calculate", "show", "explain", "check"),
     "execution": ("list", "show"),
     "artifact": ("add", "list", "show", "verify"),
+    "workflow": ("list", "ready", "check", "explain"),
 }
 
 
@@ -110,6 +121,7 @@ def test_command_modules_expose_registration_and_a_handler() -> None:
         path,
         report,
         upgrade,
+        workflow,
     ):
         assert callable(module.register), module.__name__
         assert callable(module.run), module.__name__

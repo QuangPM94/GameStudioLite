@@ -77,6 +77,11 @@ class RunCreateRequest:
     engine_version: str | None = None
     platform: str | None = None
     limitations: Sequence[str] = ()
+    #: How this execution was classified and authorised. Defaults describe
+    #: an operation that needed no approval; a caller that gated the run
+    #: passes what the safety layer actually decided.
+    risk_level: str = "low"
+    authorization: str = "risk-below-threshold"
 
 
 @dataclass(frozen=True, slots=True)
@@ -338,6 +343,8 @@ class RunService:
                 request.limitations, field_name="limitation"
             ),
             "created_at": timestamp,
+            "risk_level": request.risk_level,
+            "authorization": request.authorization,
         }
 
     def attach_artifacts(

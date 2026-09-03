@@ -24,10 +24,12 @@ from typing import Any
 from ..adapters import (
     AdapterOperationResult,
     BuildOptions,
+    OperationAuthorization,
     RunOptions,
     TestOptions,
     resolve_adapter,
 )
+from ..safety import SafetyDecision, authorize, classify
 from ..verification import LEVELS, VerificationReport, summarize_levels, verify
 from ._shared import _add_root_argument, _json_envelope, _print_json
 
@@ -82,6 +84,11 @@ def register_build(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--target", help="export preset or build target name")
     parser.add_argument("--profile", choices=("debug", "release"), default="debug")
     parser.add_argument("--output", help="path to write the produced build to")
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="authorise this medium-risk operation without a prompt",
+    )
     parser.add_argument("--timeout", type=float)
     parser.add_argument("--json", action="store_true")
 
@@ -101,6 +108,22 @@ def register_verify(subparsers: argparse._SubParsersAction) -> None:
         help="list the levels and what each does and does not establish",
     )
     parser.add_argument("--json", action="store_true")
+
+
+def _authorization(decision: SafetyDecision) -> OperationAuthorization:
+    """Carry the safety layer's actual decision into the run record."""
+
+    return OperationAuthorization(
+        risk_level=decision.risk, authorization=decision.authorization
+    )
+
+
+def _implicit(operation: str) -> OperationAuthorization:
+    """Authorisation for an operation whose risk needed no approval."""
+
+    return OperationAuthorization(
+        risk_level=classify(operation), authorization="risk-below-threshold"
+    )
 
 
 def _exit_code(status: str) -> int:
@@ -176,6 +199,7 @@ def run_run(args: argparse.Namespace, root: Path) -> int:
             scene=args.scene,
             timeout_seconds=args.timeout,
             capture_log=args.capture_log,
+            authorization=_implicit("run"),
         ),
     )
     return _report_operation("run", result, args.json)
@@ -188,17 +212,37 @@ def run_test(args: argparse.Namespace, root: Path) -> int:
     if adapter is None:
         return _no_adapter("test", args.json)
     result = adapter.test(
-        root, TestOptions(suite=args.suite, timeout_seconds=args.timeout)
+        root,
+        TestOptions(
+            suite=args.suite,
+            timeout_seconds=args.timeout,
+            authorization=_implicit("test"),
+        ),
     )
     return _report_operation("test", result, args.json)
 
 
 def run_build(args: argparse.Namespace, root: Path) -> int:
-    """Build the game and record what happened."""
+    """Build the game and record what happened.
+
+    A build writes files outside `.studio` and can change how the project is
+    packaged, so it is gated before anything is executed rather than after.
+    """
 
     adapter = resolve_adapter(root, adapter_id=args.adapter)
     if adapter is None:
         return _no_adapter("build", args.json)
+    decision = authorize(
+        root,
+        "build",
+        acknowledged=args.yes,
+        json_output=args.json,
+        prompt_detail=(
+            f"Profile: {args.profile}. Target: {args.target or 'first preset'}."
+        ),
+    )
+    if not args.json:
+        print(f"Authorisation: {decision.authorization} ({decision.risk} risk)\n")
     result = adapter.build(
         root,
         BuildOptions(
@@ -206,6 +250,7 @@ def run_build(args: argparse.Namespace, root: Path) -> int:
             profile=args.profile,
             output=args.output,
             timeout_seconds=args.timeout,
+            authorization=_authorization(decision),
         ),
     )
     return _report_operation("build", result, args.json)
