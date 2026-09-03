@@ -107,6 +107,10 @@ class EvidencePatch:
             or self.remove_limitations
             or self.add_issues
             or self.remove_issues
+            or self.add_runs
+            or self.remove_runs
+            or self.add_artifacts
+            or self.remove_artifacts
             or self.supersedes is not None
         )
 
@@ -411,6 +415,7 @@ class EvidenceService:
             self._apply_values(record, patch.values)
             self._apply_limitations(record, patch, warnings)
             links_changed = self._apply_issue_links(state, record, patch, warnings)
+            self._apply_execution_links(state, record, patch, warnings)
             affected_issue_ids.update(record["related_issues"])
             superseded_record = self._apply_supersession(
                 records, record, patch.supersedes, timestamp
@@ -573,6 +578,48 @@ class EvidenceService:
             else:
                 warnings.append(f"limitation is not recorded: {limitation}")
         record["limitations"] = current
+
+    def _apply_execution_links(
+        self,
+        state: dict[str, StateObject],
+        record: StateObject,
+        patch: EvidencePatch,
+        warnings: list[str],
+    ) -> None:
+        """Attach or detach the runs and artifacts an evidence claim rests on.
+
+        Linking is one-directional on purpose. A run does not gain a pointer
+        back to the evidence, because the evidence is an interpretation of the
+        run and the run stays a plain fact about a process.
+        """
+
+        for kind, field_name, additions, removals in (
+            ("run", "related_runs", patch.add_runs, patch.remove_runs),
+            (
+                "artifact",
+                "related_artifacts",
+                patch.add_artifacts,
+                patch.remove_artifacts,
+            ),
+        ):
+            resolved_additions = _resolve_execution_references(
+                state, additions, kind=kind
+            )
+            resolved_removals = _resolve_execution_references(
+                state, removals, kind=kind
+            )
+            current = list(record[field_name])
+            for identifier in resolved_additions:
+                if identifier in current:
+                    warnings.append(f"{identifier} is already linked")
+                    continue
+                current.append(identifier)
+            for identifier in resolved_removals:
+                if identifier not in current:
+                    warnings.append(f"{identifier} is not linked")
+                    continue
+                current.remove(identifier)
+            record[field_name] = current
 
     def _apply_issue_links(
         self,

@@ -169,6 +169,8 @@ def _valid_evidence(
         "updated_at": "2026-07-27T00:00:00Z",
         "status": status,
         "supersedes": supersedes,
+        "related_runs": [],
+        "related_artifacts": [],
     }
 
 

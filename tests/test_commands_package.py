@@ -14,11 +14,13 @@ import pytest
 
 from practical_game_studio import cli
 from practical_game_studio.commands import (
+    artifact,
     bootstrap,
     criterion,
     decision,
     dependency,
     evidence,
+    execution,
     framework,
     issue,
     path,
@@ -42,6 +44,8 @@ EXPECTED_COMMANDS = (
     "dependency",
     "criterion",
     "path",
+    "execution",
+    "artifact",
 )
 
 EXPECTED_SUBCOMMANDS = {
@@ -53,6 +57,8 @@ EXPECTED_SUBCOMMANDS = {
     "dependency": ("add", "list", "show", "update", "deactivate"),
     "criterion": ("add", "list", "show", "update", "evaluate", "retire"),
     "path": ("calculate", "show", "explain", "check"),
+    "execution": ("list", "show"),
+    "artifact": ("add", "list", "show", "verify"),
 }
 
 
@@ -84,11 +90,13 @@ def test_every_command_routes_to_a_command_module() -> None:
 
 def test_command_modules_expose_registration_and_a_handler() -> None:
     for module in (
+        artifact,
         bootstrap,
         criterion,
         decision,
         dependency,
         evidence,
+        execution,
         framework,
         issue,
         path,

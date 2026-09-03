@@ -52,7 +52,8 @@ MIGRATION = Migration(
         (
             "Existing evidence keeps its recorded classification; nothing is "
             "reclassified. Attach runs or artifacts with "
-            "`studio evidence update --run/--artifact` where the provenance is real."
+            "`studio evidence update --add-run/--add-artifact` where the provenance "
+            "is real."
         ),
     ),
     compatibility_impact=(

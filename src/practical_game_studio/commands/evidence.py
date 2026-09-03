@@ -42,6 +42,18 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     evidence_add.add_argument("--description")
     evidence_add.add_argument("--related-hypothesis")
     evidence_add.add_argument("--issue", action="append", default=[])
+    evidence_add.add_argument(
+        "--run",
+        action="append",
+        default=[],
+        help="a RUN this claim rests on (repeatable)",
+    )
+    evidence_add.add_argument(
+        "--artifact",
+        action="append",
+        default=[],
+        help="an ART this claim rests on (repeatable)",
+    )
     evidence_add.add_argument("--confidence")
     evidence_add.add_argument("--limitation", action="append", default=[])
     evidence_add.add_argument("--captured-at")
@@ -90,6 +102,10 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     evidence_update.add_argument("--remove-limitation", action="append", default=[])
     evidence_update.add_argument("--add-issue", action="append", default=[])
     evidence_update.add_argument("--remove-issue", action="append", default=[])
+    evidence_update.add_argument("--add-run", action="append", default=[])
+    evidence_update.add_argument("--remove-run", action="append", default=[])
+    evidence_update.add_argument("--add-artifact", action="append", default=[])
+    evidence_update.add_argument("--remove-artifact", action="append", default=[])
     evidence_update.add_argument("--dry-run", action="store_true")
     evidence_update.add_argument("--json", action="store_true")
     evidence_update.add_argument(
@@ -162,6 +178,8 @@ def _evidence_create_request(args: argparse.Namespace) -> EvidenceCreateRequest:
         description=description,
         related_hypothesis=args.related_hypothesis,
         related_issues=tuple(args.issue),
+        related_runs=tuple(args.run),
+        related_artifacts=tuple(args.artifact),
         confidence=args.confidence,
         limitations=tuple(args.limitation),
         captured_at=args.captured_at,
@@ -293,6 +311,8 @@ def _format_evidence_detail(record: dict[str, Any]) -> str:
         "source_type": "Source type",
         "related_hypothesis": "Related hypothesis",
         "related_issues": "Related issues",
+        "related_runs": "Supporting runs",
+        "related_artifacts": "Supporting artifacts",
         "captured_at": "Captured",
         "created_at": "Created",
         "updated_at": "Updated",
@@ -363,6 +383,10 @@ def _evidence_patch(args: argparse.Namespace) -> EvidencePatch:
         remove_limitations=tuple(args.remove_limitation),
         add_issues=tuple(args.add_issue),
         remove_issues=tuple(args.remove_issue),
+        add_runs=tuple(args.add_run),
+        remove_runs=tuple(args.remove_run),
+        add_artifacts=tuple(args.add_artifact),
+        remove_artifacts=tuple(args.remove_artifact),
         supersedes=args.supersedes,
     )
 

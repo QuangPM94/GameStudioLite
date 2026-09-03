@@ -12,5 +12,5 @@
     ".studio/schemas",
     ".studio/templates"
   ],
-  "scaffold_version": "1.2"
+  "scaffold_version": "1.3"
 }

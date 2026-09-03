@@ -6,6 +6,25 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Execution data model: `runs.json` (`RUN-####`) and `artifacts.json`
+  (`ART-####`) canonical documents, with `studio execution list|show` and
+  `studio artifact add|list|show|verify`. A run is recorded before its result
+  exists, `unknown` stays distinguishable from `failed`, and captured output is
+  truncated with an explicit marker naming what was dropped.
+- Artifact verification that tells `present`, `modified`, `missing`, and
+  `unverified` apart, read-only unless `--record` is passed, exiting non-zero
+  when anything did not match.
+- Evidence provenance: `related_runs` / `related_artifacts` with
+  `studio evidence add --run/--artifact` and
+  `studio evidence update --add-run/--remove-artifact`. References to runs or
+  artifacts that do not exist are refused, and `studio validate` checks every
+  cross-reference. Execution records never become evidence on their own.
+- Migration `003` (scaffold 1.2 -> 1.3) creating both documents empty and adding
+  the evidence reference lists (evidence schema 2.0 -> 2.1). The upgrade engine
+  now tolerates a state document that does not exist yet and creates it inside
+  the same snapshot/rollback window.
+- `docs/execution-records.md` describing what runs and artifacts are, and why
+  neither is evidence.
 - `studio upgrade check|plan|apply`: a migration engine that carries a project
   from the scaffold version it records to the version the installed package
   produces. State is migrated in memory and validated against the new schemas

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://practical-game-studio.dev/schemas/runs.schema.json",
+  "title": "PGS Execution Runs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "runs"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "action", "adapter", "provider", "command", "working_directory", "started_at", "completed_at", "duration_ms", "exit_code", "status", "stdout_summary", "stderr_summary", "revision", "engine", "engine_version", "platform", "artifacts", "limitations", "created_at"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^RUN-[0-9]{4,}$"},
+          "action": {"enum": ["doctor", "run", "test", "build", "verify", "export", "capture", "custom"]},
+          "adapter": {"type": ["string", "null"], "minLength": 1},
+          "provider": {"type": ["string", "null"], "minLength": 1},
+          "command": {"type": "array", "items": {"type": "string"}},
+          "working_directory": {"type": ["string", "null"], "minLength": 1},
+          "started_at": {"type": ["string", "null"], "format": "date-time"},
+          "completed_at": {"type": ["string", "null"], "format": "date-time"},
+          "duration_ms": {"type": ["integer", "null"], "minimum": 0},
+          "exit_code": {"type": ["integer", "null"]},
+          "status": {"enum": ["pending", "running", "passed", "failed", "cancelled", "unknown"]},
+          "stdout_summary": {"type": ["string", "null"]},
+          "stderr_summary": {"type": ["string", "null"]},
+          "revision": {"type": ["string", "null"], "minLength": 1},
+          "engine": {"type": ["string", "null"], "minLength": 1},
+          "engine_version": {"type": ["string", "null"], "minLength": 1},
+          "platform": {"type": ["string", "null"], "minLength": 1},
+          "artifacts": {"type": "array", "items": {"type": "string", "pattern": "^ART-[0-9]{4,}$"}, "uniqueItems": true},
+          "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    }
+  }
+}

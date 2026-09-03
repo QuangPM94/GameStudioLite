@@ -57,6 +57,18 @@ def _issue_bullets(issues: list[dict[str, Any]], empty: str) -> str:
     )
 
 
+def _execution_provenance(record: dict[str, Any]) -> str:
+    """Render the runs and artifacts an evidence claim cites, if any.
+
+    A reader deciding how much to trust a claim needs to see whether anything
+    executable stands behind it, so the citation travels with the claim rather
+    than living only in `studio evidence show`.
+    """
+
+    references = [*record.get("related_runs", []), *record.get("related_artifacts", [])]
+    return f" (from {', '.join(references)})" if references else ""
+
+
 def _active_evidence(state: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         item for item in state["evidence"]["evidence"] if item["status"] == "active"
@@ -379,7 +391,9 @@ def render_current_state(state: dict[str, Any]) -> str:
         if issue["severity"] in {"blocker", "critical"} or issue["status"] == "blocked"
     ]
     evidence_lines = [
-        f"{item['id']} [{item['classification']}] {item['claim']}" for item in evidence
+        f"{item['id']} [{item['classification']}] {item['claim']}"
+        f"{_execution_provenance(item)}"
+        for item in evidence
     ]
     decisions = _pending_decisions(state)
     decision_counts = {
