@@ -19,7 +19,9 @@ from practical_game_studio.commands import (
     criterion,
     decision,
     dependency,
+    doctor,
     evidence,
+    execute,
     execution,
     framework,
     issue,
@@ -46,6 +48,11 @@ EXPECTED_COMMANDS = (
     "path",
     "execution",
     "artifact",
+    "doctor",
+    "run",
+    "test",
+    "build",
+    "verify",
 )
 
 EXPECTED_SUBCOMMANDS = {
@@ -92,6 +99,7 @@ def test_command_modules_expose_registration_and_a_handler() -> None:
     for module in (
         artifact,
         bootstrap,
+        doctor,
         criterion,
         decision,
         dependency,
@@ -106,8 +114,13 @@ def test_command_modules_expose_registration_and_a_handler() -> None:
         assert callable(module.register), module.__name__
         assert callable(module.run), module.__name__
 
-    # `project` owns three non-adjacent commands, so it registers them
-    # individually to keep `studio --help` ordering stable.
+    # `project` and `execute` each own several commands, so they register them
+    # individually rather than through one `register`.
+    for name in ("register_run", "register_test", "register_build", "register_verify"):
+        assert callable(getattr(execute, name)), name
+    for name in ("run_run", "run_test", "run_build", "run_verify"):
+        assert callable(getattr(execute, name)), name
+
     for name in ("register_validate", "register_status", "register_init"):
         assert callable(getattr(project, name))
     for name in ("run_validate", "run_status", "run_init"):

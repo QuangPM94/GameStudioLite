@@ -14,6 +14,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from .adapters import AdapterError
 from .artifacts import ArtifactInputError, ArtifactNotFoundError
 from .bootstrap import BootstrapConflictError, BootstrapError
 from .commands import (
@@ -22,7 +23,9 @@ from .commands import (
     criterion,
     decision,
     dependency,
+    doctor,
     evidence,
+    execute,
     execution,
     framework,
     issue,
@@ -69,6 +72,11 @@ _HANDLERS: dict[str, CommandHandler] = {
     "upgrade": upgrade.run,
     "execution": execution.run,
     "artifact": artifact.run,
+    "doctor": doctor.run,
+    "run": execute.run_run,
+    "test": execute.run_test,
+    "build": execute.run_build,
+    "verify": execute.run_verify,
     "status": project.run_status,
     "report": report.run,
     "init": project.run_init,
@@ -103,6 +111,11 @@ def _parser() -> argparse.ArgumentParser:
     path.register(subparsers)
     execution.register(subparsers)
     artifact.register(subparsers)
+    doctor.register(subparsers)
+    execute.register_run(subparsers)
+    execute.register_test(subparsers)
+    execute.register_build(subparsers)
+    execute.register_verify(subparsers)
     return parser
 
 
@@ -236,6 +249,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(f"studio: {exc}", file=sys.stderr)
         return 1
+    except AdapterError as exc:
+        if getattr(args, "json", False):
+            _print_json(
+                _json_envelope(
+                    success=False,
+                    operation=_operation(args),
+                    error={"type": "adapter", "message": str(exc)},
+                )
+            )
+        else:
+            print(f"studio: {exc}", file=sys.stderr)
+        return 4
     except TransactionError as exc:
         if getattr(args, "json", False):
             _print_json(

@@ -6,6 +6,31 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Execution core (`practical_game_studio.execution`): one supervised way to run
+  an external process. Nothing runs forever, nothing waits for stdin, output
+  survives undecodable bytes, and a process the framework killed maps to
+  `unknown` rather than `failed`. Credential-shaped environment variables are
+  withheld from child processes and secret-looking arguments are redacted
+  before being written to `runs.json`.
+- Engine adapter layer (`practical_game_studio.adapters`): capability-based
+  contract where detection (does this adapter recognise the project?) and
+  probing (what can it do on this machine?) are separate questions. A
+  capability nobody probed is not supported, and an unsupported operation
+  refuses by name listing what the adapter can do.
+- Godot CLI reference adapter: project and engine detection, headless run,
+  gdUnit4/GUT test support, and debug/release export, with no MCP or editor
+  automation required.
+- `studio doctor`: probes what the machine can actually do and reports
+  `READY`/`UNAVAILABLE`/`UNKNOWN`/`NOT CONFIGURED` without ever inferring, and
+  changes nothing.
+- `studio run`, `studio test`, `studio build`: adapter-backed execution that
+  records RUN and ART entries and creates no evidence. Exit code 4 separates
+  "could not be attempted" from a failure.
+- `studio verify --level static|smoke|runtime|gameplay|release`: cumulative
+  checks whose report status is the worst of its checks, which always prints
+  what it did NOT establish, and which offers evidence *proposals* rather than
+  asserting evidence. `gameplay` can never pass on its own.
+- `docs/execution-core.md` and `docs/engine-adapters.md`.
 - Execution data model: `runs.json` (`RUN-####`) and `artifacts.json`
   (`ART-####`) canonical documents, with `studio execution list|show` and
   `studio artifact add|list|show|verify`. A run is recorded before its result
