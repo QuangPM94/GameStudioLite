@@ -4,6 +4,8 @@ All notable changes follow Keep a Changelog conventions.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-03
+
 ### Added
 
 - A dedicated real-Godot CI gate pins and checksum-verifies Godot 4.7.2, then
