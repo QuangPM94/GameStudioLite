@@ -132,12 +132,89 @@ def test_real_godot_closed_loop(
     ]
     assert verified_data["evidence_proposals"]
 
+    proposal = verified_data["evidence_proposals"][0]
+    evidence_arguments = [
+        "evidence",
+        "add",
+        "--title",
+        "Real Godot smoke launch",
+        "--claim",
+        proposal["claim"],
+        "--classification",
+        proposal["classification"],
+        "--source-type",
+        proposal["source_type"],
+        "--description",
+        "Accepted from the smoke verification proposal for the pinned CI runtime.",
+        "--yes",
+    ]
+    for run_id in proposal["related_runs"]:
+        evidence_arguments.extend(("--run", run_id))
+    for artifact_id in proposal["related_artifacts"]:
+        evidence_arguments.extend(("--artifact", artifact_id))
+    for limitation in proposal["limitations"]:
+        evidence_arguments.extend(("--limitation", limitation))
+    evidence = _studio(tmp_path, *evidence_arguments)
+    evidence_id = evidence["data"]["evidence"]["id"]
+
+    criterion = _studio(
+        tmp_path,
+        "criterion",
+        "add",
+        "--description",
+        "The prototype launches in the pinned real Godot runtime.",
+        "--required",
+        "--completion-condition",
+        "A real Godot process launches and exits cleanly.",
+        "--verification-policy",
+        "observed-runtime",
+        "--yes",
+    )
+    criterion_id = criterion["data"]["criterion"]["id"]
+    evaluated = _studio(
+        tmp_path,
+        "criterion",
+        "evaluate",
+        criterion_id,
+        "--support",
+        "verified",
+        "--reason",
+        "The pinned Godot process emitted the expected marker and exited zero.",
+        "--evidence",
+        evidence_id,
+        "--yes",
+    )
+    assert evaluated["data"]["criterion"]["support_status"] == "verified"
+
+    calculated = _studio(tmp_path, "path", "calculate", "--yes")
+    assert calculated["success"] is True
+
     runs = json.loads((tmp_path / ".studio" / "state" / "runs.json").read_text())
     artifacts = json.loads(
         (tmp_path / ".studio" / "state" / "artifacts.json").read_text()
+    )
+    evidence_state = json.loads(
+        (tmp_path / ".studio" / "state" / "evidence.json").read_text()
+    )
+    milestone = json.loads(
+        (tmp_path / ".studio" / "state" / "milestone.json").read_text()
+    )
+    critical_path = json.loads(
+        (tmp_path / ".studio" / "state" / "critical-path.json").read_text()
     )
     assert [run["status"] for run in runs["runs"]] == ["passed", "passed"]
     assert all(run["engine"] == "Godot" for run in runs["runs"])
     assert all(run["engine_version"].startswith("4.7.2") for run in runs["runs"])
     assert len(artifacts["artifacts"]) == 2
     assert all(artifact["sha256"] for artifact in artifacts["artifacts"])
+    assert evidence_state["evidence"][0]["related_runs"] == ["RUN-0002"]
+    assert evidence_state["evidence"][0]["related_artifacts"] == ["ART-0002"]
+    criterion_state = next(
+        item for item in milestone["criteria_results"] if item["id"] == criterion_id
+    )
+    assert criterion_state["support_status"] == "verified"
+    assert criterion_state["supporting_evidence"] == [evidence_id]
+    assert critical_path["freshness"]["status"] == "current"
+    assert criterion_id not in {
+        item.get("source_id") for item in critical_path["items"]
+    }
