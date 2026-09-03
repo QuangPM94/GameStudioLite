@@ -30,7 +30,7 @@ Build the distribution from the GameStudioLite source repository:
 python -m build
 python -m venv .tmp-pgs-wheel-test
 .tmp-pgs-wheel-test\Scripts\python -m pip install `
-  dist\practical_game_studio-0.1.0-py3-none-any.whl
+  dist\practical_game_studio-0.5.0-py3-none-any.whl
 ```
 
 Test the installed CLI outside the source checkout:

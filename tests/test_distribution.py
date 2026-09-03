@@ -5,14 +5,24 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 import zipfile
 from pathlib import Path
 
 import pytest
 
+from practical_game_studio import __version__
 from practical_game_studio.scaffold import load_scaffold_files
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_package_version_sources_agree() -> None:
+    pyproject = tomllib.loads(
+        (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+
+    assert __version__ == pyproject["project"]["version"] == "0.5.0"
 
 
 def _run(
