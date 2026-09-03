@@ -338,7 +338,7 @@ class DecisionService:
                 changed_fields={"decision": {"old": None, "new": decision["id"]}},
                 details={
                     "decision": self._with_support(decision, state),
-                    "recommended_next_workflow": "/next-step",
+                    "recommended_next_workflow": "next-step",
                 },
             )
 
@@ -526,7 +526,7 @@ class DecisionService:
                 changed_fields=changed_fields,
                 details={
                     "decision": self._with_support(record, state),
-                    "recommended_next_workflow": "/next-step",
+                    "recommended_next_workflow": "next-step",
                     "no_op": not changed,
                 },
             )
@@ -619,7 +619,7 @@ class DecisionService:
                 changed_fields=changed_fields,
                 details={
                     "decision": self._with_support(record, state),
-                    "recommended_next_workflow": "/iterate",
+                    "recommended_next_workflow": "iterate",
                 },
             )
 

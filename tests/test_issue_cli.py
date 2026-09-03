@@ -32,7 +32,7 @@ def test_issue_add_human_output(
     output = capsys.readouterr()
     assert "Issue created." in output.out
     assert "ID: ISS-0001" in output.out
-    assert "Recommended next workflow:\n/issue-map" in output.out
+    assert "Recommended next workflow:\nGS:issue-map" in output.out
     assert output.err == ""
 
 

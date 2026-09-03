@@ -16,13 +16,12 @@ from .initialization import InitRequest, initialize_project, is_placeholder_proj
 from .models import MutationResult
 from .scaffold import (
     FRAMEWORK_MANIFEST_PATH,
-    FRAMEWORK_NAME,
-    MANAGED_PATHS,
-    SCAFFOLD_VERSION,
     STARTER_BRIEF_PATH,
+    ScaffoldResourceError,
     is_protected_path,
     is_replaceable_path,
     load_scaffold_files,
+    render_framework_manifest,
     sha256_bytes,
 )
 from .transaction import _replace_file
@@ -244,16 +243,6 @@ class BootstrapService:
         )
 
     def _manifest_content(self, template: bytes) -> bytes:
-        try:
-            packaged = json.loads(template.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise BootstrapError(
-                "resource", f"invalid packaged framework manifest: {exc}"
-            ) from exc
-        if not isinstance(packaged, dict):
-            raise BootstrapError(
-                "resource", "packaged framework manifest must be a JSON object"
-            )
         existing_path = self.root / FRAMEWORK_MANIFEST_PATH
         bootstrapped_at: str | None = None
         if existing_path.is_file():
@@ -265,16 +254,14 @@ class BootstrapService:
                 existing.get("bootstrapped_at"), str
             ):
                 bootstrapped_at = existing["bootstrapped_at"]
-        packaged.update(
-            {
-                "framework": FRAMEWORK_NAME,
-                "scaffold_version": SCAFFOLD_VERSION,
-                "installed_from_version": __version__,
-                "bootstrapped_at": bootstrapped_at or _utc_timestamp(self._clock()),
-                "managed_paths": list(MANAGED_PATHS),
-            }
-        )
-        return _json_bytes(packaged)
+        try:
+            return render_framework_manifest(
+                template,
+                bootstrapped_at=bootstrapped_at or _utc_timestamp(self._clock()),
+                installed_from_version=__version__,
+            )
+        except ScaffoldResourceError as exc:
+            raise BootstrapError("resource", str(exc)) from exc
 
     def _plan(
         self, proposed: dict[str, bytes], request: BootstrapRequest

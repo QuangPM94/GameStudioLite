@@ -27,7 +27,7 @@ def test_initialize_valid_placeholder_state(framework_repo: Path) -> None:
     assert project["current_phase"] == "intake"
     assert project["current_milestone"] == "Clarify the game idea"
     assert project["current_build_status"] == "not-built"
-    assert project["recommended_next_playbook"] == "/start"
+    assert project["recommended_next_workflow"] == "start"
     assert ".studio/state/project.json" in result.changed_files
     assert raw_project.endswith("\n")
     assert list(json.loads(raw_project)) == sorted(project)

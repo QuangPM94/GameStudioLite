@@ -19,6 +19,7 @@ from .state import (
     is_framework_source_root,
     load_json,
 )
+from .workflow_commands import catalog_workflows_by_id
 
 REQUIRED_ROLE_SECTIONS = (
     "Purpose",
@@ -66,6 +67,9 @@ SCHEMA_FILES = {
     "critical_path": "critical-path.schema.json",
     "evidence": "evidence.schema.json",
     "milestone": "milestone.schema.json",
+    "runs": "runs.schema.json",
+    "artifacts": "artifacts.schema.json",
+    "work": "work.schema.json",
 }
 PROJECT_REQUIRED_FILES = (
     "AGENTS.md",
@@ -116,6 +120,9 @@ PROJECT_REQUIRED_FILES = (
             "evidence",
             "milestone",
             "framework",
+            "runs",
+            "artifacts",
+            "work",
         )
     ),
     *(f".studio/state/{filename}" for filename in STATE_FILES.values()),
@@ -160,9 +167,75 @@ FRAMEWORK_REQUIRED_FILES = (
     "docs/evidence-management.md",
     "docs/distribution.md",
     "docs/project-bootstrap.md",
+    "docs/baseline.md",
+    "docs/upgrade-and-migrations.md",
+    "docs/execution-records.md",
+    "docs/execution-core.md",
+    "docs/engine-adapters.md",
+    "docs/workflow-readiness.md",
+    "docs/execution-safety.md",
+    "docs/providers-and-provenance.md",
+    "docs/release.md",
+    "docs/work-packets.md",
     "src/practical_game_studio/__init__.py",
     "src/practical_game_studio/bootstrap.py",
     "src/practical_game_studio/cli.py",
+    "src/practical_game_studio/commands/__init__.py",
+    "src/practical_game_studio/commands/_shared.py",
+    "src/practical_game_studio/commands/bootstrap.py",
+    "src/practical_game_studio/commands/project.py",
+    "src/practical_game_studio/commands/report.py",
+    "src/practical_game_studio/commands/framework.py",
+    "src/practical_game_studio/commands/issue.py",
+    "src/practical_game_studio/commands/evidence.py",
+    "src/practical_game_studio/commands/decision.py",
+    "src/practical_game_studio/commands/dependency.py",
+    "src/practical_game_studio/commands/criterion.py",
+    "src/practical_game_studio/commands/path.py",
+    "src/practical_game_studio/commands/upgrade.py",
+    "src/practical_game_studio/commands/execution.py",
+    "src/practical_game_studio/commands/artifact.py",
+    "src/practical_game_studio/commands/doctor.py",
+    "src/practical_game_studio/commands/execute.py",
+    "src/practical_game_studio/commands/workflow.py",
+    "src/practical_game_studio/commands/provider.py",
+    "src/practical_game_studio/commands/release.py",
+    "src/practical_game_studio/commands/work.py",
+    "src/practical_game_studio/migrations/__init__.py",
+    "src/practical_game_studio/migrations/registry.py",
+    "src/practical_game_studio/migrations/engine.py",
+    "src/practical_game_studio/migrations/migration_001.py",
+    "src/practical_game_studio/migrations/migration_002.py",
+    "src/practical_game_studio/migrations/migration_003.py",
+    "src/practical_game_studio/migrations/migration_004.py",
+    "src/practical_game_studio/migrations/migration_005.py",
+    "src/practical_game_studio/milestones.py",
+    "src/practical_game_studio/runs.py",
+    "src/practical_game_studio/artifacts.py",
+    "src/practical_game_studio/verification.py",
+    "src/practical_game_studio/criterion_support.py",
+    "src/practical_game_studio/workflow_readiness.py",
+    "src/practical_game_studio/safety.py",
+    "src/practical_game_studio/provenance.py",
+    "src/practical_game_studio/release.py",
+    "src/practical_game_studio/work.py",
+    "src/practical_game_studio/providers/__init__.py",
+    "src/practical_game_studio/providers/base.py",
+    "src/practical_game_studio/providers/registry.py",
+    "src/practical_game_studio/providers/mcp/__init__.py",
+    "src/practical_game_studio/providers/mcp/godot.py",
+    "src/practical_game_studio/execution/__init__.py",
+    "src/practical_game_studio/execution/models.py",
+    "src/practical_game_studio/execution/runner.py",
+    "src/practical_game_studio/execution/environment.py",
+    "src/practical_game_studio/execution/result.py",
+    "src/practical_game_studio/adapters/__init__.py",
+    "src/practical_game_studio/adapters/base.py",
+    "src/practical_game_studio/adapters/registry.py",
+    "src/practical_game_studio/adapters/godot/__init__.py",
+    "src/practical_game_studio/adapters/godot/cli.py",
+    "src/practical_game_studio/adapters/godot/commands.py",
+    "src/practical_game_studio/adapters/godot/detector.py",
     "src/practical_game_studio/decisions.py",
     "src/practical_game_studio/dependencies.py",
     "src/practical_game_studio/criteria.py",
@@ -196,6 +269,13 @@ FRAMEWORK_REQUIRED_FILES = (
     "tests/test_initialization.py",
     "tests/test_transaction.py",
     "tests/test_cli.py",
+    "tests/test_commands_package.py",
+    "tests/test_migrations.py",
+    "tests/test_execution_records.py",
+    "tests/test_execution_core.py",
+    "tests/test_closed_loop.py",
+    "tests/test_providers_and_release.py",
+    "tests/test_work_packets.py",
     "tests/test_issues.py",
     "tests/test_issue_cli.py",
     "tests/test_evidence.py",
@@ -476,6 +556,44 @@ def _duplicates(values: Iterable[str]) -> set[str]:
     return duplicate
 
 
+def _validate_execution_references(
+    state: dict[str, Any], result: ValidationResult
+) -> None:
+    """Check that every run/artifact/evidence cross-reference resolves.
+
+    A dangling execution reference is worse than a missing one: it makes a
+    claim look sourced when its source is gone.
+    """
+
+    runs = state["runs"]["runs"]
+    artifacts = state["artifacts"]["artifacts"]
+    run_ids = {item["id"] for item in runs}
+    artifact_ids = {item["id"] for item in artifacts}
+
+    for duplicate in sorted(_duplicates([item["id"] for item in runs])):
+        result.add(f"Runs: duplicate run ID {duplicate}")
+    for duplicate in sorted(_duplicates([item["id"] for item in artifacts])):
+        result.add(f"Artifacts: duplicate artifact ID {duplicate}")
+
+    for run in runs:
+        for reference in run["artifacts"]:
+            if reference not in artifact_ids:
+                result.add(f"{run['id']}: references unknown artifact {reference}")
+
+    for artifact in artifacts:
+        source = artifact["source_run"]
+        if source is not None and source not in run_ids:
+            result.add(f"{artifact['id']}: references unknown source run {source}")
+
+    for record in state["evidence"]["evidence"]:
+        for reference in record.get("related_runs", []):
+            if reference not in run_ids:
+                result.add(f"{record['id']}: references unknown run {reference}")
+        for reference in record.get("related_artifacts", []):
+            if reference not in artifact_ids:
+                result.add(f"{record['id']}: references unknown artifact {reference}")
+
+
 def _validate_relationships(
     state: dict[str, Any], catalog: dict[str, Any], result: ValidationResult
 ) -> None:
@@ -486,6 +604,8 @@ def _validate_relationships(
         validate_verification_policy,
     )
     from .dependencies import resolve_endpoint_satisfaction
+
+    _validate_execution_references(state, result)
 
     issues = state["issues"]["issues"]
     decisions = state["decisions"]["decisions"]
@@ -1430,14 +1550,14 @@ def _validate_relationships(
             )
 
     project = state["project"]
-    aliases = {workflow["alias"] for workflow in catalog["workflows"]}
+    workflow_ids = set(catalog_workflows_by_id(catalog))
     catalog_phases = {phase["id"] for phase in catalog["phases"]}
     if project["current_phase"] not in PHASES:
         result.add(f"Project: invalid phase {project['current_phase']}")
     if project["current_phase"] not in catalog_phases:
         result.add("Project: current phase is not present in the workflow catalog")
-    if project["recommended_next_playbook"] not in aliases:
-        result.add("Project: recommended next playbook is not in workflow catalog")
+    if project["recommended_next_workflow"] not in workflow_ids:
+        result.add("Project: recommended next workflow is not in workflow catalog")
     if state["critical_path"]["current_milestone"] != project[
         "current_milestone"
     ] and not state["critical_path"].get("milestone_override", False):

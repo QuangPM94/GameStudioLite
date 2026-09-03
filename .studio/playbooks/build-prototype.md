@@ -27,11 +27,13 @@ Set phase to `prototype-build`; update build status, assumptions, issues, eviden
 ## Execution procedure
 
 1. Confirm the active critical-path item and preserve explicit exclusions.
-2. Implement the smallest working increment with placeholders where adequate.
-3. Record changed files, completed tasks, assumptions, shortcuts, defects, and run instructions.
-4. Run focused tests, framework validation, and the most direct available launch/smoke check.
-5. Register observed command/runtime evidence and name unverified behavior.
-6. Regenerate reports and recommend build review.
+2. Run `studio doctor` to establish what this machine can actually execute. Treat `UNKNOWN` as unknown, not as available.
+3. Implement the smallest working increment with placeholders where adequate.
+4. Record changed files, completed tasks, assumptions, shortcuts, and defects.
+5. Run `studio test`, then `studio verify --level smoke`. Where a command reports `unknown` (no adapter, no test framework, engine missing), record that as unknown rather than substituting a manual impression for it.
+6. Inspect the resulting records with `studio execution show RUN-####` and `studio artifact list`.
+7. Create evidence explicitly with `studio evidence add --run RUN-#### --artifact ART-####`, using the proposal `studio verify` printed as a starting point and keeping its limitations. Never accept a proposal that claims more than was observed.
+8. Open or update issues for observed defects, then regenerate reports and recommend build review.
 
 ## User decision points
 
@@ -43,7 +45,9 @@ Playable artifact or concrete blocker; changed-file and shortcut records; verifi
 
 ## Validation
 
-Run relevant build/tests, `studio validate`, `studio report`, and `studio status`.
+Run `studio test`, `studio verify --level smoke`, `studio validate`, `studio report`, and `studio status`.
+
+Where execution tooling is unavailable, fall back to running the engine manually and record the result as `user-reported` evidence naming what was and was not observed. A manual fallback is still evidence; it is simply weaker provenance than a RUN record, and must not be recorded as `observed` runtime evidence.
 
 ## Completion criteria
 
@@ -55,7 +59,9 @@ The prototype launches and can be tested, or a specific blocker with recommended
 
 ## Failure and blocker behavior
 
-Preserve failures verbatim where useful, add an issue with evidence, mark blocked dependencies, and never call compilation alone a playable build.
+Preserve failures verbatim where useful, add an issue with evidence, and mark blocked dependencies.
+
+Never call compilation alone a playable build. A `passed` RUN record means a process exited zero; `studio verify --level smoke` establishes only that the engine started and did not exit early. Neither establishes that the game is playable, and neither may be recorded as gameplay evidence.
 
 ## Direction Summary
 

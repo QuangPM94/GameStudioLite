@@ -6,13 +6,13 @@
   "additionalProperties": false,
   "required": ["schema_version", "evidence"],
   "properties": {
-    "schema_version": {"const": "2.0"},
+    "schema_version": {"const": "2.1"},
     "evidence": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "title", "claim", "classification", "source_type", "source", "description", "related_hypothesis", "related_issues", "confidence", "limitations", "captured_at", "created_at", "updated_at", "status", "supersedes"],
+        "required": ["id", "title", "claim", "classification", "source_type", "source", "description", "related_hypothesis", "related_issues", "confidence", "limitations", "captured_at", "created_at", "updated_at", "status", "supersedes", "related_runs", "related_artifacts"],
         "properties": {
           "id": {"type": "string", "pattern": "^EVD-[0-9]{3,}$"},
           "title": {"type": "string", "minLength": 1},
@@ -29,7 +29,9 @@
           "created_at": {"type": "string", "format": "date-time"},
           "updated_at": {"type": "string", "format": "date-time"},
           "status": {"enum": ["active", "superseded", "retracted"]},
-          "supersedes": {"type": ["string", "null"], "pattern": "^EVD-[0-9]{3,}$"}
+          "supersedes": {"type": ["string", "null"], "pattern": "^EVD-[0-9]{3,}$"},
+          "related_runs": {"type": "array", "items": {"type": "string", "pattern": "^RUN-[0-9]{4,}$"}, "uniqueItems": true},
+          "related_artifacts": {"type": "array", "items": {"type": "string", "pattern": "^ART-[0-9]{4,}$"}, "uniqueItems": true}
         }
       }
     }

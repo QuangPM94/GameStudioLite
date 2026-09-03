@@ -169,6 +169,8 @@ def _valid_evidence(
         "updated_at": "2026-07-27T00:00:00Z",
         "status": status,
         "supersedes": supersedes,
+        "related_runs": [],
+        "related_artifacts": [],
     }
 
 
@@ -331,11 +333,11 @@ def test_duplicate_critical_path_item_ids_fail(framework_repo: Path) -> None:
 
 def test_recommended_workflow_must_exist(framework_repo: Path) -> None:
     state = StateRepository(framework_repo).load_all()
-    state["project"]["recommended_next_playbook"] = "/not-a-workflow"
+    state["project"]["recommended_next_workflow"] = "not-a-workflow"
 
     result = validate_state(framework_repo, state)
 
-    assert any("recommended next playbook" in error for error in result.errors)
+    assert any("recommended next workflow" in error for error in result.errors)
 
 
 def test_milestone_verdict_must_be_allowed(framework_repo: Path) -> None:

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .state import OPEN_ISSUE_STATUSES, SEVERITIES, build_status_summary, load_state
+from .workflow_commands import canonical_command
 
 WARNING = "<!-- Generated file. Do not edit manually. -->"
 SIMULATED_REVIEW_DISCLAIMER = (
@@ -54,6 +55,18 @@ def _issue_bullets(issues: list[dict[str, Any]], empty: str) -> str:
         ],
         empty,
     )
+
+
+def _execution_provenance(record: dict[str, Any]) -> str:
+    """Render the runs and artifacts an evidence claim cites, if any.
+
+    A reader deciding how much to trust a claim needs to see whether anything
+    executable stands behind it, so the citation travels with the claim rather
+    than living only in `studio evidence show`.
+    """
+
+    references = [*record.get("related_runs", []), *record.get("related_artifacts", [])]
+    return f" (from {', '.join(references)})" if references else ""
 
 
 def _active_evidence(state: dict[str, Any]) -> list[dict[str, Any]]:
@@ -322,6 +335,17 @@ def _recommended_path_item(state: dict[str, Any]) -> dict[str, Any] | None:
     )
 
 
+def _run_workflow_instruction(project: dict[str, Any]) -> str:
+    """Tell the reader how to invoke the project's recommended workflow.
+
+    State stores the workflow id; the canonical `GS:` command is what a reader
+    or agent actually types.
+    """
+
+    command = canonical_command(project["recommended_next_workflow"])
+    return f"Run `{command}`."
+
+
 def _path_item_label(item: dict[str, Any] | None, empty: str = "None") -> str:
     return f"{item['id']} — {item['title']}" if item else empty
 
@@ -367,7 +391,9 @@ def render_current_state(state: dict[str, Any]) -> str:
         if issue["severity"] in {"blocker", "critical"} or issue["status"] == "blocked"
     ]
     evidence_lines = [
-        f"{item['id']} [{item['classification']}] {item['claim']}" for item in evidence
+        f"{item['id']} [{item['classification']}] {item['claim']}"
+        f"{_execution_provenance(item)}"
+        for item in evidence
     ]
     decisions = _pending_decisions(state)
     decision_counts = {
@@ -432,7 +458,7 @@ def render_current_state(state: dict[str, Any]) -> str:
 
 ## Recommended Next Action
 
-{_path_item_label(recommended, f"Run `{project['recommended_next_playbook']}`.")}
+{_path_item_label(recommended, _run_workflow_instruction(project))}
 """
 
 
@@ -1027,5 +1053,6 @@ def format_status(state: dict[str, Any]) -> str:
         "Recommended next action:\n"
         f"{_path_item_label(recommended)}\n"
         f"{stale_instruction}"
-        f"Recommended next playbook: {summary.recommended_next_playbook}"
+        "Recommended next workflow: "
+        f"{canonical_command(summary.recommended_next_workflow)}"
     )

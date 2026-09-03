@@ -1,18 +1,19 @@
 {
-  "schema_version": "1.0",
-  "project_name": "Untitled Game",
+  "current_build_status": "not-built",
+  "current_milestone": "Clarify the game idea",
+  "current_milestone_id": "MS-0001",
+  "current_phase": "intake",
   "engine": null,
   "engine_version": null,
-  "platform": null,
   "genre": null,
-  "current_phase": "intake",
-  "current_milestone": "Clarify the game idea",
-  "prototype_hypothesis": null,
-  "current_build_status": "not-built",
-  "last_verified_date": null,
   "known_assumptions": [
     "No game concept, engine, platform, or build has been recorded yet."
   ],
+  "last_verified_date": null,
+  "platform": null,
+  "project_name": "Untitled Game",
+  "prototype_hypothesis": null,
+  "recommended_next_workflow": "start",
   "review_mode": "guided",
-  "recommended_next_playbook": "/start"
+  "schema_version": "1.2"
 }

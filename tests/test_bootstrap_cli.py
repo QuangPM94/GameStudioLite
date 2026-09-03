@@ -7,6 +7,7 @@ import pytest
 
 from practical_game_studio import cli
 from practical_game_studio.bootstrap import BootstrapRequest, BootstrapService
+from practical_game_studio.commands import bootstrap as bootstrap_command
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,7 +43,9 @@ def test_bootstrap_open_brief_opens_created_starter_file(
 ) -> None:
     opened: list[Path] = []
 
-    monkeypatch.setattr(cli, "_open_path", lambda path: opened.append(path))
+    monkeypatch.setattr(
+        bootstrap_command, "_open_path", lambda path: opened.append(path)
+    )
 
     exit_code = cli.main(["bootstrap", "--root", str(tmp_path), "--open-brief"])
 

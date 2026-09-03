@@ -4,9 +4,9 @@
   "title": "PGS Project State",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "project_name", "engine", "engine_version", "platform", "genre", "current_phase", "current_milestone", "prototype_hypothesis", "current_build_status", "last_verified_date", "known_assumptions", "review_mode", "recommended_next_playbook"],
+  "required": ["schema_version", "project_name", "engine", "engine_version", "platform", "genre", "current_phase", "current_milestone", "prototype_hypothesis", "current_build_status", "last_verified_date", "known_assumptions", "review_mode", "recommended_next_workflow", "current_milestone_id"],
   "properties": {
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "1.2"},
     "project_name": {"type": "string", "minLength": 1},
     "engine": {"type": ["string", "null"]},
     "engine_version": {"type": ["string", "null"]},
@@ -14,11 +14,12 @@
     "genre": {"type": ["string", "null"]},
     "current_phase": {"enum": ["intake", "clarify", "prototype-plan", "prototype-build", "evaluate", "iterate", "vertical-slice-decision", "vertical-slice", "production"]},
     "current_milestone": {"type": "string", "minLength": 1},
+    "current_milestone_id": {"type": ["string", "null"], "pattern": "^MS-[0-9]{4,}$"},
     "prototype_hypothesis": {"type": ["string", "null"]},
     "current_build_status": {"enum": ["not-built", "unknown", "blocked", "runnable", "verified"]},
     "last_verified_date": {"type": ["string", "null"], "format": "date"},
     "known_assumptions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
     "review_mode": {"enum": ["fast", "guided", "strict"]},
-    "recommended_next_playbook": {"type": "string", "pattern": "^/[a-z-]+$"}
+    "recommended_next_workflow": {"type": "string", "pattern": "^[a-z]+(-[a-z]+)*$"}
   }
 }

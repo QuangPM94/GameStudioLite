@@ -82,6 +82,8 @@ class EvidenceCreateRequest:
     confidence: str | None = None
     limitations: tuple[str, ...] = ()
     captured_at: str | None = None
+    related_runs: tuple[str, ...] = ()
+    related_artifacts: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +93,10 @@ class EvidencePatch:
     remove_limitations: tuple[str, ...] = ()
     add_issues: tuple[str, ...] = ()
     remove_issues: tuple[str, ...] = ()
+    add_runs: tuple[str, ...] = ()
+    remove_runs: tuple[str, ...] = ()
+    add_artifacts: tuple[str, ...] = ()
+    remove_artifacts: tuple[str, ...] = ()
     supersedes: str | None = None
 
     @property
@@ -101,6 +107,10 @@ class EvidencePatch:
             or self.remove_limitations
             or self.add_issues
             or self.remove_issues
+            or self.add_runs
+            or self.remove_runs
+            or self.add_artifacts
+            or self.remove_artifacts
             or self.supersedes is not None
         )
 
@@ -179,6 +189,68 @@ def _canonical_evidence_id(value: str) -> str:
             f"invalid evidence ID '{value}'; expected a value such as EVD-0001"
         )
     return normalized
+
+
+#: How each execution reference kind is named, validated, and looked up.
+EXECUTION_REFERENCES = {
+    "run": ("run", "runs", "runs"),
+    "artifact": ("artifact", "artifacts", "artifacts"),
+}
+
+
+def _resolve_execution_references(
+    state: dict[str, StateObject], values: Iterable[str], *, kind: str
+) -> list[str]:
+    """Return deduplicated run or artifact ids, rejecting any that do not exist.
+
+    Evidence that cites a run nobody recorded is worse than evidence citing
+    nothing: it reads as sourced when its source cannot be inspected.
+    """
+
+    label, document, collection = EXECUTION_REFERENCES[kind]
+    known = {item["id"] for item in state[document][collection]}
+    resolved: list[str] = []
+    for value in values:
+        identifier = str(value).strip()
+        if not identifier:
+            continue
+        if identifier not in known:
+            raise EvidenceInputError(f"referenced {label} {identifier} does not exist")
+        if identifier not in resolved:
+            resolved.append(identifier)
+    return resolved
+
+
+def _assert_provenance_supports(
+    state: dict[str, StateObject], record: StateObject
+) -> None:
+    """Refuse a claim stronger than the cited media can support.
+
+    A folder of screenshots feels like proof of a working game while
+    establishing nothing about whether it is playable. Media entering the
+    framework therefore carries who captured it, and a claim may not out-run
+    that. The check applies only to cited *media*: a person who watched a
+    playtest can still record what they saw without attaching a file.
+    """
+
+    from .provenance import MEDIA_TYPES, assess
+
+    if not record["related_artifacts"]:
+        return
+    by_id = {item["id"]: item for item in state["artifacts"]["artifacts"]}
+    for identifier in record["related_artifacts"]:
+        artifact = by_id.get(identifier)
+        if artifact is None or artifact["type"] not in MEDIA_TYPES:
+            continue
+        assessment = assess(artifact, record["classification"])
+        if assessment.supported:
+            continue
+        raise EvidenceInputError(
+            f"{identifier} cannot support a "
+            f"{record['classification']!r} claim: {assessment.reason} "
+            f"Record it as {assessment.strongest_supported!r}, or capture "
+            f"the artifact with a provenance that supports the claim."
+        )
 
 
 def _deduplicate_issue_ids(values: Iterable[str]) -> list[str]:
@@ -375,6 +447,7 @@ class EvidenceService:
             self._apply_values(record, patch.values)
             self._apply_limitations(record, patch, warnings)
             links_changed = self._apply_issue_links(state, record, patch, warnings)
+            self._apply_execution_links(state, record, patch, warnings)
             affected_issue_ids.update(record["related_issues"])
             superseded_record = self._apply_supersession(
                 records, record, patch.supersedes, timestamp
@@ -478,7 +551,14 @@ class EvidenceService:
             "updated_at": timestamp,
             "status": "active",
             "supersedes": None,
+            "related_runs": _resolve_execution_references(
+                state, request.related_runs, kind="run"
+            ),
+            "related_artifacts": _resolve_execution_references(
+                state, request.related_artifacts, kind="artifact"
+            ),
         }
+        _assert_provenance_supports(state, record)
         self._validate_source(record)
         return record
 
@@ -531,6 +611,48 @@ class EvidenceService:
             else:
                 warnings.append(f"limitation is not recorded: {limitation}")
         record["limitations"] = current
+
+    def _apply_execution_links(
+        self,
+        state: dict[str, StateObject],
+        record: StateObject,
+        patch: EvidencePatch,
+        warnings: list[str],
+    ) -> None:
+        """Attach or detach the runs and artifacts an evidence claim rests on.
+
+        Linking is one-directional on purpose. A run does not gain a pointer
+        back to the evidence, because the evidence is an interpretation of the
+        run and the run stays a plain fact about a process.
+        """
+
+        for kind, field_name, additions, removals in (
+            ("run", "related_runs", patch.add_runs, patch.remove_runs),
+            (
+                "artifact",
+                "related_artifacts",
+                patch.add_artifacts,
+                patch.remove_artifacts,
+            ),
+        ):
+            resolved_additions = _resolve_execution_references(
+                state, additions, kind=kind
+            )
+            resolved_removals = _resolve_execution_references(
+                state, removals, kind=kind
+            )
+            current = list(record[field_name])
+            for identifier in resolved_additions:
+                if identifier in current:
+                    warnings.append(f"{identifier} is already linked")
+                    continue
+                current.append(identifier)
+            for identifier in resolved_removals:
+                if identifier not in current:
+                    warnings.append(f"{identifier} is not linked")
+                    continue
+                current.remove(identifier)
+            record[field_name] = current
 
     def _apply_issue_links(
         self,
@@ -691,11 +813,13 @@ class EvidenceService:
         }
 
     def _recommended_workflow(self) -> str:
+        """Return the workflow id to recommend after an evidence mutation."""
+
         project = self.repository.load_project()
         return (
-            "/issue-map"
+            "issue-map"
             if (self.root / ".studio" / "playbooks" / "issue-map.md").is_file()
-            else project["recommended_next_playbook"]
+            else project["recommended_next_workflow"]
         )
 
     @staticmethod

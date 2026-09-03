@@ -177,7 +177,7 @@ def initialize_project(
                         "unknown" if detection.indicators else "not-built"
                     ),
                     "review_mode": request.review_mode or "guided",
-                    "recommended_next_playbook": "/start",
+                    "recommended_next_workflow": "start",
                     "known_assumptions": [
                         item
                         for item in project["known_assumptions"]
@@ -213,7 +213,7 @@ def initialize_project(
                 "engine": detection.engine,
                 "indicators": detection.indicators,
             },
-            "recommended_next_workflow": project["recommended_next_playbook"],
+            "recommended_next_workflow": project["recommended_next_workflow"],
         }
         return transaction.commit(
             warnings=warnings,

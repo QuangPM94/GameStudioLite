@@ -7,6 +7,9 @@
   "required": [
     "schema_version",
     "milestone",
+    "milestone_id",
+    "milestones",
+    "next_milestone_id",
     "criteria_results",
     "supporting_evidence",
     "blocking_issues",
@@ -15,8 +18,14 @@
     "next_milestone"
   ],
   "properties": {
-    "schema_version": {"const": "3.1"},
+    "schema_version": {"const": "3.2"},
     "milestone": {"type": "string", "minLength": 1},
+    "milestone_id": {"type": ["string", "null"], "pattern": "^MS-[0-9]{4,}$"},
+    "next_milestone_id": {"type": ["string", "null"], "pattern": "^MS-[0-9]{4,}$"},
+    "milestones": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/milestoneRecord"}
+    },
     "criteria_results": {
       "type": "array",
       "items": {"$ref": "#/$defs/criterion"}
@@ -36,6 +45,18 @@
     "next_milestone": {"type": ["string", "null"]}
   },
   "$defs": {
+    "milestoneRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "status", "created_at", "updated_at"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^MS-[0-9]{4,}$"},
+        "title": {"type": "string", "minLength": 1},
+        "status": {"enum": ["current", "known", "retired"]},
+        "created_at": {"type": "string", "format": "date-time"},
+        "updated_at": {"type": "string", "format": "date-time"}
+      }
+    },
     "evidenceSnapshot": {
       "type": "object",
       "additionalProperties": false,
@@ -108,6 +129,7 @@
       "required": [
         "id",
         "milestone",
+        "milestone_id",
         "description",
         "required",
         "lifecycle_status",
@@ -132,6 +154,7 @@
       "properties": {
         "id": {"type": "string", "pattern": "^MC-[0-9]{3,}$"},
         "milestone": {"type": "string", "minLength": 1},
+        "milestone_id": {"type": ["string", "null"], "pattern": "^MS-[0-9]{4,}$"},
         "description": {"type": "string", "minLength": 1},
         "required": {"type": "boolean"},
         "lifecycle_status": {"enum": ["active", "retired"]},

@@ -6,6 +6,136 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Work packets (`studio work add|list|show|ready|start|verify|complete|fail`)
+  and migration `005` (scaffold 1.4 -> 1.5): a contract written before an agent
+  starts, stating the file scope, acceptance criteria, and verification
+  commands it will be held to. Four rules are enforced rather than documented:
+  an agent cannot widen its own scope, cannot complete without verification,
+  cannot complete over a failing check, and cannot pass by touching files it
+  promised not to — green tests do not excuse an out-of-scope change.
+- The scope check reads git rather than asking the agent what it changed, so
+  the thing under examination does not supply the evidence. A scope that could
+  not be determined never counts as held.
+- `docs/work-packets.md`.
+- Provider layer (`practical_game_studio.providers`) and
+  `studio provider list|doctor|capabilities`: optional capability sources that
+  augment an engine adapter without ever becoming required for one. An
+  unreachable provider supports nothing, though its declared capabilities stay
+  listed so a reader can see what configuring it would buy.
+- Godot MCP provider that detects a configured server and reports what it
+  claims, without pretending this CLI holds an MCP connection. A configured
+  server is reported `unknown`, never `healthy`.
+- Media provenance (`practical_game_studio.provenance`): artifacts record who
+  or what captured them, and `studio evidence add` refuses a claim stronger
+  than the cited media supports. A developer session and injected input are
+  never player behaviour; media with no recorded provenance supports nothing.
+  `studio artifact add --capture-source` sets it and prints the constraint at
+  registration time.
+- `studio release doctor|build|package|verify`: four deliberately separate
+  steps where none concludes the next. `package_runs` is permanently `unknown`
+  because the framework cannot smoke-test an arbitrary distributable target,
+  and a dirty working tree is `unknown` rather than a failure.
+- `docs/providers-and-provenance.md` and `docs/release.md`.
+
+### Changed
+
+- `studio doctor` reports real provider state instead of a hardcoded
+  placeholder, distinguishing `not-configured` from configured-but-unconfirmed.
+- `studio criterion support MC-###`: a read-only helper that reports what a
+  criterion's evidence supports, which evidence does not meet its policy, which
+  is retracted or superseded, and what is still missing. It never evaluates —
+  a command that both advised and decided could talk a milestone into passing.
+- `studio workflow list|ready|check|explain`: workflow readiness computed from
+  requirements declared in the catalog rather than read out of prose. Three
+  statuses (`ready`, `ready-with-unknowns`, `blocked`) keep "everything checked
+  out" distinct from "nothing blocks, but some checks could not be performed".
+  An unrecognised requirement is `unknown`, never satisfied, and unknowns do
+  not block, so a project with no engine can still run planning workflows.
+- Execution safety: every operation carries a risk class, review mode sets the
+  approval threshold, and a non-interactive terminal denies anything above it
+  unless `--yes` was passed. High risk is refused even with `--yes` when nobody
+  is present. Denials name the operation, its risk, the reason, and the flag
+  that would authorise it; exit code 5 is reserved for them.
+- Migration `004` (scaffold 1.3 -> 1.4) recording each run's risk class and how
+  it was authorised, so "who agreed to this build?" is answerable from the
+  record. Pre-existing runs are marked `unrecorded` rather than backfilled.
+- `docs/workflow-readiness.md` and `docs/execution-safety.md`.
+
+### Changed
+
+- `GS:build-prototype` and `GS:review-build` now call `studio doctor`,
+  `studio test`, `studio verify`, `studio execution show`, and
+  `studio criterion support` instead of describing ad-hoc verification, and
+  state explicitly that a `passed` run is a fact about a process rather than
+  about gameplay. Manual fallback is retained and must be recorded as
+  `user-reported`, never as `observed` runtime evidence.
+- `studio build` and `studio artifact add` are medium risk and require
+  confirmation or `--yes` under guided and strict review modes.
+- Execution core (`practical_game_studio.execution`): one supervised way to run
+  an external process. Nothing runs forever, nothing waits for stdin, output
+  survives undecodable bytes, and a process the framework killed maps to
+  `unknown` rather than `failed`. Credential-shaped environment variables are
+  withheld from child processes and secret-looking arguments are redacted
+  before being written to `runs.json`.
+- Engine adapter layer (`practical_game_studio.adapters`): capability-based
+  contract where detection (does this adapter recognise the project?) and
+  probing (what can it do on this machine?) are separate questions. A
+  capability nobody probed is not supported, and an unsupported operation
+  refuses by name listing what the adapter can do.
+- Godot CLI reference adapter: project and engine detection, headless run,
+  gdUnit4/GUT test support, and debug/release export, with no MCP or editor
+  automation required.
+- `studio doctor`: probes what the machine can actually do and reports
+  `READY`/`UNAVAILABLE`/`UNKNOWN`/`NOT CONFIGURED` without ever inferring, and
+  changes nothing.
+- `studio run`, `studio test`, `studio build`: adapter-backed execution that
+  records RUN and ART entries and creates no evidence. Exit code 4 separates
+  "could not be attempted" from a failure.
+- `studio verify --level static|smoke|runtime|gameplay|release`: cumulative
+  checks whose report status is the worst of its checks, which always prints
+  what it did NOT establish, and which offers evidence *proposals* rather than
+  asserting evidence. `gameplay` can never pass on its own.
+- `docs/execution-core.md` and `docs/engine-adapters.md`.
+- Execution data model: `runs.json` (`RUN-####`) and `artifacts.json`
+  (`ART-####`) canonical documents, with `studio execution list|show` and
+  `studio artifact add|list|show|verify`. A run is recorded before its result
+  exists, `unknown` stays distinguishable from `failed`, and captured output is
+  truncated with an explicit marker naming what was dropped.
+- Artifact verification that tells `present`, `modified`, `missing`, and
+  `unverified` apart, read-only unless `--record` is passed, exiting non-zero
+  when anything did not match.
+- Evidence provenance: `related_runs` / `related_artifacts` with
+  `studio evidence add --run/--artifact` and
+  `studio evidence update --add-run/--remove-artifact`. References to runs or
+  artifacts that do not exist are refused, and `studio validate` checks every
+  cross-reference. Execution records never become evidence on their own.
+- Migration `003` (scaffold 1.2 -> 1.3) creating both documents empty and adding
+  the evidence reference lists (evidence schema 2.0 -> 2.1). The upgrade engine
+  now tolerates a state document that does not exist yet and creates it inside
+  the same snapshot/rollback window.
+- `docs/execution-records.md` describing what runs and artifacts are, and why
+  neither is evidence.
+- `studio upgrade check|plan|apply`: a migration engine that carries a project
+  from the scaffold version it records to the version the installed package
+  produces. State is migrated in memory and validated against the new schemas
+  before any file is touched; `--dry-run` proves the upgrade would validate;
+  a failure after the first write restores the pre-upgrade snapshot.
+- Migration `001` (scaffold 1.0 -> 1.1): canonical state stores the recommended
+  next workflow as a workflow id (`recommended_next_workflow: "start"`) instead
+  of a slash alias (`recommended_next_playbook: "/start"`).
+- Migration `002` (scaffold 1.1 -> 1.2): `MS-####` milestone ids and a milestone
+  registry in `milestone.json`, referenced by `project.json`,
+  `critical-path.json`, and every criterion, so milestone references survive a
+  title rename.
+- `docs/upgrade-and-migrations.md` describing the upgrade contract and how to
+  write a migration.
+
+- `src/practical_game_studio/commands/` package: one module per `studio`
+  command noun, each registering its own arguments and rendering its own
+  human/JSON output, with `cli.py` reduced to a router. No CLI syntax, stdout
+  text, exit code, or JSON envelope changed.
+- `docs/baseline.md` recording the pre-execution-layer baseline: test count,
+  CLI surface, package/scaffold/catalog versions, and schema versions.
 - Cross-platform C2.2 distribution CI: source/wheel builds, isolated wheel
   installation, lightweight bootstrap/init/validation, and two-project state
   isolation smoke on Ubuntu and Windows Python 3.11.
@@ -48,6 +178,9 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Changed
 
+- Human output now renders the recommended workflow as its canonical `GS:`
+  command (`GS:start`) rather than the legacy alias (`/start`). Both spellings
+  remain valid agent input.
 - GitHub Actions checkout/setup-python actions move to Node 24-based stable
   majors to remove Node 20 deprecation warnings.
 - `studio validate` now validates a lightweight game project; framework source,

@@ -48,6 +48,31 @@ class WorkflowCommand:
     input_text: str
 
 
+def canonical_command(workflow_id: str) -> str:
+    """Render a stored workflow id as the command a human or agent types.
+
+    Canonical state stores the id (`"start"`). Everything user-facing goes
+    through here, so introducing another spelling never means rewriting state.
+    """
+
+    return f"{CANONICAL_PREFIX}{workflow_id}"
+
+
+def legacy_alias(workflow_id: str) -> str:
+    """Render the pre-`GS:` slash alias, still accepted as agent input."""
+
+    return f"/{workflow_id}"
+
+
+def workflow_id_from_command(value: str) -> str:
+    """Return the workflow id named by an id, a `/alias`, or a `GS:` command."""
+
+    candidate = value.strip()
+    for prefix in (CANONICAL_PREFIX, "/"):
+        candidate = candidate.removeprefix(prefix)
+    return candidate
+
+
 def catalog_workflows_by_id(catalog: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Map workflow id -> workflow entry, deriving the id from the alias for
     catalogs written before the canonical-invocation representation existed."""

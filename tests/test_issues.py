@@ -352,6 +352,8 @@ def _seed_evidence(root: Path) -> None:
                 "updated_at": "2026-07-27T00:00:00Z",
                 "status": "active",
                 "supersedes": None,
+                "related_runs": [],
+                "related_artifacts": [],
             }
         )
         transaction.set_evidence(state["evidence"])

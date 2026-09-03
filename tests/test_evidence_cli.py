@@ -39,7 +39,7 @@ def test_evidence_add_human_output(
     assert "Evidence created." in output.out
     assert "ID: EVD-0001" in output.out
     assert "Classification: User Reported" in output.out
-    assert "Recommended next workflow:\n/issue-map" in output.out
+    assert "Recommended next workflow:\nGS:issue-map" in output.out
     assert output.err == ""
 
 

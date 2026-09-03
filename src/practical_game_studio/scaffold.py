@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 FRAMEWORK_NAME = "Practical Game Studio"
-SCAFFOLD_VERSION = "1.0"
+SCAFFOLD_VERSION = "1.5"
 SCAFFOLD_PACKAGE_DIRECTORY = "scaffold"
 FRAMEWORK_MANIFEST_PATH = ".studio/framework.json"
 STARTER_BRIEF_PATH = "GAME_BRIEF.md"
@@ -94,6 +94,42 @@ def load_scaffold_files() -> dict[str, bytes]:
             "packaged scaffold is incomplete; missing: " + ", ".join(missing)
         )
     return {path: files[path] for path in sorted(files)}
+
+
+def render_framework_manifest(
+    packaged: bytes,
+    *,
+    bootstrapped_at: str,
+    installed_from_version: str,
+    scaffold_version: str = SCAFFOLD_VERSION,
+) -> bytes:
+    """Render `.studio/framework.json` from the packaged seed.
+
+    Bootstrap and upgrade both write this file, and both must produce identical
+    bytes for the same inputs, so the rendering lives here rather than in either
+    caller. `bootstrapped_at` belongs to the project and is never reset.
+    """
+
+    try:
+        manifest: Any = json.loads(packaged.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ScaffoldResourceError(
+            f"invalid packaged framework manifest: {exc}"
+        ) from exc
+    if not isinstance(manifest, dict):
+        raise ScaffoldResourceError("packaged framework manifest must be a JSON object")
+    manifest.update(
+        {
+            "framework": FRAMEWORK_NAME,
+            "scaffold_version": scaffold_version,
+            "installed_from_version": installed_from_version,
+            "bootstrapped_at": bootstrapped_at,
+            "managed_paths": list(MANAGED_PATHS),
+        }
+    )
+    return (
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
 
 
 def is_protected_path(relative: str) -> bool:

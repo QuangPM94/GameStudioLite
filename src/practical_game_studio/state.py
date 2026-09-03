@@ -17,6 +17,9 @@ STATE_FILES = {
     "critical_path": "critical-path.json",
     "evidence": "evidence.json",
     "milestone": "milestone.json",
+    "runs": "runs.json",
+    "artifacts": "artifacts.json",
+    "work": "work.json",
 }
 
 SEVERITIES = ("blocker", "critical", "major", "minor", "later")
@@ -126,6 +129,11 @@ class StateRepository:
             raise StateReadError(f"{path}: expected a JSON object at the document root")
         return copy.deepcopy(value)
 
+    def load_one(self, name: str) -> StateObject:
+        """Load one canonical document by its `STATE_FILES` name."""
+
+        return self._load(name)
+
     def load_project(self) -> StateObject:
         return self._load("project")
 
@@ -147,6 +155,15 @@ class StateRepository:
     def load_milestone(self) -> StateObject:
         return self._load("milestone")
 
+    def load_runs(self) -> StateObject:
+        return self._load("runs")
+
+    def load_artifacts(self) -> StateObject:
+        return self._load("artifacts")
+
+    def load_work(self) -> StateObject:
+        return self._load("work")
+
     def load_all(self) -> CanonicalState:
         return {
             "project": self.load_project(),
@@ -156,6 +173,9 @@ class StateRepository:
             "critical_path": self.load_critical_path(),
             "evidence": self.load_evidence(),
             "milestone": self.load_milestone(),
+            "runs": self.load_runs(),
+            "artifacts": self.load_artifacts(),
+            "work": self.load_work(),
         }
 
 
@@ -234,5 +254,5 @@ def build_status_summary(state: dict[str, Any]) -> StatusSummary:
         pending_decisions_by_urgency=pending_by_urgency,
         next_required_decision=next_required,
         critical_path_items=path_items,
-        recommended_next_playbook=project["recommended_next_playbook"],
+        recommended_next_workflow=project["recommended_next_workflow"],
     )

@@ -34,7 +34,7 @@ def test_cli_init_success_output(
     assert exit_code == 0
     assert "Practical Game Studio initialized." in output.out
     assert "Project: Midnight Carrier" in output.out
-    assert "Recommended next workflow:\n/start" in output.out
+    assert "Recommended next workflow:\nGS:start" in output.out
     assert output.err == ""
 
 

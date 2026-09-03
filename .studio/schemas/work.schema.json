@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://practical-game-studio.dev/schemas/work.schema.json",
+  "title": "PGS Work Packets",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "work"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "work": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "goal", "reason", "critical_path_item", "allowed_files", "forbidden_files", "dependencies", "acceptance_criteria", "verification_commands", "risk_level", "human_approval_required", "status", "result", "started_revision", "related_runs", "related_artifacts", "related_evidence", "verification_history", "created_at", "updated_at"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^WORK-[0-9]{4,}$"},
+          "goal": {"type": "string", "minLength": 1},
+          "reason": {"type": "string", "minLength": 1},
+          "critical_path_item": {"type": ["string", "null"], "pattern": "^CP-[0-9]{4,}$"},
+          "allowed_files": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
+          "forbidden_files": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "dependencies": {"type": "array", "items": {"type": "string", "pattern": "^WORK-[0-9]{4,}$"}, "uniqueItems": true},
+          "acceptance_criteria": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
+          "verification_commands": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "risk_level": {"enum": ["safe", "low", "medium", "high"]},
+          "human_approval_required": {"type": "boolean"},
+          "status": {"enum": ["draft", "ready", "in-progress", "verifying", "complete", "failed", "blocked", "cancelled"]},
+          "result": {"type": ["string", "null"], "minLength": 1},
+          "started_revision": {"type": ["string", "null"], "minLength": 1},
+          "related_runs": {"type": "array", "items": {"type": "string", "pattern": "^RUN-[0-9]{4,}$"}, "uniqueItems": true},
+          "related_artifacts": {"type": "array", "items": {"type": "string", "pattern": "^ART-[0-9]{4,}$"}, "uniqueItems": true},
+          "related_evidence": {"type": "array", "items": {"type": "string", "pattern": "^EVD-[0-9]{3,}$"}, "uniqueItems": true},
+          "verification_history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["passed", "detail", "scope_ok", "verified_at"],
+              "properties": {
+                "passed": {"type": "boolean"},
+                "detail": {"type": "string", "minLength": 1},
+                "scope_ok": {"type": "boolean"},
+                "verified_at": {"type": "string", "format": "date-time"}
+              }
+            }
+          },
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    }
+  }
+}
