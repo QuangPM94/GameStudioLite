@@ -6,6 +6,30 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Provider layer (`practical_game_studio.providers`) and
+  `studio provider list|doctor|capabilities`: optional capability sources that
+  augment an engine adapter without ever becoming required for one. An
+  unreachable provider supports nothing, though its declared capabilities stay
+  listed so a reader can see what configuring it would buy.
+- Godot MCP provider that detects a configured server and reports what it
+  claims, without pretending this CLI holds an MCP connection. A configured
+  server is reported `unknown`, never `healthy`.
+- Media provenance (`practical_game_studio.provenance`): artifacts record who
+  or what captured them, and `studio evidence add` refuses a claim stronger
+  than the cited media supports. A developer session and injected input are
+  never player behaviour; media with no recorded provenance supports nothing.
+  `studio artifact add --capture-source` sets it and prints the constraint at
+  registration time.
+- `studio release doctor|build|package|verify`: four deliberately separate
+  steps where none concludes the next. `package_runs` is permanently `unknown`
+  because the framework cannot smoke-test an arbitrary distributable target,
+  and a dirty working tree is `unknown` rather than a failure.
+- `docs/providers-and-provenance.md` and `docs/release.md`.
+
+### Changed
+
+- `studio doctor` reports real provider state instead of a hardcoded
+  placeholder, distinguishing `not-configured` from configured-but-unconfirmed.
 - `studio criterion support MC-###`: a read-only helper that reports what a
   criterion's evidence supports, which evidence does not meet its policy, which
   is retracted or superseded, and what is still missing. It never evaluates —

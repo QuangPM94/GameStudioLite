@@ -221,6 +221,38 @@ def _resolve_execution_references(
     return resolved
 
 
+def _assert_provenance_supports(
+    state: dict[str, StateObject], record: StateObject
+) -> None:
+    """Refuse a claim stronger than the cited media can support.
+
+    A folder of screenshots feels like proof of a working game while
+    establishing nothing about whether it is playable. Media entering the
+    framework therefore carries who captured it, and a claim may not out-run
+    that. The check applies only to cited *media*: a person who watched a
+    playtest can still record what they saw without attaching a file.
+    """
+
+    from .provenance import MEDIA_TYPES, assess
+
+    if not record["related_artifacts"]:
+        return
+    by_id = {item["id"]: item for item in state["artifacts"]["artifacts"]}
+    for identifier in record["related_artifacts"]:
+        artifact = by_id.get(identifier)
+        if artifact is None or artifact["type"] not in MEDIA_TYPES:
+            continue
+        assessment = assess(artifact, record["classification"])
+        if assessment.supported:
+            continue
+        raise EvidenceInputError(
+            f"{identifier} cannot support a "
+            f"{record['classification']!r} claim: {assessment.reason} "
+            f"Record it as {assessment.strongest_supported!r}, or capture "
+            f"the artifact with a provenance that supports the claim."
+        )
+
+
 def _deduplicate_issue_ids(values: Iterable[str]) -> list[str]:
     result: list[str] = []
     seen: set[str] = set()
@@ -526,6 +558,7 @@ class EvidenceService:
                 state, request.related_artifacts, kind="artifact"
             ),
         }
+        _assert_provenance_supports(state, record)
         self._validate_source(record)
         return record
 

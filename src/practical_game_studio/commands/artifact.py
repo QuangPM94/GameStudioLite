@@ -17,6 +17,13 @@ from ..artifacts import (
     filter_artifacts,
     find_artifact,
 )
+from ..provenance import (
+    CAPTURE_SOURCES,
+    MEDIA_TYPES,
+    capture_source,
+    limitations_for,
+    strongest_supported_classification,
+)
 from ..safety import authorize
 from ..state import StateRepository
 from ._shared import (
@@ -48,6 +55,12 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     artifact_add.add_argument("--revision")
     artifact_add.add_argument("--captured-at")
     artifact_add.add_argument("--mime-type")
+    artifact_add.add_argument(
+        "--capture-source",
+        choices=CAPTURE_SOURCES,
+        default="unknown",
+        help="who or what produced this file; decides what may be claimed",
+    )
     artifact_add.add_argument(
         "--metadata", help="additional provenance as a JSON object"
     )
@@ -156,7 +169,12 @@ def _run_add(args: argparse.Namespace, root: Path) -> int:
             revision=args.revision,
             captured_at=args.captured_at,
             mime_type=args.mime_type,
-            metadata=_metadata(args.metadata),
+            # Provenance lives in metadata so it travels with the record and
+            # survives every later read of it.
+            metadata={
+                **(_metadata(args.metadata) or {}),
+                "capture_source": args.capture_source,
+            },
         ),
         dry_run=args.dry_run,
     )
@@ -167,6 +185,18 @@ def _run_add(args: argparse.Namespace, root: Path) -> int:
     label = "Would register" if result.dry_run else "Registered"
     print(f"{label} {artifact['id']}.\n")
     print(_format_detail(artifact))
+    if artifact["type"] in MEDIA_TYPES:
+        # Printed on registration, not only when someone tries to over-claim:
+        # the constraint is most useful before the claim is written.
+        source = capture_source(artifact)
+        strongest = strongest_supported_classification(source)
+        print(
+            f"\nProvenance: captured as {source!r}. "
+            f"This supports at most {strongest!r} evidence."
+        )
+        print("Limitations that must travel with any claim from it:")
+        for item in limitations_for(source, artifact["type"]):
+            print(f"- {item}")
     if artifact["status"] == "missing":
         # Registering an absent file is allowed, but never silently: a build that
         # did not produce what it promised is exactly what this should surface.

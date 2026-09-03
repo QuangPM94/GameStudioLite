@@ -31,6 +31,8 @@ from .commands import (
     issue,
     path,
     project,
+    provider,
+    release,
     report,
     upgrade,
     workflow,
@@ -44,6 +46,7 @@ from .evidence import EvidenceInputError, EvidenceNotFoundError
 from .initialization import InitializationError
 from .issues import IssueInputError, IssueNotFoundError
 from .migrations import MigrationError, MigrationInputError
+from .providers import ProviderError
 from .runs import RunInputError, RunNotFoundError
 from .safety import ExecutionDeniedError
 from .state import StateReadError, find_project_root
@@ -60,6 +63,8 @@ _SUBCOMMAND_DESTS = {
     "execution": "execution_command",
     "artifact": "artifact_command",
     "workflow": "workflow_command",
+    "provider": "provider_command",
+    "release": "release_command",
     "issue": "issue_command",
     "evidence": "evidence_command",
     "decision": "decision_command",
@@ -82,6 +87,8 @@ _HANDLERS: dict[str, CommandHandler] = {
     "build": execute.run_build,
     "verify": execute.run_verify,
     "workflow": workflow.run,
+    "provider": provider.run,
+    "release": release.run,
     "status": project.run_status,
     "report": report.run,
     "init": project.run_init,
@@ -115,6 +122,8 @@ def _parser() -> argparse.ArgumentParser:
     criterion.register(subparsers)
     path.register(subparsers)
     workflow.register(subparsers)
+    provider.register(subparsers)
+    release.register(subparsers)
     execution.register(subparsers)
     artifact.register(subparsers)
     doctor.register(subparsers)
@@ -270,7 +279,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(f"studio: {exc}", file=sys.stderr)
         return 5
-    except AdapterError as exc:
+    except (AdapterError, ProviderError) as exc:
         if getattr(args, "json", False):
             _print_json(
                 _json_envelope(

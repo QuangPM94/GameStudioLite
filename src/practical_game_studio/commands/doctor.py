@@ -23,6 +23,7 @@ from ..execution import (
     probe_git,
     probe_python,
 )
+from ..providers import probe_providers, provider_capabilities
 from ..state import StateRepository
 from ._shared import _add_root_argument, _json_envelope, _print_json
 
@@ -85,14 +86,42 @@ def collect(root: Path, *, adapter_id: str | None = None) -> dict[str, Any]:
         "adapters": [match.to_dict() for match in matches],
         "resolved_adapter": adapter.id if adapter is not None else None,
         "engine": probe.to_dict() if probe is not None else None,
-        # Providers arrive with the MCP layer. Reporting the absence explicitly
-        # is more useful than omitting the row and letting a reader assume.
-        "providers": {
-            "readiness": "not-configured",
-            "detail": "no editor/MCP provider is configured",
-            "available": [],
-        },
+        # Reported explicitly, including when nothing is configured: omitting
+        # the row would let a reader assume rather than read.
+        "providers": _provider_rows(root),
         "capabilities": _capability_rows(probe),
+    }
+
+
+def _provider_rows(root: Path) -> dict[str, Any]:
+    """Summarise configured providers and what is usable through them."""
+
+    probes = probe_providers(root)
+    configured = [probe for probe in probes if probe.health.status != "not-configured"]
+    usable = provider_capabilities(root)
+    if not configured:
+        readiness, detail = (
+            "not-configured",
+            "no editor/MCP provider is configured",
+        )
+    elif usable:
+        readiness, detail = "ready", f"{len(configured)} provider(s) reachable"
+    else:
+        # Configured but unusable from here. Saying `unknown` rather than
+        # `ready` keeps the framework from implying it can call something
+        # it has never reached.
+        readiness, detail = (
+            "unknown",
+            (
+                f"{len(configured)} provider(s) configured; this CLI holds no "
+                "connection and cannot confirm any of them"
+            ),
+        )
+    return {
+        "readiness": readiness,
+        "detail": detail,
+        "available": list(usable),
+        "providers": [probe.to_dict() for probe in probes],
     }
 
 

@@ -27,6 +27,8 @@ from practical_game_studio.commands import (
     issue,
     path,
     project,
+    provider,
+    release,
     report,
     upgrade,
     workflow,
@@ -48,6 +50,8 @@ EXPECTED_COMMANDS = (
     "criterion",
     "path",
     "workflow",
+    "provider",
+    "release",
     "execution",
     "artifact",
     "doctor",
@@ -77,6 +81,8 @@ EXPECTED_SUBCOMMANDS = {
     "execution": ("list", "show"),
     "artifact": ("add", "list", "show", "verify"),
     "workflow": ("list", "ready", "check", "explain"),
+    "provider": ("list", "doctor", "capabilities"),
+    "release": ("doctor", "build", "package", "verify"),
 }
 
 
@@ -119,6 +125,8 @@ def test_command_modules_expose_registration_and_a_handler() -> None:
         framework,
         issue,
         path,
+        provider,
+        release,
         report,
         upgrade,
         workflow,
