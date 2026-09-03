@@ -160,6 +160,9 @@ class StateTransaction:
     def set_artifacts(self, value: StateObject) -> None:
         self._set("artifacts", value)
 
+    def set_work(self, value: StateObject) -> None:
+        self._set("work", value)
+
     def commit(
         self,
         *,

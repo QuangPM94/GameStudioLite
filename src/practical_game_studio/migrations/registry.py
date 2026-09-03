@@ -70,6 +70,7 @@ def _load_migrations() -> tuple[Migration, ...]:
         migration_002,
         migration_003,
         migration_004,
+        migration_005,
     )
 
     return (
@@ -77,6 +78,7 @@ def _load_migrations() -> tuple[Migration, ...]:
         migration_002.MIGRATION,
         migration_003.MIGRATION,
         migration_004.MIGRATION,
+        migration_005.MIGRATION,
     )
 
 

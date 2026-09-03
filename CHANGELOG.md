@@ -6,6 +6,17 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- Work packets (`studio work add|list|show|ready|start|verify|complete|fail`)
+  and migration `005` (scaffold 1.4 -> 1.5): a contract written before an agent
+  starts, stating the file scope, acceptance criteria, and verification
+  commands it will be held to. Four rules are enforced rather than documented:
+  an agent cannot widen its own scope, cannot complete without verification,
+  cannot complete over a failing check, and cannot pass by touching files it
+  promised not to — green tests do not excuse an out-of-scope change.
+- The scope check reads git rather than asking the agent what it changed, so
+  the thing under examination does not supply the evidence. A scope that could
+  not be determined never counts as held.
+- `docs/work-packets.md`.
 - Provider layer (`practical_game_studio.providers`) and
   `studio provider list|doctor|capabilities`: optional capability sources that
   augment an engine adapter without ever becoming required for one. An

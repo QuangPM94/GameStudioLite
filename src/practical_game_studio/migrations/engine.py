@@ -386,6 +386,7 @@ def _commit_state(
         transaction.set_milestone(state["milestone"])
         transaction.set_runs(state["runs"])
         transaction.set_artifacts(state["artifacts"])
+        transaction.set_work(state["work"])
         return transaction.commit(
             warnings=plan.manual_actions,
             details=plan.to_dict(),

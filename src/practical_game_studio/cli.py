@@ -35,6 +35,7 @@ from .commands import (
     release,
     report,
     upgrade,
+    work,
     workflow,
 )
 from .commands._shared import _json_envelope, _print_json
@@ -51,6 +52,7 @@ from .runs import RunInputError, RunNotFoundError
 from .safety import ExecutionDeniedError
 from .state import StateReadError, find_project_root
 from .transaction import TransactionError
+from .work import WorkInputError, WorkNotFoundError
 from .workflow_readiness import WorkflowReadinessError
 
 CommandHandler = Callable[[argparse.Namespace, Path], int]
@@ -65,6 +67,7 @@ _SUBCOMMAND_DESTS = {
     "workflow": "workflow_command",
     "provider": "provider_command",
     "release": "release_command",
+    "work": "work_command",
     "issue": "issue_command",
     "evidence": "evidence_command",
     "decision": "decision_command",
@@ -89,6 +92,7 @@ _HANDLERS: dict[str, CommandHandler] = {
     "workflow": workflow.run,
     "provider": provider.run,
     "release": release.run,
+    "work": work.run,
     "status": project.run_status,
     "report": report.run,
     "init": project.run_init,
@@ -124,6 +128,7 @@ def _parser() -> argparse.ArgumentParser:
     workflow.register(subparsers)
     provider.register(subparsers)
     release.register(subparsers)
+    work.register(subparsers)
     execution.register(subparsers)
     artifact.register(subparsers)
     doctor.register(subparsers)
@@ -211,6 +216,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         IssueNotFoundError,
         RunNotFoundError,
         ArtifactNotFoundError,
+        WorkNotFoundError,
     ) as exc:
         if getattr(args, "json", False):
             _print_json(
@@ -235,6 +241,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         WorkflowReadinessError,
         RunInputError,
         ArtifactInputError,
+        WorkInputError,
     ) as exc:
         if getattr(args, "json", False):
             _print_json(

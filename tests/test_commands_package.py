@@ -31,6 +31,7 @@ from practical_game_studio.commands import (
     release,
     report,
     upgrade,
+    work,
     workflow,
 )
 
@@ -52,6 +53,7 @@ EXPECTED_COMMANDS = (
     "workflow",
     "provider",
     "release",
+    "work",
     "execution",
     "artifact",
     "doctor",
@@ -83,6 +85,16 @@ EXPECTED_SUBCOMMANDS = {
     "workflow": ("list", "ready", "check", "explain"),
     "provider": ("list", "doctor", "capabilities"),
     "release": ("doctor", "build", "package", "verify"),
+    "work": (
+        "add",
+        "list",
+        "show",
+        "ready",
+        "start",
+        "verify",
+        "complete",
+        "fail",
+    ),
 }
 
 
@@ -129,6 +141,7 @@ def test_command_modules_expose_registration_and_a_handler() -> None:
         release,
         report,
         upgrade,
+        work,
         workflow,
     ):
         assert callable(module.register), module.__name__

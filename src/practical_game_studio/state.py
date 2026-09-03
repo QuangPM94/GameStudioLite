@@ -19,6 +19,7 @@ STATE_FILES = {
     "milestone": "milestone.json",
     "runs": "runs.json",
     "artifacts": "artifacts.json",
+    "work": "work.json",
 }
 
 SEVERITIES = ("blocker", "critical", "major", "minor", "later")
@@ -160,6 +161,9 @@ class StateRepository:
     def load_artifacts(self) -> StateObject:
         return self._load("artifacts")
 
+    def load_work(self) -> StateObject:
+        return self._load("work")
+
     def load_all(self) -> CanonicalState:
         return {
             "project": self.load_project(),
@@ -171,6 +175,7 @@ class StateRepository:
             "milestone": self.load_milestone(),
             "runs": self.load_runs(),
             "artifacts": self.load_artifacts(),
+            "work": self.load_work(),
         }
 
 

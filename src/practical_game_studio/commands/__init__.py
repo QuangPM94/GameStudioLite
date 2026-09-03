@@ -27,6 +27,7 @@ from . import (
     release,
     report,
     upgrade,
+    work,
     workflow,
 )
 
@@ -48,5 +49,6 @@ __all__ = [
     "release",
     "report",
     "upgrade",
+    "work",
     "workflow",
 ]
