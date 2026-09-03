@@ -6,6 +6,10 @@ All notable changes follow Keep a Changelog conventions.
 
 ### Added
 
+- A dedicated real-Godot CI gate pins and checksum-verifies Godot 4.7.2, then
+  exercises `studio doctor`, `studio run`, and smoke verification against a
+  disposable game while checking the resulting RUN/ART provenance. The normal
+  unit suite remains engine-independent.
 - Work packets (`studio work add|list|show|ready|start|verify|complete|fail`)
   and migration `005` (scaffold 1.4 -> 1.5): a contract written before an agent
   starts, stating the file scope, acceptance criteria, and verification

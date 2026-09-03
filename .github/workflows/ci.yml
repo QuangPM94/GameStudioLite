@@ -207,3 +207,36 @@ jobs:
           finally {
             Pop-Location
           }
+
+  real-godot:
+    name: Real Godot 4.7.2 closed loop
+    runs-on: ubuntu-latest
+    env:
+      GODOT_ARCHIVE: Godot_v4.7.2-stable_linux.x86_64.zip
+      GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install project and development dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Download pinned Godot release
+        shell: bash
+        run: |
+          url="https://github.com/godotengine/godot/releases/download/4.7.2-stable/${GODOT_ARCHIVE}"
+          curl --fail --location --silent --show-error "$url" --output "$RUNNER_TEMP/$GODOT_ARCHIVE"
+          echo "$GODOT_SHA256  $RUNNER_TEMP/$GODOT_ARCHIVE" | sha256sum --check --strict
+          unzip -q "$RUNNER_TEMP/$GODOT_ARCHIVE" -d "$RUNNER_TEMP/godot"
+          godot="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          chmod +x "$godot"
+          echo "PGS_REAL_GODOT_BINARY=$godot" >> "$GITHUB_ENV"
+
+      - name: Exercise the real Godot closed loop
+        run: python -m pytest tests/test_real_godot.py -vv
